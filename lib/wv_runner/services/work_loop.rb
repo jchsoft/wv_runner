@@ -5,29 +5,23 @@ module WvRunner
     def execute(how)
       validate_how(how)
       puts "WorkLoop executing with mode: #{how}"
-
-      case how
-      when :once
-        run_once
-      when :today
-        run_until_end_of_day
-      when :daily
-        run_daily
-      end
+      send("run_#{how}")
     end
 
     private
 
     def run_once
-      ClaudeCode.new.run
+      result = ClaudeCode.new.run
+      puts "Task completed: #{result.inspect}"
+      result
     end
 
-    def run_until_end_of_day
+    def run_today
       loop do
         puts "Running task iteration..."
-        ClaudeCode.new.run
-        break if end_of_day?
-
+        result = ClaudeCode.new.run
+        puts "Task result: #{result.inspect}"
+        break if end_of_day? || should_stop?(result)
         sleep(2)
       end
     end
@@ -42,6 +36,11 @@ module WvRunner
 
     def end_of_day?
       Time.now.hour >= 23
+    end
+
+    def should_stop?(result)
+      # Stop if status is error or if we've reached daily quota
+      result["status"] == "error"
     end
 
     def validate_how(how)
