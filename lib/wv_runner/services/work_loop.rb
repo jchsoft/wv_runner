@@ -27,6 +27,7 @@ module WvRunner
         puts "Running task iteration..."
         ClaudeCode.new.run
         break if end_of_day?
+
         sleep(2)
       end
     end
