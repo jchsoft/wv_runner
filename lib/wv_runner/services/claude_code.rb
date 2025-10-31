@@ -1,6 +1,6 @@
 module WvRunner
   class ClaudeCode
-    INSTRUCTIONS = 'work on next task, read it using mcp resource "...@next?project_relative_id=..."'.freeze
+    INSTRUCTIONS = 'work on next task, read it using mcp resource "...@next?project_relative_id={{project_relative_id}}"'.freeze
 
     def run
       claude_path = ENV['CLAUDE_PATH'] || find_claude_executable
