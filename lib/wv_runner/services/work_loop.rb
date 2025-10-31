@@ -17,30 +17,52 @@ module WvRunner
     end
 
     def run_today
+      results = []
+      user_info = load_user_info
+
       loop do
         puts "Running task iteration..."
         result = ClaudeCode.new.run
+        results << result
         puts "Task result: #{result.inspect}"
-        break if end_of_day? || should_stop?(result)
+
+        decider = Decider.new(user_info: user_info, task_results: results)
+        break if end_of_day? || decider.should_stop?
+
+        puts "Remaining hours today: #{decider.remaining_hours}h"
         sleep(2)
       end
+
+      results
     end
 
     def run_daily
+      results = []
+      user_info = load_user_info
+
       loop do
         puts "Running daily iteration..."
-        ClaudeCode.new.run
+        result = ClaudeCode.new.run
+        results << result
+
+        decider = Decider.new(user_info: user_info, task_results: results)
+        break if decider.should_stop?
+
         sleep(2)
       end
+
+      results
     end
 
     def end_of_day?
       Time.now.hour >= 23
     end
 
-    def should_stop?(result)
-      # Stop if status is error or if we've reached daily quota
-      result["status"] == "error"
+    def load_user_info
+      # In a Rails app, this would use MCP to fetch from WorkVector
+      # For now, return nil (Decider handles gracefully)
+      # TODO: Integrate with WorkVector MCP to load actual user_info
+      nil
     end
 
     def validate_how(how)
