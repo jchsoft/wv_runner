@@ -6,8 +6,4 @@ require "wv_runner/railtie"
 
 module WvRunner
   class Error < StandardError; end
-
-  def self.configure
-    yield self if block_given?
-  end
 end
