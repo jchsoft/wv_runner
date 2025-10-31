@@ -18,7 +18,6 @@ module WvRunner
 
     def run_today
       results = []
-      user_info = load_user_info
 
       loop do
         puts "Running task iteration..."
@@ -26,7 +25,7 @@ module WvRunner
         results << result
         puts "Task result: #{result.inspect}"
 
-        decider = Decider.new(user_info: user_info, task_results: results)
+        decider = Decider.new(task_results: results)
         break if end_of_day? || decider.should_stop?
 
         puts "Remaining hours today: #{decider.remaining_hours}h"
@@ -38,14 +37,13 @@ module WvRunner
 
     def run_daily
       results = []
-      user_info = load_user_info
 
       loop do
         puts "Running daily iteration..."
         result = ClaudeCode.new.run
         results << result
 
-        decider = Decider.new(user_info: user_info, task_results: results)
+        decider = Decider.new(task_results: results)
         break if decider.should_stop?
 
         sleep(2)
@@ -56,13 +54,6 @@ module WvRunner
 
     def end_of_day?
       Time.now.hour >= 23
-    end
-
-    def load_user_info
-      # In a Rails app, this would use MCP to fetch from WorkVector
-      # For now, return nil (Decider handles gracefully)
-      # TODO: Integrate with WorkVector MCP to load actual user_info
-      nil
     end
 
     def validate_how(how)

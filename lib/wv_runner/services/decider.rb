@@ -1,9 +1,6 @@
-require 'json'
-
 module WvRunner
   class Decider
-    def initialize(user_info: nil, task_results: [])
-      @user_info = user_info
+    def initialize(task_results: [])
       @task_results = task_results.is_a?(Hash) ? [task_results] : task_results
     end
 
@@ -18,10 +15,10 @@ module WvRunner
     end
 
     def remaining_hours
-      return 0 if !@user_info
+      return 0 if @task_results.empty?
 
-      daily_limit = @user_info["hour_goal"].to_f
-      hours_worked = @task_results.sum { |r| r.dig("hours", "task_worked").to_f }
+      daily_limit = daily_hour_goal
+      hours_worked = total_hours_worked
       (daily_limit - hours_worked).round(2)
     end
 
@@ -30,7 +27,9 @@ module WvRunner
         should_continue: should_continue?,
         remaining_hours: remaining_hours,
         tasks_completed: tasks_completed,
-        tasks_failed: tasks_failed?
+        tasks_failed: tasks_failed?,
+        daily_limit: daily_hour_goal,
+        total_worked: total_hours_worked
       }
     end
 
@@ -41,8 +40,17 @@ module WvRunner
     end
 
     def daily_quota_exceeded?
-      return false unless @user_info
+      return false if @task_results.empty?
       remaining_hours <= 0
+    end
+
+    def daily_hour_goal
+      return 0 if @task_results.empty?
+      @task_results.first.dig("hours", "per_day").to_f
+    end
+
+    def total_hours_worked
+      @task_results.sum { |r| r.dig("hours", "task_worked").to_f }
     end
 
     def tasks_completed

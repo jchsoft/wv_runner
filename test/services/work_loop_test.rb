@@ -23,7 +23,6 @@ class WorkLoopTest < Minitest::Test
     mock.expect(:run, mock_result)
     WvRunner::ClaudeCode.stub :new, mock do
       loop = WvRunner::WorkLoop.new
-      # Stub end_of_day? to return true immediately to prevent infinite loop
       def loop.end_of_day?
         true
       end
@@ -39,7 +38,6 @@ class WorkLoopTest < Minitest::Test
     mock.expect(:run, error_result)
     WvRunner::ClaudeCode.stub :new, mock do
       loop = WvRunner::WorkLoop.new
-      # Stub end_of_day? to return false so Decider logic is tested
       def loop.end_of_day?
         false
       end
@@ -50,23 +48,18 @@ class WorkLoopTest < Minitest::Test
     end
   end
 
-  def test_run_daily_loops_with_decider
-    mock_result = { "status" => "success", "hours" => { "per_day" => 8, "task_estimated" => 2, "task_worked" => 1.0 } }
-    error_result = { "status" => "error", "message" => "Failed" }
-
-    call_count = 0
+  def test_run_daily_stops_on_decider_should_stop
+    # When accumulated hours exceed daily limit, Decider says stop
+    mock_result = { "status" => "success", "hours" => { "per_day" => 8, "task_estimated" => 2, "task_worked" => 8.5 } }
     mock = Minitest::Mock.new
     mock.expect(:run, mock_result)
-    mock.expect(:run, error_result)
-
     WvRunner::ClaudeCode.stub :new, mock do
       loop = WvRunner::WorkLoop.new
       result = loop.execute(:daily)
 
       assert result.is_a?(Array)
-      assert_equal 2, result.length
-      assert_equal "success", result.first["status"]
-      assert_equal "error", result.last["status"]
+      assert_equal 1, result.length
+      # Should stop because 8.5 > 8 (daily limit exceeded)
     end
   end
 
@@ -77,36 +70,25 @@ class WorkLoopTest < Minitest::Test
 
   def test_send_dispatches_to_correct_method
     loop = WvRunner::WorkLoop.new
-    # Verify that send is dispatching to the right method
     mock_result = { "status" => "success" }
     mock = Minitest::Mock.new
     mock.expect(:run, mock_result)
     WvRunner::ClaudeCode.stub :new, mock do
-      # This should call run_once via send
       assert_output(/WorkLoop executing with mode: once/) { loop.execute(:once) }
     end
   end
 
-  def test_load_user_info_returns_nil
-    loop = WvRunner::WorkLoop.new
-    user_info = loop.send(:load_user_info)
-    assert_nil user_info
-  end
-
-  def test_decider_receives_accumulated_results
-    # Test that WorkLoop accumulates results in an array
+  def test_results_accumulation
     mock_result = { "status" => "success", "hours" => { "per_day" => 8, "task_estimated" => 2, "task_worked" => 0.5 } }
     mock = Minitest::Mock.new
     mock.expect(:run, mock_result)
-
     WvRunner::ClaudeCode.stub :new, mock do
       loop = WvRunner::WorkLoop.new
       def loop.end_of_day?
-        true  # Exit immediately after first result
+        true
       end
       result = loop.execute(:today)
 
-      # Verify results are returned as array
       assert result.is_a?(Array)
       assert_equal 1, result.length
       assert_equal "success", result.first["status"]
