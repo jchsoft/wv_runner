@@ -6,10 +6,23 @@ class WorkLoopTest < Minitest::Test
     assert_respond_to loop, :execute
   end
 
-  def test_execute_returns_something
+  def test_execute_with_once
     loop = WvRunner::WorkLoop.new
-    result = loop.execute
-    # Currently returns nil, but method exists
-    assert_nil result
+    assert_output(/WorkLoop executing with mode: once/) { loop.execute(:once) }
+  end
+
+  def test_execute_with_today
+    loop = WvRunner::WorkLoop.new
+    assert_output(/WorkLoop executing with mode: today/) { loop.execute(:today) }
+  end
+
+  def test_execute_with_daily
+    loop = WvRunner::WorkLoop.new
+    assert_output(/WorkLoop executing with mode: daily/) { loop.execute(:daily) }
+  end
+
+  def test_execute_raises_on_invalid_how
+    loop = WvRunner::WorkLoop.new
+    assert_raises(ArgumentError) { loop.execute(:invalid) }
   end
 end
