@@ -8,19 +8,14 @@ module WvRunner
       claude_path = ENV['CLAUDE_PATH'] || find_claude_executable
       raise "Claude executable not found. Set CLAUDE_PATH environment variable." unless claude_path
 
-      command = "#{claude_path} -p \"#{instructions}\" --output-format=stream-json --verbose"
-      stdout, stderr, status = Open3.capture3(command)
-
-      elapsed_hours = ((Time.now - start_time) / 3600.0).round(2)
-
-      parse_result(stdout, elapsed_hours)
+      stdout, = Open3.capture3("#{claude_path} -p \"#{instructions}\" --output-format=stream-json --verbose")
+      parse_result(stdout, ((Time.now - start_time) / 3600.0).round(2))
     end
 
     private
 
     def instructions
-      project_id = project_relative_id
-      raise "project_relative_id not found in CLAUDE.md" unless project_id
+      project_id = project_relative_id or raise "project_relative_id not found in CLAUDE.md"
 
       <<~INSTRUCTIONS
         Work on next task from: workvector://pieces/jchsoft/@next?project_relative_id=#{project_id}
@@ -36,57 +31,41 @@ module WvRunner
     end
 
     def project_relative_id
-      claude_md = File.join(Dir.pwd, 'CLAUDE.md')
-      return nil unless File.exist?(claude_md)
+      return nil unless File.exist?('CLAUDE.md')
 
-      content = File.read(claude_md)
-      match = content.match(/project_relative_id=(\d+)/)
-      match ? match[1].to_i : nil
+      File.read('CLAUDE.md').match(/project_relative_id=(\d+)/)&.then { |m| m[1].to_i }
     end
 
     def parse_result(stdout, elapsed_hours)
       marker = "WVRUNNER_RESULT: "
-      index = stdout.index(marker)
-      return { "status" => "error", "message" => "No WVRUNNER_RESULT found in output" } unless index
+      index = stdout.index(marker) or return error_result("No WVRUNNER_RESULT found in output")
 
-      json_start = index + marker.length
-      json_str = stdout[json_start..-1].strip
+      json_str = stdout[(index + marker.length)..-1].strip
+      json_end = find_json_end(json_str) or return error_result("Could not find complete JSON object")
 
-      # Find the complete JSON object by counting braces
+      JSON.parse(json_str[0...json_end]).tap { |obj| obj["hours"]["task_worked"] = elapsed_hours }
+    rescue JSON::ParserError => e
+      error_result("Failed to parse JSON: #{e.message}")
+    end
+
+    def find_json_end(json_str)
       brace_count = 0
-      json_end = nil
       json_str.each_char.with_index do |char, i|
         brace_count += 1 if char == '{'
         brace_count -= 1 if char == '}'
-        if brace_count == 0 && char == '}'
-          json_end = i + 1
-          break
-        end
+        return i + 1 if brace_count.zero? && char == '}'
       end
+      nil
+    end
 
-      if json_end
-        json_obj = JSON.parse(json_str[0...json_end])
-        json_obj["hours"]["task_worked"] = elapsed_hours
-        json_obj
-      else
-        { "status" => "error", "message" => "Could not find complete JSON object" }
-      end
-    rescue JSON::ParserError => e
-      { "status" => "error", "message" => "Failed to parse JSON: #{e.message}" }
+    def error_result(message)
+      { "status" => "error", "message" => message }
     end
 
     def find_claude_executable
-      # Try common locations
-      %w[
-        ~/.claude/local/claude
-        /usr/local/bin/claude
-        /opt/homebrew/bin/claude
-      ].each do |path|
-        expanded_path = File.expand_path(path)
-        return expanded_path if File.executable?(expanded_path)
-      end
-
-      nil
+      %w[~/.claude/local/claude /usr/local/bin/claude /opt/homebrew/bin/claude].find do |path|
+        File.executable?(File.expand_path(path))
+      end&.then { |path| File.expand_path(path) }
     end
   end
 end
