@@ -5,6 +5,7 @@ module WvRunner
     def execute(how)
       validate_how(how)
       puts "WorkLoop executing with mode: #{how}"
+      ClaudeCode.new.run
     end
 
     private
