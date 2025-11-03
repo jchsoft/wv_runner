@@ -5,21 +5,17 @@ module WvRunner
     end
 
     def should_continue?
-      return false if tasks_failed?
-      return false if daily_quota_exceeded?
-      true
+      !should_stop?
     end
 
     def should_stop?
-      !should_continue?
+      tasks_failed? || daily_quota_exceeded?
     end
 
     def remaining_hours
       return 0 if @task_results.empty?
 
-      daily_limit = daily_hour_goal
-      hours_worked = total_hours_worked
-      (daily_limit - hours_worked).round(2)
+      (daily_hour_goal - total_hours_worked).round(2)
     end
 
     def summary

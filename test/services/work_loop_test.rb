@@ -54,12 +54,24 @@ class WorkLoopTest < Minitest::Test
     mock = Minitest::Mock.new
     mock.expect(:run, mock_result)
     WvRunner::ClaudeCode.stub :new, mock do
-      loop = WvRunner::WorkLoop.new
-      result = loop.execute(:daily)
+      # Mock WaitingStrategy to prevent actual sleeping
+      waiting_mock = Minitest::Mock.new
+      waiting_mock.expect(:wait_until_next_day, nil)
+      WvRunner::WaitingStrategy.stub :new, waiting_mock do
+        loop = WvRunner::WorkLoop.new
+        # run_daily is infinite loop, we need to intercept after first iteration
+        def loop.run_daily
+          wait_if_cannot_work_today
+          daily_results = run_today_tasks
+          handle_daily_completion(daily_results)
+          daily_results # Return results instead of looping
+        end
+        result = loop.execute(:daily)
 
-      assert result.is_a?(Array)
-      assert_equal 1, result.length
-      # Should stop because 8.5 > 8 (daily limit exceeded)
+        assert result.is_a?(Array)
+        assert_equal 1, result.length
+        # Should stop because 8.5 > 8 (daily limit exceeded)
+      end
     end
   end
 

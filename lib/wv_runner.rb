@@ -2,6 +2,8 @@ require "wv_runner/version"
 require "wv_runner/services/work_loop"
 require "wv_runner/services/claude_code"
 require "wv_runner/services/decider"
+require "wv_runner/services/daily_scheduler"
+require "wv_runner/services/waiting_strategy"
 require "wv_runner/railtie"
 
 module WvRunner
