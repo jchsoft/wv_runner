@@ -197,6 +197,9 @@ module WvRunner
       puts "[ClaudeCode] [parse_result] JSON object ends at position #{json_end}"
 
       json_content = json_str[0...json_end].strip
+      # Handle escaped JSON strings (when Claude outputs JSON within quotes)
+      json_content = JSON.parse(json_content) if json_content.start_with?('"')
+      json_content = json_content.to_s if json_content.is_a?(Hash)
       puts "[ClaudeCode] [parse_result] Final JSON content to parse: #{json_content}"
 
       begin
