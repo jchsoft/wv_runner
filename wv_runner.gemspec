@@ -1,6 +1,8 @@
+require_relative "lib/wv_runner/version"
+
 Gem::Specification.new do |spec|
   spec.name          = "wv_runner"
-  spec.version       = "0.1.0"
+  spec.version       = WvRunner::VERSION
   spec.authors       = ["Josef Chmel"]
   spec.email         = ["info@jchsoft.cz"]
   spec.summary       = "Claude Code automation gem for WorkVector task execution"
