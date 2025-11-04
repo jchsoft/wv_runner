@@ -22,12 +22,6 @@ module WvRunner
       result = ClaudeCode.new.run
       puts "[WorkLoop] [run_once] Single task completed with status: #{result['status']}"
       puts "[WorkLoop] [run_once] Full result: #{result.inspect}"
-
-      if result['status'] == 'success'
-        puts "[WorkLoop] [run_once] Task successful, incrementing version..."
-        WvRunner::VersionManager.increment_version!
-      end
-
       result
     end
 
@@ -64,11 +58,6 @@ module WvRunner
       results << result
       puts "[WorkLoop] [run_task_iteration] Task completed with status: #{result['status']}"
       puts "[WorkLoop] [run_task_iteration] Task result: #{result.inspect}"
-
-      if result['status'] == 'success'
-        puts "[WorkLoop] [run_task_iteration] Task successful, incrementing version..."
-        WvRunner::VersionManager.increment_version!
-      end
     end
 
     def should_stop_running_today?(results)

@@ -17,6 +17,11 @@ namespace :wv_runner do
     WvRunner::WorkLoop.new.execute(:daily)
   end
 
+  desc 'Increment wv_runner version by 0.1'
+  task increment_version: :environment do
+    WvRunner::VersionManager.increment_version!
+  end
+
   private
 
   def display_version_info
