@@ -66,7 +66,7 @@ module WvRunner
       stdout_content = ''
       stderr_content = ''
 
-      Open3.popen3(command) do |stdin, stdout, stderr, wait_thr|
+      Open3.popen3(*command) do |stdin, stdout, stderr, wait_thr|
         stdin.close
 
         # Stream stdout and stderr concurrently to avoid deadlocks
