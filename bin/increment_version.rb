@@ -8,6 +8,7 @@
 # Add lib to load path
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
 
+require 'wv_runner/version'
 require 'wv_runner/version_manager'
 
 puts "[increment_version] Starting version increment..."

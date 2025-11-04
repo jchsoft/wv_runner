@@ -4,7 +4,7 @@ module WvRunner
   # VersionManager handles version incrementing by 0.1 increments
   # Reads and writes version from lib/wv_runner/version.rb
   class VersionManager
-    VERSION_FILE = File.expand_path('../../wv_runner/version.rb', __dir__)
+    VERSION_FILE = File.expand_path('version.rb', __dir__)
 
     def self.current_version
       WvRunner::VERSION
@@ -13,8 +13,9 @@ module WvRunner
     def self.increment_version!
       current = parse_version(current_version)
       new_version = increment_patch(current)
+      old_version = current_version
       write_version(new_version)
-      puts "[VersionManager] Version incremented: #{current_version} → #{new_version}"
+      puts "[VersionManager] Version incremented: #{old_version} → #{new_version}"
       new_version
     end
 
@@ -54,9 +55,9 @@ module WvRunner
 
       File.write(VERSION_FILE, version_content)
 
-      # Reload the version constant
+      # Reload the version constant - need to force redefine the module
       Object.send(:remove_const, :WvRunner) if Object.const_defined?(:WvRunner)
-      load(VERSION_FILE)
+      Kernel.load(VERSION_FILE)
     end
   end
 end
