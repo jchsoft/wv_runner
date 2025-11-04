@@ -40,6 +40,34 @@ class ClaudeCodeTest < Minitest::Test
     assert_match /Failed to parse JSON/, result["message"]
   end
 
+  def test_parse_result_handles_escaped_json_with_backslashes
+    # This is the real-world case from task 9003 where Claude outputs escaped JSON
+    mock_output = 'WVRUNNER_RESULT: {\"status\": \"success\", \"task_info\": {\"name\": \"Divný záznam v událostech pacienta\", \"id\": 8595, \"description\": \"Bug in patient events display - strange record with cloud icon, exclamation mark, and missing method\", \"status\": \"Nové\", \"priority\": \"Počká to\", \"assigned_user\": \"Karel Mráček\", \"scrum_points\": \"L (8 points)\"}, \"hours\": {\"per_day\": 8, \"task_estimated\": 0}}'
+    claude = WvRunner::ClaudeCode.new
+    result = claude.send(:parse_result, mock_output, 0.5)
+
+    assert_equal "success", result["status"]
+    assert_equal 8595, result["task_info"]["id"]
+    assert_equal "Divný záznam v událostech pacienta", result["task_info"]["name"]
+    assert_equal "Karel Mráček", result["task_info"]["assigned_user"]
+    assert_equal 8, result["hours"]["per_day"]
+    assert_equal 0.5, result["hours"]["task_worked"]
+  end
+
+  def test_parse_result_handles_double_escaped_json_with_backslash_backslash
+    # Edge case with double-escaped backslashes {\\\"status\\\":...}
+    # Using %q{} to avoid double escaping issues - actual format from Claude
+    mock_output = %q{WVRUNNER_RESULT: {\"status\": \"success\", \"task_info\": {\"name\": \"Test Task\", \"id\": 123}, \"hours\": {\"per_day\": 8, \"task_estimated\": 0}}}
+    claude = WvRunner::ClaudeCode.new
+    result = claude.send(:parse_result, mock_output, 1.0)
+
+    assert_equal "success", result["status"]
+    assert_equal 123, result["task_info"]["id"]
+    assert_equal "Test Task", result["task_info"]["name"]
+    assert_equal 8, result["hours"]["per_day"]
+    assert_equal 1.0, result["hours"]["task_worked"]
+  end
+
   def test_project_relative_id_loaded_from_claude_md
     File.stub :exist?, true do
       File.stub :read, "## WorkVector\n- project_relative_id=42" do
