@@ -12,7 +12,7 @@ class WorkLoopTest < Minitest::Test
     mock.expect(:run, mock_result)
     WvRunner::ClaudeCode.stub :new, mock do
       loop = WvRunner::WorkLoop.new
-      assert_output(/WorkLoop executing with mode: once/) { loop.execute(:once) }
+      assert_output(/\[WorkLoop\] \[execute\] Starting execution with mode: :once/) { loop.execute(:once) }
       mock.verify
     end
   end
@@ -86,7 +86,7 @@ class WorkLoopTest < Minitest::Test
     mock = Minitest::Mock.new
     mock.expect(:run, mock_result)
     WvRunner::ClaudeCode.stub :new, mock do
-      assert_output(/WorkLoop executing with mode: once/) { loop.execute(:once) }
+      assert_output(/\[WorkLoop\] \[execute\] Starting execution with mode: :once/) { loop.execute(:once) }
     end
   end
 
