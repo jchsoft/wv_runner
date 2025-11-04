@@ -139,12 +139,17 @@ module WvRunner
         5. Just read and display the task information
 
         At the END, output this JSON on a single line with task information:
-        WVRUNNER_RESULT: {"status": "success", "task_info": {"name": "...", "id": ..., "description": "...", "status": "...", "priority": "...", "assigned_user": "...", "scrum_points": "..."}, "hours": {"per_day": X, "task_estimated": 0}}
+        WVRUNNER_RESULT: {"status": "success", "task_info": {"name": "...", "id": ..., "description": "...", "status": "...", "priority": "...", "assigned_user": "...", "scrum_points": "..."}, "hours": {"per_day": X, "task_estimated": Y}}
 
         How to get the data:
         1. Read workvector://user → use "hour_goal" value for per_day
         2. From the task you're working on → extract: name, relative_id (as id), description, task_state (as status), priority, assigned_user, scrum_point (as scrum_points)
-        3. Set task_estimated to 0 since this is dry-run
+        3. For task_estimated: Extract "duration_best" field from the task data. Convert it to numeric hours:
+           - If duration_best contains "hodina" or "hours" → extract the number (e.g., "3 hodiny" → 3.0)
+           - If duration_best contains "den" or "day" → multiply by 8 hours per workday (e.g., "1 den" → 8.0)
+           - If duration_best contains "týden" or "week" → multiply by 40 hours per workweek (e.g., "1 týden" → 40.0)
+           - Use the smallest/first number as task_estimated (e.g., from "3.0 - 7.0 hodin", use 3.0)
+           - DEBUG: Print "[DEBUG] duration_best: '<original_value>' → task_estimated: Y" before outputting the JSON
         4. Set status: "success" if task loaded successfully
       INSTRUCTIONS
     end
@@ -206,6 +211,21 @@ module WvRunner
       begin
         result = JSON.parse(json_content).tap { |obj| obj['hours']['task_worked'] = elapsed_hours }
         puts "[ClaudeCode] [parse_result] Successfully parsed result: #{result.inspect}"
+
+        # DEBUG: Show extracted values
+        if result['task_info']
+          puts "[ClaudeCode] [parse_result] DEBUG: Extracted task_info:"
+          puts "[ClaudeCode] [parse_result]   - name: #{result['task_info']['name']}"
+          puts "[ClaudeCode] [parse_result]   - id: #{result['task_info']['id']}"
+          puts "[ClaudeCode] [parse_result]   - status: #{result['task_info']['status']}"
+        end
+        if result['hours']
+          puts "[ClaudeCode] [parse_result] DEBUG: Extracted hours:"
+          puts "[ClaudeCode] [parse_result]   - per_day: #{result['hours']['per_day']}"
+          puts "[ClaudeCode] [parse_result]   - task_estimated: #{result['hours']['task_estimated']}"
+          puts "[ClaudeCode] [parse_result]   - task_worked: #{result['hours']['task_worked']}"
+        end
+
         result
       rescue JSON::ParserError => e
         puts "[ClaudeCode] [parse_result] ERROR: JSON parsing failed: #{e.message}"

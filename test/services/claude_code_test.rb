@@ -153,4 +153,19 @@ class ClaudeCodeTest < Minitest::Test
       end
     end
   end
+
+  def test_instructions_dry_includes_duration_best_extraction
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=77' do
+        claude = WvRunner::ClaudeCode.new
+        instructions = claude.send(:instructions_dry)
+        assert_includes instructions, 'duration_best'
+        assert_includes instructions, 'hodina'
+        assert_includes instructions, 'den'
+        assert_includes instructions, 'týden'
+        assert_includes instructions, 'DEBUG'
+        assert_includes instructions, 'task_estimated: Y'
+      end
+    end
+  end
 end
