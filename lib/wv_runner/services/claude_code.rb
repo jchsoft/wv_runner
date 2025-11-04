@@ -1,8 +1,12 @@
+# frozen_string_literal: true
+
 require 'open3'
 require 'json'
 require 'shellwords'
+require_relative 'output_formatter'
 
 module WvRunner
+  # Handles Claude Code execution with streaming output
   class ClaudeCode
     def run
       puts '[ClaudeCode] Starting ClaudeCode execution...'
@@ -72,14 +76,14 @@ module WvRunner
         # Stream stdout and stderr concurrently to avoid deadlocks
         stdout_thread = Thread.new do
           stdout.each_line do |line|
-            puts "[Claude] #{line}"
+            puts OutputFormatter.format_line(line)
             stdout_content << line
           end
         end
 
         stderr_thread = Thread.new do
           stderr.each_line do |line|
-            puts "[Claude STDERR] #{line}"
+            puts "\n[Claude STDERR] #{line}"
             stderr_content << line
           end
         end
@@ -214,13 +218,13 @@ module WvRunner
 
         # DEBUG: Show extracted values
         if result['task_info']
-          puts "[ClaudeCode] [parse_result] DEBUG: Extracted task_info:"
+          puts '[ClaudeCode] [parse_result] DEBUG: Extracted task_info:'
           puts "[ClaudeCode] [parse_result]   - name: #{result['task_info']['name']}"
           puts "[ClaudeCode] [parse_result]   - id: #{result['task_info']['id']}"
           puts "[ClaudeCode] [parse_result]   - status: #{result['task_info']['status']}"
         end
         if result['hours']
-          puts "[ClaudeCode] [parse_result] DEBUG: Extracted hours:"
+          puts '[ClaudeCode] [parse_result] DEBUG: Extracted hours:'
           puts "[ClaudeCode] [parse_result]   - per_day: #{result['hours']['per_day']}"
           puts "[ClaudeCode] [parse_result]   - task_estimated: #{result['hours']['task_estimated']}"
           puts "[ClaudeCode] [parse_result]   - task_worked: #{result['hours']['task_worked']}"
