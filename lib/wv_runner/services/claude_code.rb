@@ -197,9 +197,10 @@ module WvRunner
       puts "[ClaudeCode] [parse_result] JSON object ends at position #{json_end}"
 
       json_content = json_str[0...json_end].strip
-      # Handle escaped JSON strings (when Claude outputs JSON with escaped quotes like {\"status\":})
-      # Try to unescape by interpreting backslashes
-      json_content = json_content.gsub(/\\(["\\])/, '\1') if json_content.include?('\\')
+      # Handle escaped JSON strings (when Claude outputs JSON with escaped quotes like {\"status\":} or {\\\"status\\\":})
+      # Remove all backslashes that precede quotes or other backslashes
+      json_content = json_content.gsub(/\\\\/, '\\') while json_content.include?('\\\\')
+      json_content = json_content.gsub(/\\(["\\])/, '\1') while json_content.include?('\\')
       puts "[ClaudeCode] [parse_result] Final JSON content to parse: #{json_content}"
 
       begin

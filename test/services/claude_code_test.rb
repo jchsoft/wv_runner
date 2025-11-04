@@ -55,9 +55,9 @@ class ClaudeCodeTest < Minitest::Test
   end
 
   def test_parse_result_handles_double_escaped_json_with_backslash_backslash
-    # Edge case with double-escaped backslashes {\\\"status\\\":...}
-    # Using %q{} to avoid double escaping issues - actual format from Claude
-    mock_output = %q{WVRUNNER_RESULT: {\"status\": \"success\", \"task_info\": {\"name\": \"Test Task\", \"id\": 123}, \"hours\": {\"per_day\": 8, \"task_estimated\": 0}}}
+    # Edge case with double-escaped backslashes where actual text has \\\" (backslash-escaped-quote)
+    # This simulates Claude output that contains literal backslash characters before quotes
+    mock_output = 'WVRUNNER_RESULT: {\\\"status\\\": \\\"success\\\", \\\"task_info\\\": {\\\"name\\\": \\\"Test Task\\\", \\\"id\\\": 123}, \\\"hours\\\": {\\\"per_day\\\": 8, \\\"task_estimated\\\": 0}}'
     claude = WvRunner::ClaudeCode.new
     result = claude.send(:parse_result, mock_output, 1.0)
 
