@@ -39,17 +39,24 @@ module WvRunner
       Open3.popen3(command) do |stdin, stdout, stderr, wait_thr|
         stdin.close
 
-        # Stream stdout in real-time
-        stdout.each_line do |line|
-          puts "[Claude] #{line}"
-          stdout_content << line
+        # Stream stdout and stderr concurrently to avoid deadlocks
+        stdout_thread = Thread.new do
+          stdout.each_line do |line|
+            puts "[Claude] #{line}"
+            stdout_content << line
+          end
         end
 
-        # Collect stderr
-        stderr.each_line do |line|
-          puts "[Claude STDERR] #{line}"
-          stderr_content << line
+        stderr_thread = Thread.new do
+          stderr.each_line do |line|
+            puts "[Claude STDERR] #{line}"
+            stderr_content << line
+          end
         end
+
+        # Wait for both threads to complete
+        stdout_thread.join
+        stderr_thread.join
 
         exit_status = wait_thr.value
         puts "[ClaudeCode] Process exit status: #{exit_status.exitstatus}"
@@ -96,6 +103,7 @@ module WvRunner
 
     def parse_result(stdout, elapsed_hours)
       puts "[ClaudeCode] [parse_result] Starting to parse Claude output..."
+      puts "[ClaudeCode] [parse_result] Total output length: #{stdout.length} chars"
 
       marker = "WVRUNNER_RESULT: "
       puts "[ClaudeCode] [parse_result] Searching for marker: '#{marker}'"
@@ -103,32 +111,49 @@ module WvRunner
       index = stdout.index(marker)
       unless index
         puts "[ClaudeCode] [parse_result] ERROR: Marker not found in output!"
-        puts "[ClaudeCode] [parse_result] Output length: #{stdout.length} chars"
+        puts "[ClaudeCode] [parse_result] Last 500 chars of output: #{stdout.last(500)}"
         return error_result("No WVRUNNER_RESULT found in output")
       end
 
       puts "[ClaudeCode] [parse_result] Marker found at index #{index}"
 
-      json_str = stdout[(index + marker.length)..-1].strip
+      # Extract everything after the marker
+      after_marker = stdout[(index + marker.length)..]
+      puts "[ClaudeCode] [parse_result] Content after marker (first 300 chars): #{after_marker.truncate(300)}"
+
+      # Find the first opening brace
+      brace_index = after_marker.index('{')
+      unless brace_index
+        puts "[ClaudeCode] [parse_result] ERROR: No opening brace found after marker!"
+        return error_result("Could not find JSON object after WVRUNNER_RESULT marker")
+      end
+
+      puts "[ClaudeCode] [parse_result] Opening brace found at index #{brace_index}"
+
+      json_str = after_marker[brace_index..]
       puts "[ClaudeCode] [parse_result] Extracted JSON string (first 200 chars): #{json_str.truncate(200)}"
 
       json_end = find_json_end(json_str)
       unless json_end
         puts "[ClaudeCode] [parse_result] ERROR: Could not find JSON object boundaries!"
+        puts "[ClaudeCode] [parse_result] JSON string: #{json_str.truncate(300)}"
         return error_result("Could not find complete JSON object")
       end
 
       puts "[ClaudeCode] [parse_result] JSON object ends at position #{json_end}"
 
-      json_content = json_str[0...json_end]
-      puts "[ClaudeCode] [parse_result] Attempting to parse JSON: #{json_content}"
+      json_content = json_str[0...json_end].strip
+      puts "[ClaudeCode] [parse_result] Final JSON content to parse: #{json_content}"
 
-      result = JSON.parse(json_content).tap { |obj| obj["hours"]["task_worked"] = elapsed_hours }
-      puts "[ClaudeCode] [parse_result] Successfully parsed result: #{result.inspect}"
-      result
-    rescue JSON::ParserError => e
-      puts "[ClaudeCode] [parse_result] ERROR: JSON parsing failed: #{e.message}"
-      error_result("Failed to parse JSON: #{e.message}")
+      begin
+        result = JSON.parse(json_content).tap { |obj| obj["hours"]["task_worked"] = elapsed_hours }
+        puts "[ClaudeCode] [parse_result] Successfully parsed result: #{result.inspect}"
+        result
+      rescue JSON::ParserError => e
+        puts "[ClaudeCode] [parse_result] ERROR: JSON parsing failed: #{e.message}"
+        puts "[ClaudeCode] [parse_result] Attempted to parse: #{json_content.inspect}"
+        error_result("Failed to parse JSON: #{e.message}")
+      end
     end
 
     def find_json_end(json_str)
