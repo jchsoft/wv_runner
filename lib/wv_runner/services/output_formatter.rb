@@ -7,8 +7,8 @@ module WvRunner
   class OutputFormatter
     def self.format_line(line)
       formatted = process_line(line)
-      # Add blank line before [Claude] prefix
-      "\n[Claude] #{formatted}"
+      # Add blank line before [Claude] prefix, return unfrozen string
+      "\n[Claude] #{formatted}".dup
     end
 
     def self.process_line(line)

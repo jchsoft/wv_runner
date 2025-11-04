@@ -67,8 +67,8 @@ module WvRunner
     private
 
     def execute_with_streaming(command)
-      stdout_content = ''
-      stderr_content = ''
+      stdout_content = ''.dup
+      stderr_content = ''.dup
 
       Open3.popen3(*command) do |stdin, stdout, stderr, wait_thr|
         stdin.close
@@ -77,14 +77,14 @@ module WvRunner
         stdout_thread = Thread.new do
           stdout.each_line do |line|
             puts OutputFormatter.format_line(line)
-            stdout_content << line
+            stdout_content << line.dup
           end
         end
 
         stderr_thread = Thread.new do
           stderr.each_line do |line|
             puts "\n[Claude STDERR] #{line}"
-            stderr_content << line
+            stderr_content << line.dup
           end
         end
 
