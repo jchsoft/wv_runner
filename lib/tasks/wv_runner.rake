@@ -5,6 +5,12 @@ namespace :wv_runner do
     WvRunner::WorkLoop.new.execute(:once)
   end
 
+  desc 'Load and display next task information (dry-run, no execution)'
+  task run_once_dry: :environment do
+    display_version_info
+    WvRunner::WorkLoop.new.execute(:once_dry)
+  end
+
   desc 'Run tasks until end of today'
   task run_today: :environment do
     display_version_info
@@ -20,8 +26,8 @@ namespace :wv_runner do
   private
 
   def display_version_info
-    puts "=" * 80
+    puts '=' * 80
     puts "[WvRunner] Version: #{WvRunner::VERSION}"
-    puts "=" * 80
+    puts '=' * 80
   end
 end

@@ -22,6 +22,14 @@ class TasksTest < Minitest::Test
     assert content.include?("WorkLoop.new.execute(:once)")
   end
 
+  def test_rake_file_defines_run_once_dry_task
+    rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
+    content = File.read(rake_file)
+
+    assert content.include?("task run_once_dry")
+    assert content.include?("WorkLoop.new.execute(:once_dry)")
+  end
+
   def test_rake_file_defines_run_today_task
     rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
     content = File.read(rake_file)
@@ -44,7 +52,7 @@ class TasksTest < Minitest::Test
 
     # Each task should require :environment for Rails context
     tasks = content.scan(/task \w+: :environment/)
-    assert_equal 3, tasks.length, "All three tasks should require :environment"
+    assert_equal 4, tasks.length, "All four tasks should require :environment"
   end
 
   def test_all_tasks_have_descriptions
@@ -53,6 +61,6 @@ class TasksTest < Minitest::Test
 
     # Each task should have a desc
     descriptions = content.scan(/desc\s+['"](.*?)['"]/)
-    assert_equal 3, descriptions.length, "All three tasks should have descriptions"
+    assert_equal 4, descriptions.length, "All four tasks should have descriptions"
   end
 end

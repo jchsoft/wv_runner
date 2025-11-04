@@ -5,26 +5,54 @@ require 'shellwords'
 module WvRunner
   class ClaudeCode
     def run
-      puts "[ClaudeCode] Starting ClaudeCode execution..."
+      puts '[ClaudeCode] Starting ClaudeCode execution...'
       start_time = Time.now
 
-      puts "[ClaudeCode] Resolving Claude executable path..."
+      puts '[ClaudeCode] Resolving Claude executable path...'
       claude_path = ENV['CLAUDE_PATH'] || find_claude_executable
-      raise "Claude executable not found. Set CLAUDE_PATH environment variable." unless claude_path
+      raise 'Claude executable not found. Set CLAUDE_PATH environment variable.' unless claude_path
 
       puts "[ClaudeCode] Found Claude at: #{claude_path}"
-      puts "[ClaudeCode] Building instructions with project_id..."
+      puts '[ClaudeCode] Building instructions with project_id...'
 
       # Use array form of command for proper shell escaping
       command = [claude_path, '-p', instructions, '--output-format=stream-json', '--verbose']
       puts "[ClaudeCode] Executing Claude with instructions (length: #{instructions.length} chars)"
-      puts "[ClaudeCode] Starting real-time stream of Claude output:"
-      puts "-" * 80
+      puts '[ClaudeCode] Starting real-time stream of Claude output:'
+      puts '-' * 80
 
       stdout_content = execute_with_streaming(command)
 
-      puts "-" * 80
-      puts "[ClaudeCode] Claude execution completed, parsing results..."
+      puts '-' * 80
+      puts '[ClaudeCode] Claude execution completed, parsing results...'
+
+      elapsed_hours = ((Time.now - start_time) / 3600.0).round(2)
+      puts "[ClaudeCode] Elapsed time: #{elapsed_hours} hours"
+
+      parse_result(stdout_content, elapsed_hours)
+    end
+
+    def run_dry
+      puts '[ClaudeCode] Starting ClaudeCode DRY RUN execution (task load only, no execution)...'
+      start_time = Time.now
+
+      puts '[ClaudeCode] Resolving Claude executable path...'
+      claude_path = ENV['CLAUDE_PATH'] || find_claude_executable
+      raise 'Claude executable not found. Set CLAUDE_PATH environment variable.' unless claude_path
+
+      puts "[ClaudeCode] Found Claude at: #{claude_path}"
+      puts '[ClaudeCode] Building DRY RUN instructions with project_id...'
+
+      # Use array form of command for proper shell escaping
+      command = [claude_path, '-p', instructions_dry, '--output-format=stream-json', '--verbose']
+      puts "[ClaudeCode] Executing Claude with DRY RUN instructions (length: #{instructions_dry.length} chars)"
+      puts '[ClaudeCode] Starting real-time stream of Claude output:'
+      puts '-' * 80
+
+      stdout_content = execute_with_streaming(command)
+
+      puts '-' * 80
+      puts '[ClaudeCode] Claude execution completed, parsing results...'
 
       elapsed_hours = ((Time.now - start_time) / 3600.0).round(2)
       puts "[ClaudeCode] Elapsed time: #{elapsed_hours} hours"
@@ -35,8 +63,8 @@ module WvRunner
     private
 
     def execute_with_streaming(command)
-      stdout_content = ""
-      stderr_content = ""
+      stdout_content = ''
+      stderr_content = ''
 
       Open3.popen3(command) do |stdin, stdout, stderr, wait_thr|
         stdin.close
@@ -64,7 +92,7 @@ module WvRunner
         puts "[ClaudeCode] Process exit status: #{exit_status.exitstatus}"
 
         if exit_status.exitstatus != 0
-          puts "[ClaudeCode] WARNING: Claude exited with non-zero status!"
+          puts '[ClaudeCode] WARNING: Claude exited with non-zero status!'
           puts "[ClaudeCode] stderr: #{stderr_content}" unless stderr_content.empty?
         end
       end
@@ -73,7 +101,7 @@ module WvRunner
     end
 
     def instructions
-      project_id = project_relative_id or raise "project_relative_id not found in CLAUDE.md"
+      project_id = project_relative_id or raise 'project_relative_id not found in CLAUDE.md'
 
       <<~INSTRUCTIONS
         Work on next task from: workvector://pieces/jchsoft/@next?project_relative_id=#{project_id}
@@ -97,6 +125,30 @@ module WvRunner
       INSTRUCTIONS
     end
 
+    def instructions_dry
+      project_id = project_relative_id or raise 'project_relative_id not found in CLAUDE.md'
+
+      <<~INSTRUCTIONS
+        Load and display information about the next task from: workvector://pieces/jchsoft/@next?project_relative_id=#{project_id}
+
+        WORKFLOW (DRY RUN - NO EXECUTION):
+        1. Fetch the next task from WorkVector using the URL above
+        2. DO NOT create a branch
+        3. DO NOT modify any code
+        4. DO NOT create a pull request
+        5. Just read and display the task information
+
+        At the END, output this JSON on a single line with task information:
+        WVRUNNER_RESULT: {"status": "success", "task_info": {"name": "...", "id": ..., "description": "...", "status": "...", "priority": "...", "assigned_user": "...", "scrum_points": "..."}, "hours": {"per_day": X, "task_estimated": 0}}
+
+        How to get the data:
+        1. Read workvector://user → use "hour_goal" value for per_day
+        2. From the task you're working on → extract: name, relative_id (as id), description, task_state (as status), priority, assigned_user, scrum_point (as scrum_points)
+        3. Set task_estimated to 0 since this is dry-run
+        4. Set status: "success" if task loaded successfully
+      INSTRUCTIONS
+    end
+
     def project_relative_id
       return nil unless File.exist?('CLAUDE.md')
 
@@ -104,17 +156,17 @@ module WvRunner
     end
 
     def parse_result(stdout, elapsed_hours)
-      puts "[ClaudeCode] [parse_result] Starting to parse Claude output..."
+      puts '[ClaudeCode] [parse_result] Starting to parse Claude output...'
       puts "[ClaudeCode] [parse_result] Total output length: #{stdout.length} chars"
 
-      marker = "WVRUNNER_RESULT: "
+      marker = 'WVRUNNER_RESULT: '
       puts "[ClaudeCode] [parse_result] Searching for marker: '#{marker}'"
 
       index = stdout.index(marker)
       unless index
-        puts "[ClaudeCode] [parse_result] ERROR: Marker not found in output!"
+        puts '[ClaudeCode] [parse_result] ERROR: Marker not found in output!'
         puts "[ClaudeCode] [parse_result] Last 500 chars of output: #{stdout.last(500)}"
-        return error_result("No WVRUNNER_RESULT found in output")
+        return error_result('No WVRUNNER_RESULT found in output')
       end
 
       puts "[ClaudeCode] [parse_result] Marker found at index #{index}"
@@ -126,8 +178,8 @@ module WvRunner
       # Find the first opening brace
       brace_index = after_marker.index('{')
       unless brace_index
-        puts "[ClaudeCode] [parse_result] ERROR: No opening brace found after marker!"
-        return error_result("Could not find JSON object after WVRUNNER_RESULT marker")
+        puts '[ClaudeCode] [parse_result] ERROR: No opening brace found after marker!'
+        return error_result('Could not find JSON object after WVRUNNER_RESULT marker')
       end
 
       puts "[ClaudeCode] [parse_result] Opening brace found at index #{brace_index}"
@@ -137,9 +189,9 @@ module WvRunner
 
       json_end = find_json_end(json_str)
       unless json_end
-        puts "[ClaudeCode] [parse_result] ERROR: Could not find JSON object boundaries!"
+        puts '[ClaudeCode] [parse_result] ERROR: Could not find JSON object boundaries!'
         puts "[ClaudeCode] [parse_result] JSON string: #{json_str.truncate(300)}"
-        return error_result("Could not find complete JSON object")
+        return error_result('Could not find complete JSON object')
       end
 
       puts "[ClaudeCode] [parse_result] JSON object ends at position #{json_end}"
@@ -148,7 +200,7 @@ module WvRunner
       puts "[ClaudeCode] [parse_result] Final JSON content to parse: #{json_content}"
 
       begin
-        result = JSON.parse(json_content).tap { |obj| obj["hours"]["task_worked"] = elapsed_hours }
+        result = JSON.parse(json_content).tap { |obj| obj['hours']['task_worked'] = elapsed_hours }
         puts "[ClaudeCode] [parse_result] Successfully parsed result: #{result.inspect}"
         result
       rescue JSON::ParserError => e
@@ -180,11 +232,11 @@ module WvRunner
 
     def error_result(message)
       puts "[ClaudeCode] [error_result] Creating error result: #{message}"
-      { "status" => "error", "message" => message }
+      { 'status' => 'error', 'message' => message }
     end
 
     def find_claude_executable
-      puts "[ClaudeCode] [find_claude_executable] Searching for Claude executable..."
+      puts '[ClaudeCode] [find_claude_executable] Searching for Claude executable...'
       paths = %w[~/.claude/local/claude /usr/local/bin/claude /opt/homebrew/bin/claude]
 
       paths.each do |path|
@@ -198,7 +250,7 @@ module WvRunner
         end
       end
 
-      puts "[ClaudeCode] [find_claude_executable] ERROR: Claude executable not found in any of the standard locations"
+      puts '[ClaudeCode] [find_claude_executable] ERROR: Claude executable not found in any of the standard locations'
       nil
     end
   end

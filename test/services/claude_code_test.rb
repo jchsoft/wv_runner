@@ -6,6 +6,11 @@ class ClaudeCodeTest < Minitest::Test
     assert_respond_to claude, :run
   end
 
+  def test_claude_code_responds_to_run_dry
+    claude = WvRunner::ClaudeCode.new
+    assert_respond_to claude, :run_dry
+  end
+
   def test_parse_result_returns_parsed_json_with_task_worked
     mock_output = 'WVRUNNER_RESULT: {"status": "success", "hours": {"per_day": 8, "task_estimated": 2}}'
     claude = WvRunner::ClaudeCode.new
@@ -80,6 +85,43 @@ class ClaudeCodeTest < Minitest::Test
       claude = WvRunner::ClaudeCode.new
       assert_raises(RuntimeError) do
         claude.send(:instructions)
+      end
+    end
+  end
+
+  def test_instructions_dry_includes_project_id
+    File.stub :exist?, true do
+      File.stub :read, "project_relative_id=77" do
+        claude = WvRunner::ClaudeCode.new
+        instructions = claude.send(:instructions_dry)
+        assert_includes instructions, "project_relative_id=77"
+        assert_includes instructions, "workvector://pieces/jchsoft/@next"
+        assert_includes instructions, "WVRUNNER_RESULT"
+        assert_includes instructions, "DRY RUN"
+        assert_includes instructions, "DO NOT create a branch"
+      end
+    end
+  end
+
+  def test_instructions_dry_includes_task_info_fields
+    File.stub :exist?, true do
+      File.stub :read, "project_relative_id=77" do
+        claude = WvRunner::ClaudeCode.new
+        instructions = claude.send(:instructions_dry)
+        assert_includes instructions, "task_info"
+        assert_includes instructions, "name"
+        assert_includes instructions, "description"
+        assert_includes instructions, "status"
+        assert_includes instructions, "priority"
+      end
+    end
+  end
+
+  def test_instructions_dry_raises_when_project_id_not_found
+    File.stub :exist?, false do
+      claude = WvRunner::ClaudeCode.new
+      assert_raises(RuntimeError) do
+        claude.send(:instructions_dry)
       end
     end
   end

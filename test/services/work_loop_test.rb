@@ -17,6 +17,20 @@ class WorkLoopTest < Minitest::Test
     end
   end
 
+  def test_execute_with_once_dry
+    mock_result = { "status" => "success", "task_info" => { "name" => "Test Task", "id" => 123, "description" => "Do something", "status" => "New", "priority" => "High", "assigned_user" => "John Doe", "scrum_points" => "M" }, "hours" => { "per_day" => 8, "task_estimated" => 0 } }
+    mock = Minitest::Mock.new
+    mock.expect(:run_dry, mock_result)
+    WvRunner::ClaudeCode.stub :new, mock do
+      loop = WvRunner::WorkLoop.new
+      result = loop.execute(:once_dry)
+      assert_equal "success", result["status"]
+      assert result["task_info"].key?("name")
+      assert_equal "Test Task", result["task_info"]["name"]
+      mock.verify
+    end
+  end
+
   def test_run_today_uses_decider
     mock_result = { "status" => "success", "hours" => { "per_day" => 8, "task_estimated" => 2, "task_worked" => 0.5 } }
     mock = Minitest::Mock.new
