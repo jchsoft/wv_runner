@@ -1,5 +1,6 @@
 require 'open3'
 require 'json'
+require 'shellwords'
 
 module WvRunner
   class ClaudeCode
@@ -14,8 +15,9 @@ module WvRunner
       puts "[ClaudeCode] Found Claude at: #{claude_path}"
       puts "[ClaudeCode] Building instructions with project_id..."
 
-      command = "#{claude_path} -p \"#{instructions}\" --output-format=stream-json --verbose"
-      puts "[ClaudeCode] Executing: #{command.truncate(200)}..."
+      # Use array form of command for proper shell escaping
+      command = [claude_path, '-p', instructions, '--output-format=stream-json', '--verbose']
+      puts "[ClaudeCode] Executing Claude with instructions (length: #{instructions.length} chars)"
       puts "[ClaudeCode] Starting real-time stream of Claude output:"
       puts "-" * 80
 
