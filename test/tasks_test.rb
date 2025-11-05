@@ -19,7 +19,7 @@ class TasksTest < Minitest::Test
     content = File.read(rake_file)
 
     assert content.include?("task run_once")
-    assert content.include?("WorkLoop.new.execute(:once)")
+    assert content.include?("execute(:once)")
   end
 
   def test_rake_file_defines_run_once_dry_task
@@ -27,7 +27,7 @@ class TasksTest < Minitest::Test
     content = File.read(rake_file)
 
     assert content.include?("task run_once_dry")
-    assert content.include?("WorkLoop.new.execute(:once_dry)")
+    assert content.include?("execute(:once_dry)")
   end
 
   def test_rake_file_defines_run_today_task
@@ -35,7 +35,7 @@ class TasksTest < Minitest::Test
     content = File.read(rake_file)
 
     assert content.include?("task run_today")
-    assert content.include?("WorkLoop.new.execute(:today)")
+    assert content.include?("execute(:today)")
   end
 
   def test_rake_file_defines_run_daily_task
@@ -43,7 +43,7 @@ class TasksTest < Minitest::Test
     content = File.read(rake_file)
 
     assert content.include?("task run_daily")
-    assert content.include?("WorkLoop.new.execute(:daily)")
+    assert content.include?("execute(:daily)")
   end
 
   def test_all_tasks_require_environment

@@ -8,8 +8,14 @@ require_relative 'output_formatter'
 module WvRunner
   # Handles Claude Code execution with streaming output
   class ClaudeCode
+    def initialize(verbose: false)
+      @verbose = verbose
+      OutputFormatter.verbose_mode = verbose
+    end
+
     def run
       puts '[ClaudeCode] Starting ClaudeCode execution...'
+      puts "[ClaudeCode] Output mode: #{@verbose ? 'VERBOSE' : 'NORMAL'}"
       start_time = Time.now
 
       puts '[ClaudeCode] Resolving Claude executable path...'
@@ -38,6 +44,7 @@ module WvRunner
 
     def run_dry
       puts '[ClaudeCode] Starting ClaudeCode DRY RUN execution (task load only, no execution)...'
+      puts "[ClaudeCode] Output mode: #{@verbose ? 'VERBOSE' : 'NORMAL'}"
       start_time = Time.now
 
       puts '[ClaudeCode] Resolving Claude executable path...'

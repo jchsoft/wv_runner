@@ -6,6 +6,10 @@ module WvRunner
   class WorkLoop
     VALID_HOW_VALUES = %i[once today daily once_dry].freeze
 
+    def initialize(verbose: false)
+      @verbose = verbose
+    end
+
     def execute(how)
       puts "[WorkLoop] [execute] Starting execution with mode: #{how.inspect}"
       validate_how(how)
@@ -19,7 +23,7 @@ module WvRunner
 
     def run_once
       puts '[WorkLoop] [run_once] Starting single task execution...'
-      result = ClaudeCode.new.run
+      result = ClaudeCode.new(verbose: @verbose).run
       puts "[WorkLoop] [run_once] Single task completed with status: #{result['status']}"
       puts "[WorkLoop] [run_once] Full result: #{result.inspect}"
       result
@@ -27,7 +31,7 @@ module WvRunner
 
     def run_once_dry
       puts '[WorkLoop] [run_once_dry] Starting dry-run task load (no execution)...'
-      result = ClaudeCode.new.run_dry
+      result = ClaudeCode.new(verbose: @verbose).run_dry
       puts "[WorkLoop] [run_once_dry] Dry-run completed with status: #{result['status']}"
       puts "[WorkLoop] [run_once_dry] Full result: #{result.inspect}"
       result
@@ -62,7 +66,7 @@ module WvRunner
 
     def run_task_iteration(results)
       puts '[WorkLoop] [run_task_iteration] Running ClaudeCode for next task...'
-      result = ClaudeCode.new.run
+      result = ClaudeCode.new(verbose: @verbose).run
       results << result
       puts "[WorkLoop] [run_task_iteration] Task completed with status: #{result['status']}"
       puts "[WorkLoop] [run_task_iteration] Task result: #{result.inspect}"

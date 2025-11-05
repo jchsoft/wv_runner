@@ -2,6 +2,11 @@ require 'test_helper'
 require_relative '../../lib/wv_runner/services/output_formatter'
 
 class OutputFormatterTest < Minitest::Test
+  def setup
+    # Reset verbose mode before each test
+    WvRunner::OutputFormatter.verbose_mode = false
+  end
+
   def test_format_line_adds_blank_line_before_output
     line = 'some output'
     result = WvRunner::OutputFormatter.format_line(line)
@@ -50,5 +55,79 @@ class OutputFormatterTest < Minitest::Test
     result = WvRunner::OutputFormatter.format_line(line)
     # Should still add [Claude] prefix even if not valid JSON
     assert_match /\n\[Claude\]/, result
+  end
+
+  # Verbose mode tests (original behavior)
+  def test_verbose_mode_outputs_full_json
+    WvRunner::OutputFormatter.verbose_mode = true
+    json_line = '{"type": "assistant", "message": {"content": [{"type": "text", "text": "Hello"}]}}'
+    result = WvRunner::OutputFormatter.format_line(json_line)
+    # In verbose mode, should output full pretty-printed JSON
+    assert_includes result, '"type":'
+    assert_includes result, '"message":'
+    assert_includes result, '"content":'
+  end
+
+  # Normal mode tests (filtered output)
+  def test_normal_mode_extracts_text_content
+    WvRunner::OutputFormatter.verbose_mode = false
+    json_line = '{"type": "assistant", "message": {"content": [{"type": "text", "text": "Hello World"}]}}'
+    result = WvRunner::OutputFormatter.format_line(json_line)
+    # In normal mode, should extract and format just the text
+    assert_includes result, "Hello World"
+    # Should not include full JSON structure
+    refute_includes result, '"message":'
+  end
+
+  def test_normal_mode_with_tool_use
+    WvRunner::OutputFormatter.verbose_mode = false
+    json_line = '{"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "tool_123", "name": "ReadFile", "input": {"path": "/tmp/file.txt"}}]}}'
+    result = WvRunner::OutputFormatter.format_line(json_line)
+    # Should extract tool use information
+    assert_includes result, "Tool: ReadFile"
+    assert_includes result, "ID: tool_123"
+    assert_includes result, "path"
+  end
+
+  def test_normal_mode_with_tool_result
+    WvRunner::OutputFormatter.verbose_mode = false
+    json_line = '{"type": "assistant", "message": {"content": [{"type": "tool_result", "content": "File contents here", "is_error": false}]}}'
+    result = WvRunner::OutputFormatter.format_line(json_line)
+    # Should extract tool result
+    assert_includes result, "Tool Result"
+    assert_includes result, "OK"
+    assert_includes result, "File contents here"
+  end
+
+  def test_normal_mode_with_tool_result_error
+    WvRunner::OutputFormatter.verbose_mode = false
+    json_line = '{"type": "assistant", "message": {"content": [{"type": "tool_result", "content": "File not found", "is_error": true}]}}'
+    result = WvRunner::OutputFormatter.format_line(json_line)
+    # Should mark as ERROR
+    assert_includes result, "ERROR"
+    assert_includes result, "File not found"
+  end
+
+  def test_normal_mode_with_multiple_content_items
+    WvRunner::OutputFormatter.verbose_mode = false
+    json_line = '{"type": "assistant", "message": {"content": [{"type": "text", "text": "First"}, {"type": "text", "text": "Second"}]}}'
+    result = WvRunner::OutputFormatter.format_line(json_line)
+    # Should include both text items
+    assert_includes result, "First"
+    assert_includes result, "Second"
+  end
+
+  def test_normal_mode_without_message_content
+    WvRunner::OutputFormatter.verbose_mode = false
+    json_line = '{"type": "system", "data": "some data"}'
+    result = WvRunner::OutputFormatter.format_line(json_line)
+    # Should fall back to verbose output when no message.content
+    assert_includes result, '"type":'
+  end
+
+  def test_verbose_mode_flag
+    assert_equal false, WvRunner::OutputFormatter.verbose_mode
+    WvRunner::OutputFormatter.verbose_mode = true
+    assert_equal true, WvRunner::OutputFormatter.verbose_mode
   end
 end
