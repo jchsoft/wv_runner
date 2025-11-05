@@ -129,6 +129,8 @@ module WvRunner
         At the END of your work, output this JSON on a single line:
         WVRUNNER_RESULT: {"status": "success", "hours": {"per_day": X, "task_estimated": Y}}
 
+        IMPORTANT: Output VALID JSON with proper string escaping. Any quotes in string values must be escaped as \".
+
         How to get the data:
         1. Read workvector://user → use "hour_goal" value for per_day
         2. From the task you're working on → parse "duration_best" field (e.g., "1 hodina" → 1.0) for task_estimated
@@ -151,6 +153,11 @@ module WvRunner
 
         At the END, output this JSON on a single line with task information:
         WVRUNNER_RESULT: {"status": "success", "task_info": {"name": "...", "id": ..., "description": "...", "status": "...", "priority": "...", "assigned_user": "...", "scrum_points": "..."}, "hours": {"per_day": X, "task_estimated": Y}}
+
+        IMPORTANT: Output VALID JSON with proper string escaping. When string values contain quotes, escape them as \". Example:
+        {"name": "Error: \"uninitialized constant\""}
+        NOT as:
+        {\"name\": \"Error: \"uninitialized constant\"\"}
 
         How to get the data:
         1. Read workvector://user → use "hour_goal" value for per_day
@@ -213,29 +220,13 @@ module WvRunner
       puts "[ClaudeCode] [parse_result] JSON object ends at position #{json_end}"
 
       json_content = json_str[0...json_end].strip
-      # Handle escaped JSON strings (when Claude outputs JSON with escaped quotes like {\"status\":})
-      #
-      # Claude outputs JSON with escaped delimiters. We need to convert it to valid JSON.
-      # The key insight: we should preserve ALL backslashes that are meant to be JSON escapes,
-      # and only remove backslashes that are escaping the field delimiters.
-      #
-      # The safest approach using the original algorithm but with loops to handle both formats:
-      # 1. First reduce double-backslashes (\\\\) to single backslashes (\\)
-      # 2. Then remove backslashes only before quotes (\\") that aren't meant to be JSON escapes
-      # 3. The challenge: distinguishing between \\\" (which should become \") and \" (which should become ")
-      #
-      # Solution: Process character by character with context awareness
-      # to preserve escapes while removing field delimiter escapes
-      #
-      # For now, use the working algorithm from the passing tests and simply run the unescape
-      # in a loop until stable for maximum robustness across all formats:
-      prev_content = nil
-      attempts = 0
-      while prev_content != json_content && attempts < 10
-        prev_content = json_content
-        json_content = json_content.gsub(/\\\\/, '\\') if json_content.include?('\\\\')
-        json_content = json_content.gsub(/\\(["\\])/, '\1') if json_content.include?('\\')
-        attempts += 1
+      # Claude outputs VALID JSON as per instructions.
+      # For backward compatibility, also support old format where field delimiters were escaped.
+      # Old format has escaped quotes at start: {\" instead of {"
+      if json_content.start_with?('{\\')
+        # Old format: unescape field delimiters
+        json_content = json_content.gsub(/\\\\/, '\\') while json_content.include?('\\\\')
+        json_content = json_content.gsub(/\\(["\\])/, '\1') while json_content.include?('\\')
       end
       puts "[ClaudeCode] [parse_result] Final JSON content to parse: #{json_content}"
 
