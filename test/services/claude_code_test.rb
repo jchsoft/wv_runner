@@ -103,6 +103,18 @@ class ClaudeCodeTest < Minitest::Test
     end
   end
 
+  def test_instructions_includes_git_checkout_main
+    File.stub :exist?, true do
+      File.stub :read, "project_relative_id=99" do
+        claude = WvRunner::ClaudeCode.new
+        instructions = claude.send(:instructions)
+        assert_includes instructions, "git checkout main"
+        assert_includes instructions, "GIT: Make sure you are on the main branch"
+        assert_includes instructions, "clean, stable state"
+      end
+    end
+  end
+
   def test_instructions_raises_when_project_id_not_found
     File.stub :exist?, false do
       claude = WvRunner::ClaudeCode.new

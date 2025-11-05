@@ -118,9 +118,12 @@ module WvRunner
         Work on next task from: workvector://pieces/jchsoft/@next?project_relative_id=#{project_id}
 
         WORKFLOW:
-        1. CREATE A NEW BRANCH at the start of the task (use task name as branch name, e.g., "feature/task-name" or "fix/issue-name")
-        2. COMPLETE the task according to requirements
-        3. CREATE A PULL REQUEST when the task is finished:
+        1. GIT: Make sure you are on the main branch
+           - Run: git checkout main (switch to main branch if not already there)
+           - This ensures you start from a clean, stable state
+        2. CREATE A NEW BRANCH at the start of the task (use task name as branch name, e.g., "feature/task-name" or "fix/issue-name")
+        3. COMPLETE the task according to requirements
+        4. CREATE A PULL REQUEST when the task is finished:
            - Use the format from .github/pull_request_template.md if exists
            - Include a clear summary of changes
            - Link to the task in WorkVector
