@@ -126,10 +126,16 @@ module WvRunner
            - Link to the task in WorkVector
            - Ensure all tests pass before requesting review
 
-        At the END of your work, output this JSON on a single line:
-        WVRUNNER_RESULT: {"status": "success", "hours": {"per_day": X, "task_estimated": Y}}
+        At the END, output JSON in this exact format - on a new line in a code block:
 
-        IMPORTANT: Output VALID JSON with proper string escaping. Any quotes in string values must be escaped as \".
+        ```json
+        WVRUNNER_RESULT: {"status": "success", "hours": {"per_day": X, "task_estimated": Y}}
+        ```
+
+        CRITICAL FORMATTING:
+        1. The JSON MUST be inside triple backticks (```json ... ```) on a separate line
+        2. Output VALID JSON with proper string escaping. Any quotes in string values must be escaped as \"
+        3. NO other text after the closing triple backticks
 
         How to get the data:
         1. Read workvector://user → use "hour_goal" value for per_day
@@ -151,10 +157,18 @@ module WvRunner
         4. DO NOT create a pull request
         5. Just read and display the task information
 
-        At the END, output this JSON on a single line with task information:
-        WVRUNNER_RESULT: {"status": "success", "task_info": {"name": "...", "id": ..., "description": "...", "status": "...", "priority": "...", "assigned_user": "...", "scrum_points": "..."}, "hours": {"per_day": X, "task_estimated": Y}}
+        At the END, output JSON in this exact format - on a new line in a code block:
 
-        IMPORTANT: Output VALID JSON with proper string escaping. Any quotes in string values must be escaped as \".
+        [DEBUG] duration_best: '<original_value>' → task_estimated: Y
+
+        ```json
+        WVRUNNER_RESULT: {"status": "success", "task_info": {"name": "...", "id": ..., "description": "...", "status": "...", "priority": "...", "assigned_user": "...", "scrum_points": "..."}, "hours": {"per_day": X, "task_estimated": Y}}
+        ```
+
+        CRITICAL FORMATTING:
+        1. The JSON MUST be inside triple backticks (```json ... ```) on a separate line
+        2. Output VALID JSON with proper string escaping. Any quotes in string values must be escaped as \"
+        3. NO other text after the closing triple backticks
 
         How to get the data:
         1. Read workvector://user → use "hour_goal" value for per_day
@@ -164,7 +178,6 @@ module WvRunner
            - If duration_best contains "den" or "day" → multiply by 8 hours per workday (e.g., "1 den" → 8.0)
            - If duration_best contains "týden" or "week" → multiply by 40 hours per workweek (e.g., "1 týden" → 40.0)
            - Use the smallest/first number as task_estimated (e.g., from "3.0 - 7.0 hodin", use 3.0)
-           - DEBUG: Print "[DEBUG] duration_best: '<original_value>' → task_estimated: Y" before outputting the JSON
         4. Set status: "success" if task loaded successfully
       INSTRUCTIONS
     end
@@ -193,7 +206,7 @@ module WvRunner
 
       # Extract everything after the marker
       after_marker = stdout[(index + marker.length)..]
-      puts "[ClaudeCode] [parse_result] Content after marker (first 300 chars): #{after_marker.truncate(300)}"
+      puts "[ClaudeCode] [parse_result] Content after marker (first 300 chars): #{after_marker[0...300]}"
 
       # Find the first opening brace
       brace_index = after_marker.index('{')
@@ -205,12 +218,12 @@ module WvRunner
       puts "[ClaudeCode] [parse_result] Opening brace found at index #{brace_index}"
 
       json_str = after_marker[brace_index..]
-      puts "[ClaudeCode] [parse_result] Extracted JSON string (first 200 chars): #{json_str.truncate(200)}"
+      puts "[ClaudeCode] [parse_result] Extracted JSON string (first 200 chars): #{json_str[0...200]}"
 
       json_end = find_json_end(json_str)
       unless json_end
         puts '[ClaudeCode] [parse_result] ERROR: Could not find JSON object boundaries!'
-        puts "[ClaudeCode] [parse_result] JSON string: #{json_str.truncate(300)}"
+        puts "[ClaudeCode] [parse_result] JSON string: #{json_str[0...300]}"
         return error_result('Could not find complete JSON object')
       end
 
@@ -222,7 +235,7 @@ module WvRunner
       # Level 2: \\\" for literal quotes in string values (\\\" -> \")
       # Must unescape in correct order: first level 1, then level 2
       json_content = json_content.gsub('\"', '"')     # Unescape \" -> "
-      json_content = json_content.gsub('\\\"', '"')    # Then unescape \\\" -> \"
+      json_content = json_content.gsub('\\\"', '\"')    # Then unescape \\\" -> \"
       puts "[ClaudeCode] [parse_result] Final JSON content to parse: #{json_content}"
 
       begin
