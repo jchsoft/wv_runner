@@ -213,10 +213,30 @@ module WvRunner
       puts "[ClaudeCode] [parse_result] JSON object ends at position #{json_end}"
 
       json_content = json_str[0...json_end].strip
-      # Handle escaped JSON strings (when Claude outputs JSON with escaped quotes like {\"status\":} or {\\\"status\\\":})
-      # Remove all backslashes that precede quotes or other backslashes
-      json_content = json_content.gsub(/\\\\/, '\\') while json_content.include?('\\\\')
-      json_content = json_content.gsub(/\\(["\\])/, '\1') while json_content.include?('\\')
+      # Handle escaped JSON strings (when Claude outputs JSON with escaped quotes like {\"status\":})
+      #
+      # Claude outputs JSON with escaped delimiters. We need to convert it to valid JSON.
+      # The key insight: we should preserve ALL backslashes that are meant to be JSON escapes,
+      # and only remove backslashes that are escaping the field delimiters.
+      #
+      # The safest approach using the original algorithm but with loops to handle both formats:
+      # 1. First reduce double-backslashes (\\\\) to single backslashes (\\)
+      # 2. Then remove backslashes only before quotes (\\") that aren't meant to be JSON escapes
+      # 3. The challenge: distinguishing between \\\" (which should become \") and \" (which should become ")
+      #
+      # Solution: Process character by character with context awareness
+      # to preserve escapes while removing field delimiter escapes
+      #
+      # For now, use the working algorithm from the passing tests and simply run the unescape
+      # in a loop until stable for maximum robustness across all formats:
+      prev_content = nil
+      attempts = 0
+      while prev_content != json_content && attempts < 10
+        prev_content = json_content
+        json_content = json_content.gsub(/\\\\/, '\\') if json_content.include?('\\\\')
+        json_content = json_content.gsub(/\\(["\\])/, '\1') if json_content.include?('\\')
+        attempts += 1
+      end
       puts "[ClaudeCode] [parse_result] Final JSON content to parse: #{json_content}"
 
       begin
@@ -253,10 +273,25 @@ module WvRunner
       while i < json_str.length
         char = json_str[i]
 
-        # Handle escaped quotes - skip both the backslash and the quote
-        if char == '\\' && i + 1 < json_str.length && json_str[i + 1] == '"'
-          i += 2
-          next
+        # Handle various escaped quote sequences:
+        # \\" (backslash followed by escaped quote)
+        # \" (single backslash then quote)
+        if char == '\\'
+          # Count consecutive backslashes
+          backslash_count = 0
+          j = i
+          while j < json_str.length && json_str[j] == '\\'
+            backslash_count += 1
+            j += 1
+          end
+
+          # If odd number of backslashes before a quote, the quote is escaped
+          # If even number of backslashes before a quote, the quote is not escaped
+          if j < json_str.length && json_str[j] == '"' && backslash_count.odd?
+            # Skip the backslashes and the escaped quote
+            i = j + 1
+            next
+          end
         end
 
         if char == '{'

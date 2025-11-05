@@ -68,6 +68,28 @@ class ClaudeCodeTest < Minitest::Test
     assert_equal 1.0, result["hours"]["task_worked"]
   end
 
+  def test_parse_result_handles_json_with_long_error_description_from_task_9007
+    # Real-world case from task #9007: task includes long error description
+    # Claude outputs JSON with escaped field delimiters (\" for field keys/values)
+    # This tests that we can handle tasks with detailed error descriptions and special characters
+    mock_output = 'WVRUNNER_RESULT: {\"status\": \"success\", \"task_info\": {\"name\": \"ActionDispatch::MissingController error\", \"id\": 9005, \"description\": \"(ActionDispatch::MissingController) uninitialized constant Api::OfficesController - Hacker/bot is trying to access /api/config.env\", \"status\": \"New\", \"priority\": \"Urgent\", \"assigned_user\": \"Karel Mráček\", \"scrum_points\": \"Moderate (5)\"}, \"hours\": {\"per_day\": 8, \"task_estimated\": 1.0}}'
+
+    claude = WvRunner::ClaudeCode.new
+    result = claude.send(:parse_result, mock_output, 0.25)
+
+    # The key assertion: this should parse successfully, not error
+    assert_equal "success", result["status"], "Should parse the JSON with long error description successfully"
+    assert_equal 9005, result["task_info"]["id"]
+    assert_equal "Karel Mráček", result["task_info"]["assigned_user"]
+    assert_equal "Urgent", result["task_info"]["priority"]
+    assert_equal 8, result["hours"]["per_day"]
+    assert_equal 1.0, result["hours"]["task_estimated"]
+    assert_equal 0.25, result["hours"]["task_worked"]
+    # Verify the task info is properly extracted
+    assert_includes result["task_info"]["name"], "ActionDispatch"
+    assert_includes result["task_info"]["description"], "MissingController"
+  end
+
   def test_project_relative_id_loaded_from_claude_md
     File.stub :exist?, true do
       File.stub :read, "## WorkVector\n- project_relative_id=42" do
