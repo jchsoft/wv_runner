@@ -129,12 +129,7 @@ module WvRunner
         At the END of your work, output this JSON on a single line:
         WVRUNNER_RESULT: {"status": "success", "hours": {"per_day": X, "task_estimated": Y}}
 
-        CRITICAL: Output VALID JSON. Do NOT escape the curly braces or field delimiters with backslashes.
-        ✓ CORRECT: {"status": "success"}
-        ✗ WRONG: {\"status\": \"success\"}
-        For quotes INSIDE string values, use one backslash: \"
-        ✓ CORRECT: {"message": "Error: \"something failed\""}
-        ✗ WRONG: {\"message\": \"Error: \\\"something failed\\\"\"}
+        IMPORTANT: Output VALID JSON with proper string escaping. Any quotes in string values must be escaped as \".
 
         How to get the data:
         1. Read workvector://user → use "hour_goal" value for per_day
@@ -159,10 +154,7 @@ module WvRunner
         At the END, output this JSON on a single line with task information:
         WVRUNNER_RESULT: {"status": "success", "task_info": {"name": "...", "id": ..., "description": "...", "status": "...", "priority": "...", "assigned_user": "...", "scrum_points": "..."}, "hours": {"per_day": X, "task_estimated": Y}}
 
-        CRITICAL: Output VALID JSON. Do NOT escape the curly braces or field delimiters with backslashes.
-        ✓ CORRECT: {"name": "Error: \"uninitialized constant\""}
-        ✗ WRONG: {\"name\": \"Error: \\\"uninitialized constant\\\"\"}
-        ✗ ALSO WRONG: {\"name\": \"Error: \"uninitialized constant\"\"}
+        IMPORTANT: Output VALID JSON with proper string escaping. Any quotes in string values must be escaped as \".
 
         How to get the data:
         1. Read workvector://user → use "hour_goal" value for per_day
