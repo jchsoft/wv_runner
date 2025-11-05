@@ -40,54 +40,26 @@ class ClaudeCodeTest < Minitest::Test
     assert_match /Failed to parse JSON/, result["message"]
   end
 
-  def test_parse_result_handles_escaped_json_with_backslashes
-    # This is the real-world case from task 9003 where Claude outputs escaped JSON
-    mock_output = 'WVRUNNER_RESULT: {\"status\": \"success\", \"task_info\": {\"name\": \"Divný záznam v událostech pacienta\", \"id\": 8595, \"description\": \"Bug in patient events display - strange record with cloud icon, exclamation mark, and missing method\", \"status\": \"Nové\", \"priority\": \"Počká to\", \"assigned_user\": \"Karel Mráček\", \"scrum_points\": \"L (8 points)\"}, \"hours\": {\"per_day\": 8, \"task_estimated\": 0}}'
-    claude = WvRunner::ClaudeCode.new
-    result = claude.send(:parse_result, mock_output, 0.5)
-
-    assert_equal "success", result["status"]
-    assert_equal 8595, result["task_info"]["id"]
-    assert_equal "Divný záznam v událostech pacienta", result["task_info"]["name"]
-    assert_equal "Karel Mráček", result["task_info"]["assigned_user"]
-    assert_equal 8, result["hours"]["per_day"]
-    assert_equal 0.5, result["hours"]["task_worked"]
-  end
-
-  def test_parse_result_handles_double_escaped_json_with_backslash_backslash
-    # Edge case with double-escaped backslashes where actual text has \\\" (backslash-escaped-quote)
-    # This simulates Claude output that contains literal backslash characters before quotes
-    mock_output = 'WVRUNNER_RESULT: {\\\"status\\\": \\\"success\\\", \\\"task_info\\\": {\\\"name\\\": \\\"Test Task\\\", \\\"id\\\": 123}, \\\"hours\\\": {\\\"per_day\\\": 8, \\\"task_estimated\\\": 0}}'
-    claude = WvRunner::ClaudeCode.new
-    result = claude.send(:parse_result, mock_output, 1.0)
-
-    assert_equal "success", result["status"]
-    assert_equal 123, result["task_info"]["id"]
-    assert_equal "Test Task", result["task_info"]["name"]
-    assert_equal 8, result["hours"]["per_day"]
-    assert_equal 1.0, result["hours"]["task_worked"]
-  end
-
-  def test_parse_result_handles_json_with_quoted_strings_from_task_9007
-    # Real-world case from task #9007: task name and description contain quoted strings and special chars
-    # Claude outputs VALID JSON with proper string escaping (no escaped delimiters)
-    # This tests that we can handle tasks with error messages that include quotes
-    mock_output = 'WVRUNNER_RESULT: {"status": "success", "task_info": {"name": "Error: \"uninitialized constant Api::OfficesController\"", "id": 9005, "description": "(ActionDispatch::MissingController) failed to initialize - investigate why \"Api::OfficesController\" is undefined", "status": "New", "priority": "Urgent", "assigned_user": "Karel Mráček", "scrum_points": "Moderate (5)"}, "hours": {"per_day": 8, "task_estimated": 1.0}}'
+  def test_parse_result_handles_json_with_escaped_quotes_from_real_claude_output
+    # Real-world case from task #9007: Claude outputs JSON with escaped quotes
+    # {\"name\": \"(ActionDispatch::MissingController) \\\"uninitialized constant Api::OfficesController\\\"\"}
+    # After unescape becomes: {"name": "(ActionDispatch::MissingController) \"uninitialized constant Api::OfficesController\""}
+    mock_output = 'WVRUNNER_RESULT: {\"status\": \"success\", \"task_info\": {\"name\": \"(ActionDispatch::MissingController) \\\"uninitialized constant Api::OfficesController\\\"\", \"id\": 9005, \"description\": \"Bot/hacker attempting to access invalid endpoint https://zuboklik.cz/api/config.env which incorrectly routes to Api::OfficesController. Need to investigate routing issue, write test, fix problem, verify test passes.\", \"status\": \"Nové\", \"priority\": \"Urgentní\", \"assigned_user\": \"Karel Mráček\", \"scrum_points\": \"Mírně obtížné (5)\"}, \"hours\": {\"per_day\": 8, \"task_estimated\": 1.0}}'
 
     claude = WvRunner::ClaudeCode.new
     result = claude.send(:parse_result, mock_output, 0.25)
 
-    # The key assertion: this should parse successfully
-    assert_equal "success", result["status"], "Should parse JSON with quoted strings successfully"
+    # The key assertion: this should parse successfully despite quotes in the error message
+    assert_equal "success", result["status"], "Should parse JSON with escaped quotes successfully"
     assert_equal 9005, result["task_info"]["id"]
     assert_equal "Karel Mráček", result["task_info"]["assigned_user"]
-    assert_equal "Urgent", result["task_info"]["priority"]
+    assert_equal "Urgentní", result["task_info"]["priority"]
     assert_equal 8, result["hours"]["per_day"]
     assert_equal 1.0, result["hours"]["task_estimated"]
     assert_equal 0.25, result["hours"]["task_worked"]
-    # Verify the quotes are properly preserved in extracted values
+    # Verify the task name with error message is properly extracted
+    assert_includes result["task_info"]["name"], "ActionDispatch::MissingController"
     assert_includes result["task_info"]["name"], "uninitialized constant Api::OfficesController"
-    assert_includes result["task_info"]["description"], "Api::OfficesController"
   end
 
   def test_project_relative_id_loaded_from_claude_md

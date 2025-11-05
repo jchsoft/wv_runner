@@ -129,7 +129,12 @@ module WvRunner
         At the END of your work, output this JSON on a single line:
         WVRUNNER_RESULT: {"status": "success", "hours": {"per_day": X, "task_estimated": Y}}
 
-        IMPORTANT: Output VALID JSON with proper string escaping. Any quotes in string values must be escaped as \".
+        CRITICAL: Output VALID JSON. Do NOT escape the curly braces or field delimiters with backslashes.
+        ✓ CORRECT: {"status": "success"}
+        ✗ WRONG: {\"status\": \"success\"}
+        For quotes INSIDE string values, use one backslash: \"
+        ✓ CORRECT: {"message": "Error: \"something failed\""}
+        ✗ WRONG: {\"message\": \"Error: \\\"something failed\\\"\"}
 
         How to get the data:
         1. Read workvector://user → use "hour_goal" value for per_day
@@ -154,10 +159,10 @@ module WvRunner
         At the END, output this JSON on a single line with task information:
         WVRUNNER_RESULT: {"status": "success", "task_info": {"name": "...", "id": ..., "description": "...", "status": "...", "priority": "...", "assigned_user": "...", "scrum_points": "..."}, "hours": {"per_day": X, "task_estimated": Y}}
 
-        IMPORTANT: Output VALID JSON with proper string escaping. When string values contain quotes, escape them as \". Example:
-        {"name": "Error: \"uninitialized constant\""}
-        NOT as:
-        {\"name\": \"Error: \"uninitialized constant\"\"}
+        CRITICAL: Output VALID JSON. Do NOT escape the curly braces or field delimiters with backslashes.
+        ✓ CORRECT: {"name": "Error: \"uninitialized constant\""}
+        ✗ WRONG: {\"name\": \"Error: \\\"uninitialized constant\\\"\"}
+        ✗ ALSO WRONG: {\"name\": \"Error: \"uninitialized constant\"\"}
 
         How to get the data:
         1. Read workvector://user → use "hour_goal" value for per_day
@@ -220,14 +225,10 @@ module WvRunner
       puts "[ClaudeCode] [parse_result] JSON object ends at position #{json_end}"
 
       json_content = json_str[0...json_end].strip
-      # Claude outputs VALID JSON as per instructions.
-      # For backward compatibility, also support old format where field delimiters were escaped.
-      # Old format has escaped quotes at start: {\" instead of {"
-      if json_content.start_with?('{\\')
-        # Old format: unescape field delimiters
-        json_content = json_content.gsub(/\\\\/, '\\') while json_content.include?('\\\\')
-        json_content = json_content.gsub(/\\(["\\])/, '\1') while json_content.include?('\\')
-      end
+      # Claude outputs JSON with escaped quotes: \" for delimiters and \\\" for quotes in values
+      # Simply unescape all \" to " - this creates valid JSON:
+      # {\"name\": \"text \\\"quoted\\\"\"} becomes {"name": "text \"quoted\""}
+      json_content = json_content.gsub('\"', '"')
       puts "[ClaudeCode] [parse_result] Final JSON content to parse: #{json_content}"
 
       begin
