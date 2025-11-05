@@ -248,7 +248,17 @@ module WvRunner
     def find_json_end(json_str)
       puts "[ClaudeCode] [find_json_end] Searching for JSON object end, string length: #{json_str.length}"
       brace_count = 0
-      json_str.each_char.with_index do |char, i|
+      i = 0
+
+      while i < json_str.length
+        char = json_str[i]
+
+        # Handle escaped quotes - skip both the backslash and the quote
+        if char == '\\' && i + 1 < json_str.length && json_str[i + 1] == '"'
+          i += 2
+          next
+        end
+
         if char == '{'
           brace_count += 1
           puts "[ClaudeCode] [find_json_end] Found '{' at index #{i}, brace_count: #{brace_count}"
@@ -260,6 +270,8 @@ module WvRunner
             return i + 1
           end
         end
+
+        i += 1
       end
       puts "[ClaudeCode] [find_json_end] ERROR: JSON object not properly closed, final brace_count: #{brace_count}"
       nil
