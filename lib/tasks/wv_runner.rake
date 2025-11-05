@@ -1,37 +1,34 @@
 namespace :wv_runner do
-  desc 'Run a single task once (pass verbose=true for verbose output, default: normal mode)'
-  task run_once: :environment do
-    display_version_info
-    verbose = ENV['verbose']&.downcase == 'true'
-    display_output_mode(verbose)
-    WvRunner::WorkLoop.new(verbose: verbose).execute(:once)
-  end
+  MODES = %i[once once_dry today daily].freeze
 
-  desc 'Load and display next task information (dry-run, no execution) (pass verbose=true for verbose output, default: normal mode)'
-  task run_once_dry: :environment do
-    display_version_info
-    verbose = ENV['verbose']&.downcase == 'true'
-    display_output_mode(verbose)
-    WvRunner::WorkLoop.new(verbose: verbose).execute(:once_dry)
-  end
-
-  desc 'Run tasks until end of today (pass verbose=true for verbose output, default: normal mode)'
-  task run_today: :environment do
-    display_version_info
-    verbose = ENV['verbose']&.downcase == 'true'
-    display_output_mode(verbose)
-    WvRunner::WorkLoop.new(verbose: verbose).execute(:today)
-  end
-
-  desc 'Run tasks continuously in a daily loop (pass verbose=true for verbose output, default: normal mode)'
-  task run_daily: :environment do
-    display_version_info
-    verbose = ENV['verbose']&.downcase == 'true'
-    display_output_mode(verbose)
-    WvRunner::WorkLoop.new(verbose: verbose).execute(:daily)
+  MODES.each do |mode|
+    desc case mode
+         when :once
+           'Run a single task once (pass verbose=true for verbose output, default: normal mode)'
+         when :once_dry
+           'Load and display next task information (dry-run, no execution) (pass verbose=true for verbose output, default: normal mode)'
+         when :today
+           'Run tasks until end of today (pass verbose=true for verbose output, default: normal mode)'
+         when :daily
+           'Run tasks continuously in a daily loop (pass verbose=true for verbose output, default: normal mode)'
+         end
+    task mode => :environment do
+      run_wv_runner_task(mode)
+    end
   end
 
   private
+
+  def run_wv_runner_task(mode)
+    display_version_info
+    verbose = verbose_mode_enabled?
+    display_output_mode(verbose)
+    WvRunner::WorkLoop.new(verbose: verbose).execute(mode)
+  end
+
+  def verbose_mode_enabled?
+    ENV['verbose']&.downcase == 'true'
+  end
 
   def display_version_info
     puts '=' * 80

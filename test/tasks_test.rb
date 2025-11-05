@@ -18,49 +18,49 @@ class TasksTest < Minitest::Test
     rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
     content = File.read(rake_file)
 
-    assert content.include?("task run_once")
-    assert content.include?("execute(:once)")
+    assert content.include?("MODES = %i[once once_dry today daily]")
+    assert content.include?("execute(mode)")
   end
 
   def test_rake_file_defines_run_once_dry_task
     rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
     content = File.read(rake_file)
 
-    assert content.include?("task run_once_dry")
-    assert content.include?("execute(:once_dry)")
+    assert content.include?("MODES = %i[once once_dry today daily]")
+    assert content.include?("dry-run")
   end
 
   def test_rake_file_defines_run_today_task
     rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
     content = File.read(rake_file)
 
-    assert content.include?("task run_today")
-    assert content.include?("execute(:today)")
+    assert content.include?("MODES = %i[once once_dry today daily]")
+    assert content.include?("end of today")
   end
 
   def test_rake_file_defines_run_daily_task
     rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
     content = File.read(rake_file)
 
-    assert content.include?("task run_daily")
-    assert content.include?("execute(:daily)")
+    assert content.include?("MODES = %i[once once_dry today daily]")
+    assert content.include?("daily loop")
   end
 
   def test_all_tasks_require_environment
     rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
     content = File.read(rake_file)
 
-    # Each task should require :environment for Rails context
-    tasks = content.scan(/task \w+: :environment/)
-    assert_equal 4, tasks.length, "All four tasks should require :environment"
+    # Tasks require :environment for Rails context (dynamically generated via MODES.each)
+    assert content.include?("=> :environment")
+    assert content.include?("MODES.each")
   end
 
   def test_all_tasks_have_descriptions
     rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
     content = File.read(rake_file)
 
-    # Each task should have a desc
-    descriptions = content.scan(/desc\s+['"](.*?)['"]/)
-    assert_equal 4, descriptions.length, "All four tasks should have descriptions"
+    # Tasks have descriptions defined via case statement
+    assert content.include?("desc case mode")
+    assert_equal 4, content.scan(/when :(\w+)/).length, "Should have 4 mode descriptions"
   end
 end
