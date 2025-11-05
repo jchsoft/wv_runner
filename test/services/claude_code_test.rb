@@ -41,9 +41,9 @@ class ClaudeCodeTest < Minitest::Test
   end
 
   def test_parse_result_handles_json_with_escaped_quotes_from_real_claude_output
-    # Real-world case from task #9007: Claude outputs JSON with escaped quotes
-    # {\"name\": \"(ActionDispatch::MissingController) \\\"uninitialized constant Api::OfficesController\\\"\"}
-    # After unescape becomes: {"name": "(ActionDispatch::MissingController) \"uninitialized constant Api::OfficesController\""}
+    # Real-world case from task #9005: Claude outputs JSON with escaped quotes
+    # Raw from Claude: {\"status\": \"success\", \"task_info\": {\"name\": \"(ActionDispatch::MissingController) \\\"uninitialized constant Api::OfficesController\\\"\", ...}}
+    # After two-step unescape: {"status": "success", "task_info": {"name": "(ActionDispatch::MissingController) \"uninitialized constant Api::OfficesController\"", ...}}
     mock_output = 'WVRUNNER_RESULT: {\"status\": \"success\", \"task_info\": {\"name\": \"(ActionDispatch::MissingController) \\\"uninitialized constant Api::OfficesController\\\"\", \"id\": 9005, \"description\": \"Bot/hacker attempting to access invalid endpoint https://zuboklik.cz/api/config.env which incorrectly routes to Api::OfficesController. Need to investigate routing issue, write test, fix problem, verify test passes.\", \"status\": \"Nové\", \"priority\": \"Urgentní\", \"assigned_user\": \"Karel Mráček\", \"scrum_points\": \"Mírně obtížné (5)\"}, \"hours\": {\"per_day\": 8, \"task_estimated\": 1.0}}'
 
     claude = WvRunner::ClaudeCode.new
@@ -57,9 +57,11 @@ class ClaudeCodeTest < Minitest::Test
     assert_equal 8, result["hours"]["per_day"]
     assert_equal 1.0, result["hours"]["task_estimated"]
     assert_equal 0.25, result["hours"]["task_worked"]
-    # Verify the task name with error message is properly extracted
+    # Verify the task name with error message is properly extracted with literal quotes inside
     assert_includes result["task_info"]["name"], "ActionDispatch::MissingController"
     assert_includes result["task_info"]["name"], "uninitialized constant Api::OfficesController"
+    # Verify that quoted part has actual quote characters (not escaped)
+    assert_includes result["task_info"]["name"], '"uninitialized constant Api::OfficesController"'
   end
 
   def test_project_relative_id_loaded_from_claude_md

@@ -217,10 +217,12 @@ module WvRunner
       puts "[ClaudeCode] [parse_result] JSON object ends at position #{json_end}"
 
       json_content = json_str[0...json_end].strip
-      # Claude outputs JSON with escaped quotes: \" for delimiters and \\\" for quotes in values
-      # Simply unescape all \" to " - this creates valid JSON:
-      # {\"name\": \"text \\\"quoted\\\"\"} becomes {"name": "text \"quoted\""}
-      json_content = json_content.gsub('\"', '"')
+      # Claude outputs JSON with escaped quotes in two levels:
+      # Level 1: \" for JSON structure delimiters (\" -> ")
+      # Level 2: \\\" for literal quotes in string values (\\\" -> \")
+      # Must unescape in correct order: first level 1, then level 2
+      json_content = json_content.gsub('\"', '"')     # Unescape \" -> "
+      json_content = json_content.gsub('\\\"', '"')    # Then unescape \\\" -> \"
       puts "[ClaudeCode] [parse_result] Final JSON content to parse: #{json_content}"
 
       begin
