@@ -26,7 +26,7 @@ module WvRunner
       puts '[ClaudeCode] Building instructions with project_id...'
 
       # Use array form of command for proper shell escaping
-      command = [claude_path, '-p', instructions, '--output-format=stream-json', '--verbose']
+      command = [claude_path, '-p', instructions, '--output-format=stream-json', '--verbose', '--permission-mode acceptEdits']
       puts "[ClaudeCode] Executing Claude with instructions (length: #{instructions.length} chars)"
       puts '[ClaudeCode] Starting real-time stream of Claude output:'
       puts '-' * 80
@@ -123,7 +123,11 @@ module WvRunner
            - This ensures you start from a clean, stable state
         2. CREATE A NEW BRANCH at the start of the task (use task name as branch name, e.g., "feature/task-name" or "fix/issue-name")
         3. COMPLETE the task according to requirements
-        4. CREATE A PULL REQUEST when the task is finished:
+        4. MAKE SURE all code changes are properly tested
+        5. MAKE SURE ALL TESTS PASS before creating the pull request
+        6. COMMIT your changes with clear commit messages
+        7. PUSH the branch to remote repository
+        8. CREATE A PULL REQUEST:
            - Use the format from .github/pull_request_template.md if exists
            - Include a clear summary of changes
            - Link to the task in WorkVector
