@@ -26,7 +26,8 @@ module WvRunner
       puts '[ClaudeCode] Building instructions with project_id...'
 
       # Use array form of command for proper shell escaping
-      command = [claude_path, '-p', instructions, '--output-format=stream-json', '--verbose', '--permission-mode acceptEdits']
+      command = [claude_path, '-p', instructions, '--output-format=stream-json', '--verbose', '--permission-mode=acceptEdits']
+      puts "command: #{command.map { |arg| Shellwords.escape(arg) }.join(' ')}"
       puts "[ClaudeCode] Executing Claude with instructions (length: #{instructions.length} chars)"
       puts '[ClaudeCode] Starting real-time stream of Claude output:'
       puts '-' * 80
