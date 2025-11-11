@@ -122,13 +122,16 @@ module WvRunner
         1. GIT: Make sure you are on the main branch
            - Run: git checkout main (switch to main branch if not already there)
            - This ensures you start from a clean, stable state
-        2. CREATE A NEW BRANCH at the start of the task (use task name as branch name, e.g., "feature/task-name" or "fix/issue-name")
-        3. COMPLETE the task according to requirements
-        4. MAKE SURE all code changes are properly tested
-        5. MAKE SURE ALL TESTS PASS before creating the pull request
-        6. COMMIT your changes with clear commit messages
-        7. PUSH the branch to remote repository
-        8. CREATE A PULL REQUEST:
+        2. Make sure task is new and **NOT ALREADY STARTED** or completed
+        3. CREATE A NEW BRANCH at the start of the task (use task name as branch name, e.g., "feature/task-name" or "fix/issue-name")
+        4. COMPLETE the task according to requirements
+        5. COMMIT your changes with clear commit messages
+        6. MAKE SURE all code changes are properly tested
+        7. COMMIT your changes with clear commit messages
+        8. **RUN ALL TESTS repeatedly until they all PASS** - do not make you way easy - tests must be solid and all passing
+        9. COMMIT your changes with clear commit messages
+        10. PUSH the branch to remote repository
+        11. CREATE A PULL REQUEST:
            - Use the format from .github/pull_request_template.md if exists
            - Include a clear summary of changes
            - Link to the task in WorkVector

@@ -10,3 +10,4 @@
 *.lock
 .DS_Store
 .idea/
+/run today log.pdf

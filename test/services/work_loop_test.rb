@@ -1,4 +1,6 @@
-require "test_helper"
+# frozen_string_literal: true
+
+require 'test_helper'
 
 class WorkLoopTest < Minitest::Test
   def test_work_loop_responds_to_execute
@@ -7,7 +9,7 @@ class WorkLoopTest < Minitest::Test
   end
 
   def test_execute_with_once
-    mock_result = { "status" => "success", "hours" => { "per_day" => 8, "task_estimated" => 2, "task_worked" => 0.5 } }
+    mock_result = { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2, 'task_worked' => 0.5 } }
     mock = Minitest::Mock.new
     mock.expect(:run, mock_result)
     WvRunner::ClaudeCode.stub :new, mock do
@@ -18,21 +20,22 @@ class WorkLoopTest < Minitest::Test
   end
 
   def test_execute_with_once_dry
-    mock_result = { "status" => "success", "task_info" => { "name" => "Test Task", "id" => 123, "description" => "Do something", "status" => "New", "priority" => "High", "assigned_user" => "John Doe", "scrum_points" => "M" }, "hours" => { "per_day" => 8, "task_estimated" => 0 } }
+    mock_result = { 'status' => 'success',
+                    'task_info' => { 'name' => 'Test Task', 'id' => 123, 'description' => 'Do something', 'status' => 'New', 'priority' => 'High', 'assigned_user' => 'John Doe', 'scrum_points' => 'M' }, 'hours' => { 'per_day' => 8, 'task_estimated' => 0 } }
     mock = Minitest::Mock.new
     mock.expect(:run_dry, mock_result)
     WvRunner::ClaudeCode.stub :new, mock do
       loop = WvRunner::WorkLoop.new
       result = loop.execute(:once_dry)
-      assert_equal "success", result["status"]
-      assert result["task_info"].key?("name")
-      assert_equal "Test Task", result["task_info"]["name"]
+      assert_equal 'success', result['status']
+      assert result['task_info'].key?('name')
+      assert_equal 'Test Task', result['task_info']['name']
       mock.verify
     end
   end
 
   def test_run_today_uses_decider
-    mock_result = { "status" => "success", "hours" => { "per_day" => 8, "task_estimated" => 2, "task_worked" => 0.5 } }
+    mock_result = { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2, 'task_worked' => 0.5 } }
     mock = Minitest::Mock.new
     mock.expect(:run, mock_result)
     WvRunner::ClaudeCode.stub :new, mock do
@@ -47,7 +50,7 @@ class WorkLoopTest < Minitest::Test
   end
 
   def test_run_today_stops_on_error
-    error_result = { "status" => "error", "message" => "Something went wrong" }
+    error_result = { 'status' => 'error', 'message' => 'Something went wrong' }
     mock = Minitest::Mock.new
     mock.expect(:run, error_result)
     WvRunner::ClaudeCode.stub :new, mock do
@@ -58,13 +61,14 @@ class WorkLoopTest < Minitest::Test
       result = loop.execute(:today)
       assert result.is_a?(Array)
       assert_equal 1, result.length
-      assert_equal "error", result.first["status"]
+      assert_equal 'error', result.first['status']
     end
   end
 
   def test_run_daily_stops_on_decider_should_stop
-    # When accumulated hours exceed daily limit, Decider says stop
-    mock_result = { "status" => "success", "hours" => { "per_day" => 8, "task_estimated" => 2, "task_worked" => 8.5 } }
+    # When estimated hours exceed daily limit, Decider says stop
+    mock_result = { 'status' => 'success',
+                    'hours' => { 'per_day' => 8, 'task_estimated' => 9.0, 'task_worked' => 8.5 } }
     mock = Minitest::Mock.new
     mock.expect(:run, mock_result)
     WvRunner::ClaudeCode.stub :new, mock do
@@ -84,7 +88,7 @@ class WorkLoopTest < Minitest::Test
 
         assert result.is_a?(Array)
         assert_equal 1, result.length
-        # Should stop because 8.5 > 8 (daily limit exceeded)
+        # Should stop because 9.0 > 8 (daily limit exceeded using task_estimated)
       end
     end
   end
@@ -96,7 +100,7 @@ class WorkLoopTest < Minitest::Test
 
   def test_send_dispatches_to_correct_method
     loop = WvRunner::WorkLoop.new
-    mock_result = { "status" => "success" }
+    mock_result = { 'status' => 'success' }
     mock = Minitest::Mock.new
     mock.expect(:run, mock_result)
     WvRunner::ClaudeCode.stub :new, mock do
@@ -105,7 +109,7 @@ class WorkLoopTest < Minitest::Test
   end
 
   def test_results_accumulation
-    mock_result = { "status" => "success", "hours" => { "per_day" => 8, "task_estimated" => 2, "task_worked" => 0.5 } }
+    mock_result = { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2, 'task_worked' => 0.5 } }
     mock = Minitest::Mock.new
     mock.expect(:run, mock_result)
     WvRunner::ClaudeCode.stub :new, mock do
@@ -117,7 +121,7 @@ class WorkLoopTest < Minitest::Test
 
       assert result.is_a?(Array)
       assert_equal 1, result.length
-      assert_equal "success", result.first["status"]
+      assert_equal 'success', result.first['status']
     end
   end
 end
