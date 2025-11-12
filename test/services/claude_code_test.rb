@@ -1,4 +1,4 @@
-require "test_helper"
+require 'test_helper'
 
 class ClaudeCodeTest < Minitest::Test
   def test_claude_code_responds_to_run
@@ -16,10 +16,10 @@ class ClaudeCodeTest < Minitest::Test
     claude = WvRunner::ClaudeCode.new
     result = claude.send(:parse_result, mock_output, 1.5)
 
-    assert_equal "success", result["status"]
-    assert_equal 8, result["hours"]["per_day"]
-    assert_equal 2, result["hours"]["task_estimated"]
-    assert_equal 1.5, result["hours"]["task_worked"]
+    assert_equal 'success', result['status']
+    assert_equal 8, result['hours']['per_day']
+    assert_equal 2, result['hours']['task_estimated']
+    assert_equal 1.5, result['hours']['task_worked']
   end
 
   def test_parse_result_handles_error_when_result_not_found
@@ -27,8 +27,8 @@ class ClaudeCodeTest < Minitest::Test
     claude = WvRunner::ClaudeCode.new
     result = claude.send(:parse_result, mock_output, 0.5)
 
-    assert_equal "error", result["status"]
-    assert_equal "No WVRUNNER_RESULT found in output", result["message"]
+    assert_equal 'error', result['status']
+    assert_equal 'No WVRUNNER_RESULT found in output', result['message']
   end
 
   def test_parse_result_handles_invalid_json
@@ -36,8 +36,8 @@ class ClaudeCodeTest < Minitest::Test
     claude = WvRunner::ClaudeCode.new
     result = claude.send(:parse_result, mock_output, 0.5)
 
-    assert_equal "error", result["status"]
-    assert_match /Failed to parse JSON/, result["message"]
+    assert_equal 'error', result['status']
+    assert_match(/Failed to parse JSON/, result['message'])
   end
 
   def test_parse_result_handles_json_with_escaped_quotes_from_real_claude_output
@@ -49,18 +49,18 @@ class ClaudeCodeTest < Minitest::Test
     result = claude.send(:parse_result, mock_output, 0.25)
 
     # The key assertion: this should parse successfully despite quotes in the error message
-    assert_equal "success", result["status"], "Should parse JSON with escaped quotes successfully"
-    assert_equal 9005, result["task_info"]["id"]
-    assert_equal "Karel Mráček", result["task_info"]["assigned_user"]
-    assert_equal "Urgentní", result["task_info"]["priority"]
-    assert_equal 8, result["hours"]["per_day"]
-    assert_equal 1.0, result["hours"]["task_estimated"]
-    assert_equal 0.25, result["hours"]["task_worked"]
+    assert_equal 'success', result['status'], 'Should parse JSON with escaped quotes successfully'
+    assert_equal 9005, result['task_info']['id']
+    assert_equal 'Karel Mráček', result['task_info']['assigned_user']
+    assert_equal 'Urgentní', result['task_info']['priority']
+    assert_equal 8, result['hours']['per_day']
+    assert_equal 1.0, result['hours']['task_estimated']
+    assert_equal 0.25, result['hours']['task_worked']
     # Verify the task name with error message is properly extracted with literal quotes inside
-    assert_includes result["task_info"]["name"], "ActionDispatch::MissingController"
-    assert_includes result["task_info"]["name"], "uninitialized constant Api::OfficesController"
+    assert_includes result['task_info']['name'], 'ActionDispatch::MissingController'
+    assert_includes result['task_info']['name'], 'uninitialized constant Api::OfficesController'
     # Verify that quoted part has actual quote characters (not escaped)
-    assert_includes result["task_info"]["name"], '"uninitialized constant Api::OfficesController"'
+    assert_includes result['task_info']['name'], '"uninitialized constant Api::OfficesController"'
   end
 
   def test_project_relative_id_loaded_from_claude_md
@@ -83,7 +83,7 @@ class ClaudeCodeTest < Minitest::Test
 
   def test_project_relative_id_returns_nil_when_pattern_not_found
     File.stub :exist?, true do
-      File.stub :read, "## Some other content" do
+      File.stub :read, '## Some other content' do
         claude = WvRunner::ClaudeCode.new
         project_id = claude.send(:project_relative_id)
         assert_nil project_id
@@ -93,24 +93,24 @@ class ClaudeCodeTest < Minitest::Test
 
   def test_instructions_includes_project_id
     File.stub :exist?, true do
-      File.stub :read, "project_relative_id=99" do
+      File.stub :read, 'project_relative_id=99' do
         claude = WvRunner::ClaudeCode.new
         instructions = claude.send(:instructions)
-        assert_includes instructions, "project_relative_id=99"
-        assert_includes instructions, "workvector://pieces/jchsoft/@next"
-        assert_includes instructions, "WVRUNNER_RESULT"
+        assert_includes instructions, 'project_relative_id=99'
+        assert_includes instructions, 'workvector://pieces/jchsoft/@next'
+        assert_includes instructions, 'WVRUNNER_RESULT'
       end
     end
   end
 
   def test_instructions_includes_git_checkout_main
     File.stub :exist?, true do
-      File.stub :read, "project_relative_id=99" do
+      File.stub :read, 'project_relative_id=99' do
         claude = WvRunner::ClaudeCode.new
         instructions = claude.send(:instructions)
-        assert_includes instructions, "git checkout main"
-        assert_includes instructions, "GIT: Make sure you are on the main branch"
-        assert_includes instructions, "clean, stable state"
+        assert_includes instructions, 'git checkout main'
+        assert_includes instructions, 'GIT: Make sure you are on the main branch'
+        assert_includes instructions, 'clean, stable state'
       end
     end
   end
@@ -126,28 +126,28 @@ class ClaudeCodeTest < Minitest::Test
 
   def test_instructions_dry_includes_project_id
     File.stub :exist?, true do
-      File.stub :read, "project_relative_id=77" do
+      File.stub :read, 'project_relative_id=77' do
         claude = WvRunner::ClaudeCode.new
         instructions = claude.send(:instructions_dry)
-        assert_includes instructions, "project_relative_id=77"
-        assert_includes instructions, "workvector://pieces/jchsoft/@next"
-        assert_includes instructions, "WVRUNNER_RESULT"
-        assert_includes instructions, "DRY RUN"
-        assert_includes instructions, "DO NOT create a branch"
+        assert_includes instructions, 'project_relative_id=77'
+        assert_includes instructions, 'workvector://pieces/jchsoft/@next'
+        assert_includes instructions, 'WVRUNNER_RESULT'
+        assert_includes instructions, 'DRY RUN'
+        assert_includes instructions, 'DO NOT create a branch'
       end
     end
   end
 
   def test_instructions_dry_includes_task_info_fields
     File.stub :exist?, true do
-      File.stub :read, "project_relative_id=77" do
+      File.stub :read, 'project_relative_id=77' do
         claude = WvRunner::ClaudeCode.new
         instructions = claude.send(:instructions_dry)
-        assert_includes instructions, "task_info"
-        assert_includes instructions, "name"
-        assert_includes instructions, "description"
-        assert_includes instructions, "status"
-        assert_includes instructions, "priority"
+        assert_includes instructions, 'task_info'
+        assert_includes instructions, 'name'
+        assert_includes instructions, 'description'
+        assert_includes instructions, 'status'
+        assert_includes instructions, 'priority'
       end
     end
   end
@@ -172,6 +172,27 @@ class ClaudeCodeTest < Minitest::Test
         assert_includes instructions, 'týden'
         assert_includes instructions, 'DEBUG'
         assert_includes instructions, 'task_estimated: Y'
+      end
+    end
+  end
+
+  def test_instructions_includes_task_status_check_before_starting_work
+    # This test verifies the fix for task #9036: prevent duplicate task processing
+    # The @next endpoint sometimes returns tasks that are already in progress
+    # We need to check task status BEFORE starting work to prevent duplicates
+    File.stub :exist?, true do
+      File.stub :read, "project_relative_id=7\n" do
+        claude = WvRunner::ClaudeCode.new
+        instructions = claude.send(:instructions)
+
+        # Should check task progress field
+        assert_includes instructions, 'progress'
+        # Should check task_state_code field
+        assert_includes instructions, 'task_state_code'
+        # Should explicitly refuse to work on already-started tasks
+        assert_includes instructions, 'already started'
+        # Should tell Claude to stop immediately if task is in progress
+        assert_includes instructions, 'STOP IMMEDIATELY'
       end
     end
   end

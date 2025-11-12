@@ -26,7 +26,8 @@ module WvRunner
       puts '[ClaudeCode] Building instructions with project_id...'
 
       # Use array form of command for proper shell escaping
-      command = [claude_path, '-p', instructions, '--output-format=stream-json', '--verbose', '--permission-mode=acceptEdits']
+      command = [claude_path, '-p', instructions, '--output-format=stream-json', '--verbose',
+                 '--permission-mode=acceptEdits']
       puts "command: #{command.map { |arg| Shellwords.escape(arg) }.join(' ')}"
       puts "[ClaudeCode] Executing Claude with instructions (length: #{instructions.length} chars)"
       puts '[ClaudeCode] Starting real-time stream of Claude output:'
@@ -122,7 +123,15 @@ module WvRunner
         1. GIT: Make sure you are on the main branch
            - Run: git checkout main (switch to main branch if not already there)
            - This ensures you start from a clean, stable state
-        2. Make sure task is new and **NOT ALREADY STARTED** or completed
+        2. CHECK TASK STATUS BEFORE STARTING WORK (prevents duplicate processing):
+           - Load the task from @next endpoint
+           - Check the task's "progress" field (should be 0)
+           - Check the task's "task_state_code" field (should be "new")
+           - If progress > 0 OR task_state_code != "new", the task is already started
+           - STOP IMMEDIATELY if task is already started! Output error and exit:
+             ```json
+             WVRUNNER_RESULT: {"status": "error", "message": "Task already started (progress: X%, state: Y)", "hours": {"per_day": Z, "task_estimated": 0}}
+             ```
         3. CREATE A NEW BRANCH at the start of the task (use task name as branch name, e.g., "feature/task-name" or "fix/issue-name")
         4. COMPLETE the task according to requirements
         5. COMMIT your changes with clear commit messages
@@ -245,8 +254,8 @@ module WvRunner
       # Level 1: \" for JSON structure delimiters (\" -> ")
       # Level 2: \\\" for literal quotes in string values (\\\" -> \")
       # Must unescape in correct order: first level 1, then level 2
-      json_content = json_content.gsub('\"', '"')     # Unescape \" -> "
-      json_content = json_content.gsub('\\\"', '\"')    # Then unescape \\\" -> \"
+      json_content = json_content.gsub('\"', '"') # Unescape \" -> "
+      json_content = json_content.gsub('\\\"', '\"') # Then unescape \\\" -> \"
       puts "[ClaudeCode] [parse_result] Final JSON content to parse: #{json_content}"
 
       begin
