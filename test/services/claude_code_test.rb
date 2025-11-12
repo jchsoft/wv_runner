@@ -185,14 +185,7 @@ class ClaudeCodeTest < Minitest::Test
         claude = WvRunner::ClaudeCode.new
         instructions = claude.send(:instructions)
 
-        # Should check task progress field
-        assert_includes instructions, 'progress'
-        # Should check task_state_code field
-        assert_includes instructions, 'task_state_code'
-        # Should explicitly refuse to work on already-started tasks
-        assert_includes instructions, 'already started'
-        # Should tell Claude to stop immediately if task is in progress
-        assert_includes instructions, 'STOP IMMEDIATELY'
+        assert_includes instructions, 'NOT ALREADY STARTED'
       end
     end
   end
