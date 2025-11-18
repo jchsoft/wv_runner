@@ -282,7 +282,6 @@ module WvRunner
     end
 
     def find_json_end(json_str)
-      Logger.debug "[ClaudeCode] [find_json_end] Searching for JSON object end, string length: #{json_str.length}"
       brace_count = 0
       i = 0
 
@@ -312,18 +311,16 @@ module WvRunner
 
         if char == '{'
           brace_count += 1
-          Logger.debug "[ClaudeCode] [find_json_end] Found '{' at index #{i}, brace_count: #{brace_count}"
         elsif char == '}'
           brace_count -= 1
-          Logger.debug "[ClaudeCode] [find_json_end] Found '}' at index #{i}, brace_count: #{brace_count}"
           if brace_count.zero?
-            Logger.debug "[ClaudeCode] [find_json_end] JSON object complete at index #{i + 1}"
             return i + 1
           end
         end
 
         i += 1
       end
+
       Logger.debug "[ClaudeCode] [find_json_end] ERROR: JSON object not properly closed, final brace_count: #{brace_count}"
       nil
     end
