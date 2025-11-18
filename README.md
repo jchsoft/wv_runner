@@ -43,9 +43,21 @@ rake wv_runner:run_daily
 
 ## Testing
 
-Run all tests:
+Run all tests using the test runner:
 ```bash
-ruby -I lib -I test test/services/work_loop_test.rb test/services/claude_code_test.rb test/services/decider_test.rb
+ruby test_runner.rb
+```
+
+This will run all 128 tests across 14 test files and provide a summary:
+- Total runs, assertions, failures, and errors
+- Individual test file results
+- Clear pass/fail status
+
+You can also run individual test files:
+```bash
+ruby -I lib -I test test/services/work_loop_test.rb
+ruby -I lib -I test test/services/claude_code_base_test.rb
+ruby -I lib -I test test/services/claude_code_step_tests.rb
 ```
 
 ## Development
