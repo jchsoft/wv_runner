@@ -8,87 +8,92 @@ class WorkLoopTest < Minitest::Test
     assert_respond_to loop, :execute
   end
 
-  def test_execute_with_once
-    mock_result = { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2, 'task_worked' => 0.5 } }
-    mock = Minitest::Mock.new
-    mock.expect(:run, mock_result)
-    WvRunner::ClaudeCode.stub :new, mock do
-      loop = WvRunner::WorkLoop.new
-      assert_output(/\[WorkLoop\] \[execute\] Starting execution with mode: :once/) { loop.execute(:once) }
-      mock.verify
+  def test_execute_with_once_multi_step_workflow
+    # Create simple mock objects that respond to run
+    mock1 = Object.new
+    def mock1.run
+      { 'status' => 'success', 'step' => 1, 'next_step' => 'refactor_and_tests', 'task_id' => 123 }
     end
-  end
 
-  def test_execute_with_once_dry
-    mock_result = { 'status' => 'success',
-                    'task_info' => { 'name' => 'Test Task', 'id' => 123, 'description' => 'Do something', 'status' => 'New', 'priority' => 'High', 'assigned_user' => 'John Doe', 'scrum_points' => 'M' }, 'hours' => { 'per_day' => 8, 'task_estimated' => 0 } }
-    mock = Minitest::Mock.new
-    mock.expect(:run_dry, mock_result)
-    WvRunner::ClaudeCode.stub :new, mock do
-      loop = WvRunner::WorkLoop.new
-      result = loop.execute(:once_dry)
-      assert_equal 'success', result['status']
-      assert result['task_info'].key?('name')
-      assert_equal 'Test Task', result['task_info']['name']
-      mock.verify
+    mock2 = Object.new
+    def mock2.run(_state)
+      { 'status' => 'success', 'step' => 2, 'next_step' => 'push_and_pr', 'task_id' => 123 }
     end
-  end
 
-  def test_run_today_uses_decider
-    mock_result = { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2, 'task_worked' => 0.5 } }
-    mock = Minitest::Mock.new
-    mock.expect(:run, mock_result)
-    WvRunner::ClaudeCode.stub :new, mock do
-      loop = WvRunner::WorkLoop.new
-      def loop.end_of_day?
-        true
-      end
-      result = loop.execute(:today)
-      assert result.is_a?(Array)
-      assert_equal 1, result.length
+    mock3 = Object.new
+    def mock3.run(_state)
+      { 'status' => 'success', 'step' => 3, 'complete' => true, 'task_id' => 123 }
     end
-  end
 
-  def test_run_today_stops_on_error
-    error_result = { 'status' => 'error', 'message' => 'Something went wrong' }
-    mock = Minitest::Mock.new
-    mock.expect(:run, error_result)
-    WvRunner::ClaudeCode.stub :new, mock do
-      loop = WvRunner::WorkLoop.new
-      def loop.end_of_day?
-        false
-      end
-      result = loop.execute(:today)
-      assert result.is_a?(Array)
-      assert_equal 1, result.length
-      assert_equal 'error', result.first['status']
-    end
-  end
+    # Stub the .new methods to return our mocks
+    WvRunner::ClaudeCodeStep1.stub(:new, mock1) do
+      WvRunner::ClaudeCodeStep2.stub(:new, mock2) do
+        WvRunner::ClaudeCodeStep3.stub(:new, mock3) do
+          loop = WvRunner::WorkLoop.new
+          result = loop.execute(:once)
 
-  def test_run_daily_stops_on_decider_should_stop
-    # When estimated hours exceed daily limit, Decider says stop
-    mock_result = { 'status' => 'success',
-                    'hours' => { 'per_day' => 8, 'task_estimated' => 9.0, 'task_worked' => 8.5 } }
-    mock = Minitest::Mock.new
-    mock.expect(:run, mock_result)
-    WvRunner::ClaudeCode.stub :new, mock do
-      # Mock WaitingStrategy to prevent actual sleeping
-      waiting_mock = Minitest::Mock.new
-      waiting_mock.expect(:wait_until_next_day, nil)
-      WvRunner::WaitingStrategy.stub :new, waiting_mock do
-        loop = WvRunner::WorkLoop.new
-        # run_daily is infinite loop, we need to intercept after first iteration
-        def loop.run_daily
-          wait_if_cannot_work_today
-          daily_results = run_today_tasks
-          handle_daily_completion(daily_results)
-          daily_results # Return results instead of looping
+          assert_equal 'success', result['status']
+          assert_equal 3, result['step']
+          assert_equal true, result['complete']
         end
-        result = loop.execute(:daily)
+      end
+    end
+  end
 
-        assert result.is_a?(Array)
-        assert_equal 1, result.length
-        # Should stop because 9.0 > 8 (daily limit exceeded using task_estimated)
+  def test_execute_with_once_handles_step1_error
+    # Mock Step1 to return error
+    mock1 = Object.new
+    def mock1.run
+      { 'status' => 'error', 'message' => 'Task loading failed' }
+    end
+
+    WvRunner::ClaudeCodeStep1.stub(:new, mock1) do
+      loop = WvRunner::WorkLoop.new
+      result = loop.execute(:once)
+
+      assert_equal 'error', result['status']
+      assert_equal 'Task loading failed', result['message']
+    end
+  end
+
+  def test_execute_with_once_loops_on_step2_refactor_request
+    # Step1 result
+    mock1 = Object.new
+    def mock1.run
+      { 'status' => 'success', 'step' => 1, 'next_step' => 'refactor_and_tests', 'task_id' => 123 }
+    end
+
+    # Use a class-based mock for Step2 to handle multiple calls
+    mock2_instance = Class.new do
+      def initialize
+        @call_count = 0
+      end
+
+      def run(_state)
+        @call_count += 1
+        if @call_count == 1
+          { 'status' => 'success', 'step' => 2, 'next_step' => 'refactor_and_tests', 'task_id' => 123 }
+        else
+          { 'status' => 'success', 'step' => 2, 'next_step' => 'push_and_pr', 'task_id' => 123 }
+        end
+      end
+    end.new
+
+    mock3 = Object.new
+    def mock3.run(_state)
+      { 'status' => 'success', 'step' => 3, 'complete' => true, 'task_id' => 123 }
+    end
+
+    WvRunner::ClaudeCodeStep1.stub(:new, mock1) do
+      WvRunner::ClaudeCodeStep2.stub(:new, mock2_instance) do
+        WvRunner::ClaudeCodeStep3.stub(:new, mock3) do
+          loop = WvRunner::WorkLoop.new
+          result = loop.execute(:once)
+
+          assert_equal 'success', result['status']
+          assert_equal true, result['complete']
+          assert_equal 2, mock2_instance.instance_variable_get(:@call_count)
+        end
       end
     end
   end
@@ -96,32 +101,5 @@ class WorkLoopTest < Minitest::Test
   def test_execute_raises_on_invalid_how
     loop = WvRunner::WorkLoop.new
     assert_raises(ArgumentError) { loop.execute(:invalid) }
-  end
-
-  def test_send_dispatches_to_correct_method
-    loop = WvRunner::WorkLoop.new
-    mock_result = { 'status' => 'success' }
-    mock = Minitest::Mock.new
-    mock.expect(:run, mock_result)
-    WvRunner::ClaudeCode.stub :new, mock do
-      assert_output(/\[WorkLoop\] \[execute\] Starting execution with mode: :once/) { loop.execute(:once) }
-    end
-  end
-
-  def test_results_accumulation
-    mock_result = { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2, 'task_worked' => 0.5 } }
-    mock = Minitest::Mock.new
-    mock.expect(:run, mock_result)
-    WvRunner::ClaudeCode.stub :new, mock do
-      loop = WvRunner::WorkLoop.new
-      def loop.end_of_day?
-        true
-      end
-      result = loop.execute(:today)
-
-      assert result.is_a?(Array)
-      assert_equal 1, result.length
-      assert_equal 'success', result.first['status']
-    end
   end
 end
