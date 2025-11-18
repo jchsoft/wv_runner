@@ -77,4 +77,25 @@ class ClaudeCodeBaseTest < Minitest::Test
     assert_includes result, '"name":"Test Task"'
     refute_includes result, '{{WORKFLOW_STATE}}'
   end
+
+  def test_validate_state_with_all_required_keys
+    base = WvRunner::ClaudeCodeBase.new
+    state = { 'status' => 'success', 'task_id' => 123, 'branch_name' => 'test' }
+    result = base.send(:validate_state, state, %w[status task_id branch_name])
+    assert_nil result
+  end
+
+  def test_validate_state_with_missing_keys
+    base = WvRunner::ClaudeCodeBase.new
+    state = { 'status' => 'success' }
+    result = base.send(:validate_state, state, %w[status task_id branch_name])
+    assert_equal 'error', result['status']
+    assert_includes result['message'], 'missing required keys'
+    assert_includes result['message'], 'task_id'
+    assert_includes result['message'], 'branch_name'
+  end
+
+  def test_timeout_constant_is_defined
+    assert_equal 3600, WvRunner::ClaudeCodeBase::CLAUDE_EXECUTION_TIMEOUT
+  end
 end

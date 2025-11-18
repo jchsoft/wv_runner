@@ -3,6 +3,7 @@
 require 'open3'
 require 'json'
 require 'shellwords'
+require 'timeout'
 require_relative 'output_formatter'
 
 module WvRunner
@@ -11,6 +12,7 @@ module WvRunner
   # Subclasses must implement:
   # - build_instructions(input_state) → returns instruction string
   class ClaudeCodeBase
+    CLAUDE_EXECUTION_TIMEOUT = 3600 # 1 hour in seconds
     def initialize(verbose: false)
       @verbose = verbose
       OutputFormatter.verbose_mode = verbose
@@ -46,6 +48,9 @@ module WvRunner
       Logger.info_stdout "[#{self.class.name}] Elapsed time: #{elapsed_hours} hours"
 
       parse_output(stdout_content, elapsed_hours)
+    rescue Timeout::Error
+      elapsed_hours = ((Time.now - start_time) / 3600.0).round(2)
+      error_result("Claude execution timed out after #{CLAUDE_EXECUTION_TIMEOUT} seconds (#{elapsed_hours} hours)")
     end
 
     private
@@ -54,40 +59,45 @@ module WvRunner
       stdout_content = ''.dup
       stderr_content = ''.dup
 
-      Open3.popen3(*command) do |stdin, stdout, stderr, wait_thr|
-        stdin.close
+      Timeout.timeout(CLAUDE_EXECUTION_TIMEOUT) do
+        Open3.popen3(*command) do |stdin, stdout, stderr, wait_thr|
+          stdin.close
 
-        stdout_thread = Thread.new do
-          stdout.each_line do |line|
-            stdout_content << line.dup
-            if OutputFormatter.should_log_to_stdout?(line)
-              puts OutputFormatter.format_line(line)
-            else
-              Logger.debug("[#{self.class.name}] [streaming] #{line.strip}")
+          stdout_thread = Thread.new do
+            stdout.each_line do |line|
+              stdout_content << line.dup
+              if OutputFormatter.should_log_to_stdout?(line)
+                puts OutputFormatter.format_line(line)
+              else
+                Logger.debug("[#{self.class.name}] [streaming] #{line.strip}")
+              end
             end
           end
-        end
 
-        stderr_thread = Thread.new do
-          stderr.each_line do |line|
-            Logger.warn "\n[Claude STDERR] #{line}"
-            stderr_content << line.dup
+          stderr_thread = Thread.new do
+            stderr.each_line do |line|
+              Logger.warn "\n[Claude STDERR] #{line}"
+              stderr_content << line.dup
+            end
           end
-        end
 
-        stdout_thread.join
-        stderr_thread.join
+          stdout_thread.join
+          stderr_thread.join
 
-        exit_status = wait_thr.value
-        Logger.debug "[#{self.class.name}] Process exit status: #{exit_status.exitstatus}"
+          exit_status = wait_thr.value
+          Logger.debug "[#{self.class.name}] Process exit status: #{exit_status.exitstatus}"
 
-        if exit_status.exitstatus != 0
-          Logger.debug "[#{self.class.name}] WARNING: Claude exited with non-zero status!"
-          Logger.debug "[#{self.class.name}] stderr: #{stderr_content}" unless stderr_content.empty?
+          if exit_status.exitstatus != 0
+            Logger.debug "[#{self.class.name}] WARNING: Claude exited with non-zero status!"
+            Logger.debug "[#{self.class.name}] stderr: #{stderr_content}" unless stderr_content.empty?
+          end
         end
       end
 
       stdout_content
+    rescue Timeout::Error
+      Logger.error "[#{self.class.name}] Claude execution timed out after #{CLAUDE_EXECUTION_TIMEOUT} seconds"
+      raise
     end
 
     def build_instructions(_input_state)
@@ -215,6 +225,23 @@ module WvRunner
       return nil unless File.exist?('CLAUDE.md')
 
       File.read('CLAUDE.md').match(/project_relative_id=(\d+)/)&.then { |m| m[1].to_i }
+    end
+
+    def validate_state(state, required_keys)
+      Logger.debug "[#{self.class.name}] [validate_state] Validating state with required keys: #{required_keys.inspect}"
+      Logger.debug "[#{self.class.name}] [validate_state] State keys: #{state.keys.inspect}"
+
+      missing_keys = required_keys.reject { |key| state.key?(key) }
+
+      if missing_keys.any?
+        error_msg = "Invalid state: missing required keys: #{missing_keys.join(', ')}"
+        Logger.error "[#{self.class.name}] [validate_state] #{error_msg}"
+        Logger.error "[#{self.class.name}] [validate_state] Received state: #{state.inspect}"
+        return error_result(error_msg)
+      end
+
+      Logger.debug "[#{self.class.name}] [validate_state] State validation passed"
+      nil
     end
 
     protected

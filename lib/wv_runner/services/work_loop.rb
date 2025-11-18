@@ -5,6 +5,7 @@ module WvRunner
   # and handles task scheduling with quota management and waiting strategies
   class WorkLoop
     VALID_HOW_VALUES = %i[once today daily once_dry].freeze
+    MAX_STEP2_ITERATIONS = 3
 
     def initialize(verbose: false)
       @verbose = verbose
@@ -28,11 +29,29 @@ module WvRunner
       step1_result = execute_step1
       return step1_result if step1_result['status'] == 'error'
 
+      # Validate Step 1 result
+      validation_error = validate_step_result(step1_result, %w[status task_id branch_name])
+      return validation_error if validation_error
+
       # Step 2: Refactor and tests (can loop if Claude requests another iteration)
       current_state = step1_result
+      step2_iteration = 0
+
       loop do
+        step2_iteration += 1
+        Logger.debug("[WorkLoop] [run_once] Step 2 iteration #{step2_iteration}/#{MAX_STEP2_ITERATIONS}")
+
+        if step2_iteration > MAX_STEP2_ITERATIONS
+          Logger.error("[WorkLoop] Maximum Step 2 iterations (#{MAX_STEP2_ITERATIONS}) reached")
+          return { 'status' => 'error', 'message' => "Too many Step 2 iterations (max: #{MAX_STEP2_ITERATIONS})" }
+        end
+
         step2_result = execute_step2(current_state)
         return step2_result if step2_result['status'] == 'error'
+
+        # Validate Step 2 result
+        validation_error = validate_step_result(step2_result, %w[status task_id branch_name])
+        return validation_error if validation_error
 
         current_state = step2_result
 
@@ -217,6 +236,23 @@ module WvRunner
       is_end = hour >= 23
       Logger.debug("[WorkLoop] [end_of_day?] Current hour: #{hour}, is_end_of_day: #{is_end}")
       is_end
+    end
+
+    def validate_step_result(result, required_keys)
+      Logger.debug("[WorkLoop] [validate_step_result] Validating result with required keys: #{required_keys.inspect}")
+      Logger.debug("[WorkLoop] [validate_step_result] Result keys: #{result.keys.inspect}")
+
+      missing_keys = required_keys.reject { |key| result.key?(key) }
+
+      if missing_keys.any?
+        error_msg = "Invalid step result: missing required keys: #{missing_keys.join(', ')}"
+        Logger.error("[WorkLoop] [validate_step_result] #{error_msg}")
+        Logger.error("[WorkLoop] [validate_step_result] Received result: #{result.inspect}")
+        return { 'status' => 'error', 'message' => error_msg }
+      end
+
+      Logger.debug('[WorkLoop] [validate_step_result] Validation passed')
+      nil
     end
 
     def validate_how(how)
