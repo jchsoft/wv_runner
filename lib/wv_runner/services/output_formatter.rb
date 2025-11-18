@@ -21,6 +21,36 @@ module WvRunner
       "\n[Claude] #{formatted}".dup
     end
 
+    def self.should_log_to_stdout?(line)
+      return true if verbose_mode  # In verbose mode, show everything
+
+      return false unless json_like?(line)
+
+      begin
+        parsed = JSON.parse(line)
+
+        # Hide system initialization messages
+        return false if parsed['type'] == 'system' && parsed['subtype'] == 'init'
+
+        # Hide result metadata (success/failure tracking)
+        return false if parsed['type'] == 'result'
+
+        # Hide session/uuid/metadata-only messages
+        return false if parsed.key?('type') && parsed.keys.length < 5 && !parsed.dig('message', 'content')
+
+        # Show messages with actual content
+        return true if parsed.dig('message', 'content')
+
+        # Show text content
+        return true if parsed['type'] == 'text'
+
+        # Everything else (including Claude's actual work output)
+        true
+      rescue JSON::ParserError
+        true  # If we can't parse, show it (probably important)
+      end
+    end
+
     # Verbose mode: output entire JSON as before
     def self.process_line(line)
       if json_like?(line)

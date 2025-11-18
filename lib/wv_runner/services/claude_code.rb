@@ -84,8 +84,14 @@ module WvRunner
         # Stream stdout and stderr concurrently to avoid deadlocks
         stdout_thread = Thread.new do
           stdout.each_line do |line|
-            puts OutputFormatter.format_line(line)
             stdout_content << line.dup
+
+            # Only output user-relevant messages to stdout, rest goes to log
+            if OutputFormatter.should_log_to_stdout?(line)
+              puts OutputFormatter.format_line(line)
+            else
+              Logger.debug("[ClaudeCode] [streaming] #{line.strip}")
+            end
           end
         end
 
