@@ -16,17 +16,40 @@ module WvRunner
       Logger.debug("[WorkLoop] [execute] Mode validated successfully: #{how.inspect}")
       Logger.debug("[WorkLoop] [execute] Calling run_#{how}...")
 
-      send("run_#{how}").tap { |result| Logger.debug("[WorkLoop] [execute] Execution complete, result: #{result.inspect}") }
+      send("run_#{how}").tap do |result|
+        Logger.debug("[WorkLoop] [execute] Execution complete, result: #{result.inspect}")
+      end
     end
 
     private
 
     def run_once
-      Logger.debug('[WorkLoop] [run_once] Starting single task execution...')
-      result = ClaudeCode.new(verbose: @verbose).run
-      Logger.info_stdout("[WorkLoop] Task completed with status: #{result['status']}")
-      Logger.debug("[WorkLoop] [run_once] Full result: #{result.inspect}")
-      result
+      Logger.debug('[WorkLoop] [run_once] Starting multi-step workflow...')
+      step1_result = execute_step1
+      return step1_result if step1_result['status'] == 'error'
+
+      step2_result = execute_step2(step1_result)
+      return step2_result if step2_result['status'] == 'error'
+
+      step3_result = execute_step3(step2_result)
+      Logger.info_stdout("[WorkLoop] Multi-step workflow completed with status: #{step3_result['status']}")
+      Logger.debug("[WorkLoop] [run_once] Full result: #{step3_result.inspect}")
+      step3_result
+    end
+
+    def execute_step1
+      Logger.debug('[WorkLoop] [execute_step1] Running Step 1: Task and Prototype...')
+      ClaudeCodeStep1.new(verbose: @verbose).run
+    end
+
+    def execute_step2(state)
+      Logger.debug("[WorkLoop] [execute_step2] Running Step 2: Refactor and Tests with state: #{state.inspect}")
+      ClaudeCodeStep2.new(verbose: @verbose).run(state)
+    end
+
+    def execute_step3(state)
+      Logger.debug("[WorkLoop] [execute_step3] Running Step 3: Push and PR with state: #{state.inspect}")
+      ClaudeCodeStep3.new(verbose: @verbose).run(state)
     end
 
     def run_once_dry
@@ -125,7 +148,7 @@ module WvRunner
         run_task_iteration(results)
 
         if no_tasks_available?(results.last)
-          Logger.info_stdout("[WorkLoop] No tasks available, will wait 1 hour before retry...")
+          Logger.info_stdout('[WorkLoop] No tasks available, will wait 1 hour before retry...')
           if handle_no_tasks_error(results)
             Logger.debug('[WorkLoop] [run_today_tasks] Retrying after no tasks error...')
             next
