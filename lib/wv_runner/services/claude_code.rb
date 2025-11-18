@@ -14,60 +14,60 @@ module WvRunner
     end
 
     def run
-      puts '[ClaudeCode] Starting ClaudeCode execution...'
-      puts "[ClaudeCode] Output mode: #{@verbose ? 'VERBOSE' : 'NORMAL'}"
+      Logger.info_stdout '[ClaudeCode] Starting ClaudeCode execution...'
+      Logger.info_stdout "[ClaudeCode] Output mode: #{@verbose ? 'VERBOSE' : 'NORMAL'}"
       start_time = Time.now
 
-      puts '[ClaudeCode] Resolving Claude executable path...'
+      Logger.debug '[ClaudeCode] Resolving Claude executable path...'
       claude_path = ENV['CLAUDE_PATH'] || find_claude_executable
       raise 'Claude executable not found. Set CLAUDE_PATH environment variable.' unless claude_path
 
-      puts "[ClaudeCode] Found Claude at: #{claude_path}"
-      puts '[ClaudeCode] Building instructions with project_id...'
+      Logger.info_stdout "[ClaudeCode] Found Claude at: #{claude_path}"
+      Logger.debug '[ClaudeCode] Building instructions with project_id...'
 
       # Use array form of command for proper shell escaping
       command = [claude_path, '-p', instructions, '--output-format=stream-json', '--verbose', '--permission-mode=acceptEdits']
-      puts "command: #{command.map { |arg| Shellwords.escape(arg) }.join(' ')}"
-      puts "[ClaudeCode] Executing Claude with instructions (length: #{instructions.length} chars)"
-      puts '[ClaudeCode] Starting real-time stream of Claude output:'
-      puts '-' * 80
+      Logger.debug "command: #{command.map { |arg| Shellwords.escape(arg) }.join(' ')}"
+      Logger.debug "[ClaudeCode] Executing Claude with instructions (length: #{instructions.length} chars)"
+      Logger.info_stdout '[ClaudeCode] Starting real-time stream of Claude output:'
+      Logger.info_stdout '-' * 80
 
       stdout_content = execute_with_streaming(command)
 
-      puts '-' * 80
-      puts '[ClaudeCode] Claude execution completed, parsing results...'
+      Logger.info_stdout '-' * 80
+      Logger.info_stdout '[ClaudeCode] Claude execution completed, parsing results...'
 
       elapsed_hours = ((Time.now - start_time) / 3600.0).round(2)
-      puts "[ClaudeCode] Elapsed time: #{elapsed_hours} hours"
+      Logger.info_stdout "[ClaudeCode] Elapsed time: #{elapsed_hours} hours"
 
       parse_result(stdout_content, elapsed_hours)
     end
 
     def run_dry
-      puts '[ClaudeCode] Starting ClaudeCode DRY RUN execution (task load only, no execution)...'
-      puts "[ClaudeCode] Output mode: #{@verbose ? 'VERBOSE' : 'NORMAL'}"
+      Logger.info_stdout '[ClaudeCode] Starting ClaudeCode DRY RUN execution (task load only, no execution)...'
+      Logger.info_stdout "[ClaudeCode] Output mode: #{@verbose ? 'VERBOSE' : 'NORMAL'}"
       start_time = Time.now
 
-      puts '[ClaudeCode] Resolving Claude executable path...'
+      Logger.debug '[ClaudeCode] Resolving Claude executable path...'
       claude_path = ENV['CLAUDE_PATH'] || find_claude_executable
       raise 'Claude executable not found. Set CLAUDE_PATH environment variable.' unless claude_path
 
-      puts "[ClaudeCode] Found Claude at: #{claude_path}"
-      puts '[ClaudeCode] Building DRY RUN instructions with project_id...'
+      Logger.info_stdout "[ClaudeCode] Found Claude at: #{claude_path}"
+      Logger.debug '[ClaudeCode] Building DRY RUN instructions with project_id...'
 
       # Use array form of command for proper shell escaping
       command = [claude_path, '-p', instructions_dry, '--output-format=stream-json', '--verbose']
-      puts "[ClaudeCode] Executing Claude with DRY RUN instructions (length: #{instructions_dry.length} chars)"
-      puts '[ClaudeCode] Starting real-time stream of Claude output:'
-      puts '-' * 80
+      Logger.debug "[ClaudeCode] Executing Claude with DRY RUN instructions (length: #{instructions_dry.length} chars)"
+      Logger.info_stdout '[ClaudeCode] Starting real-time stream of Claude output:'
+      Logger.info_stdout '-' * 80
 
       stdout_content = execute_with_streaming(command)
 
-      puts '-' * 80
-      puts '[ClaudeCode] Claude execution completed, parsing results...'
+      Logger.info_stdout '-' * 80
+      Logger.info_stdout '[ClaudeCode] Claude execution completed, parsing results...'
 
       elapsed_hours = ((Time.now - start_time) / 3600.0).round(2)
-      puts "[ClaudeCode] Elapsed time: #{elapsed_hours} hours"
+      Logger.info_stdout "[ClaudeCode] Elapsed time: #{elapsed_hours} hours"
 
       parse_result(stdout_content, elapsed_hours)
     end
@@ -91,7 +91,7 @@ module WvRunner
 
         stderr_thread = Thread.new do
           stderr.each_line do |line|
-            puts "\n[Claude STDERR] #{line}"
+            Logger.warn "\n[Claude STDERR] #{line}"
             stderr_content << line.dup
           end
         end
@@ -101,11 +101,11 @@ module WvRunner
         stderr_thread.join
 
         exit_status = wait_thr.value
-        puts "[ClaudeCode] Process exit status: #{exit_status.exitstatus}"
+        Logger.debug "[ClaudeCode] Process exit status: #{exit_status.exitstatus}"
 
         if exit_status.exitstatus != 0
-          puts '[ClaudeCode] WARNING: Claude exited with non-zero status!'
-          puts "[ClaudeCode] stderr: #{stderr_content}" unless stderr_content.empty?
+          Logger.debug '[ClaudeCode] WARNING: Claude exited with non-zero status!'
+          Logger.debug "[ClaudeCode] stderr: #{stderr_content}" unless stderr_content.empty?
         end
       end
 
@@ -200,45 +200,45 @@ module WvRunner
     end
 
     def parse_result(stdout, elapsed_hours)
-      puts '[ClaudeCode] [parse_result] Starting to parse Claude output...'
-      puts "[ClaudeCode] [parse_result] Total output length: #{stdout.length} chars"
+      Logger.debug '[ClaudeCode] [parse_result] Starting to parse Claude output...'
+      Logger.debug "[ClaudeCode] [parse_result] Total output length: #{stdout.length} chars"
 
       marker = 'WVRUNNER_RESULT: '
-      puts "[ClaudeCode] [parse_result] Searching for marker: '#{marker}'"
+      Logger.debug "[ClaudeCode] [parse_result] Searching for marker: '#{marker}'"
 
       index = stdout.index(marker)
       unless index
-        puts '[ClaudeCode] [parse_result] ERROR: Marker not found in output!'
-        puts "[ClaudeCode] [parse_result] Last 500 chars of output: #{stdout.last(500)}"
+        Logger.debug '[ClaudeCode] [parse_result] ERROR: Marker not found in output!'
+        Logger.debug "[ClaudeCode] [parse_result] Last 500 chars of output: #{stdout.last(500)}"
         return error_result('No WVRUNNER_RESULT found in output')
       end
 
-      puts "[ClaudeCode] [parse_result] Marker found at index #{index}"
+      Logger.debug "[ClaudeCode] [parse_result] Marker found at index #{index}"
 
       # Extract everything after the marker
       after_marker = stdout[(index + marker.length)..]
-      puts "[ClaudeCode] [parse_result] Content after marker (first 300 chars): #{after_marker[0...300]}"
+      Logger.debug "[ClaudeCode] [parse_result] Content after marker (first 300 chars): #{after_marker[0...300]}"
 
       # Find the first opening brace
       brace_index = after_marker.index('{')
       unless brace_index
-        puts '[ClaudeCode] [parse_result] ERROR: No opening brace found after marker!'
+        Logger.debug '[ClaudeCode] [parse_result] ERROR: No opening brace found after marker!'
         return error_result('Could not find JSON object after WVRUNNER_RESULT marker')
       end
 
-      puts "[ClaudeCode] [parse_result] Opening brace found at index #{brace_index}"
+      Logger.debug "[ClaudeCode] [parse_result] Opening brace found at index #{brace_index}"
 
       json_str = after_marker[brace_index..]
-      puts "[ClaudeCode] [parse_result] Extracted JSON string (first 200 chars): #{json_str[0...200]}"
+      Logger.debug "[ClaudeCode] [parse_result] Extracted JSON string (first 200 chars): #{json_str[0...200]}"
 
       json_end = find_json_end(json_str)
       unless json_end
-        puts '[ClaudeCode] [parse_result] ERROR: Could not find JSON object boundaries!'
-        puts "[ClaudeCode] [parse_result] JSON string: #{json_str[0...300]}"
+        Logger.debug '[ClaudeCode] [parse_result] ERROR: Could not find JSON object boundaries!'
+        Logger.debug "[ClaudeCode] [parse_result] JSON string: #{json_str[0...300]}"
         return error_result('Could not find complete JSON object')
       end
 
-      puts "[ClaudeCode] [parse_result] JSON object ends at position #{json_end}"
+      Logger.debug "[ClaudeCode] [parse_result] JSON object ends at position #{json_end}"
 
       json_content = json_str[0...json_end].strip
       # Claude outputs JSON with escaped quotes in two levels:
@@ -247,36 +247,36 @@ module WvRunner
       # Must unescape in correct order: first level 1, then level 2
       json_content = json_content.gsub('\"', '"') # Unescape \" -> "
       json_content = json_content.gsub('\\\"', '\"') # Then unescape \\\" -> \"
-      puts "[ClaudeCode] [parse_result] Final JSON content to parse: #{json_content}"
+      Logger.debug "[ClaudeCode] [parse_result] Final JSON content to parse: #{json_content}"
 
       begin
         result = JSON.parse(json_content).tap { |obj| obj['hours']['task_worked'] = elapsed_hours }
-        puts "[ClaudeCode] [parse_result] Successfully parsed result: #{result.inspect}"
+        Logger.debug "[ClaudeCode] [parse_result] Successfully parsed result: #{result.inspect}"
 
         # DEBUG: Show extracted values
         if result['task_info']
-          puts '[ClaudeCode] [parse_result] DEBUG: Extracted task_info:'
-          puts "[ClaudeCode] [parse_result]   - name: #{result['task_info']['name']}"
-          puts "[ClaudeCode] [parse_result]   - id: #{result['task_info']['id']}"
-          puts "[ClaudeCode] [parse_result]   - status: #{result['task_info']['status']}"
+          Logger.debug '[ClaudeCode] [parse_result] DEBUG: Extracted task_info:'
+          Logger.debug "[ClaudeCode] [parse_result]   - name: #{result['task_info']['name']}"
+          Logger.debug "[ClaudeCode] [parse_result]   - id: #{result['task_info']['id']}"
+          Logger.debug "[ClaudeCode] [parse_result]   - status: #{result['task_info']['status']}"
         end
         if result['hours']
-          puts '[ClaudeCode] [parse_result] DEBUG: Extracted hours:'
-          puts "[ClaudeCode] [parse_result]   - per_day: #{result['hours']['per_day']}"
-          puts "[ClaudeCode] [parse_result]   - task_estimated: #{result['hours']['task_estimated']}"
-          puts "[ClaudeCode] [parse_result]   - task_worked: #{result['hours']['task_worked']}"
+          Logger.debug '[ClaudeCode] [parse_result] DEBUG: Extracted hours:'
+          Logger.debug "[ClaudeCode] [parse_result]   - per_day: #{result['hours']['per_day']}"
+          Logger.debug "[ClaudeCode] [parse_result]   - task_estimated: #{result['hours']['task_estimated']}"
+          Logger.debug "[ClaudeCode] [parse_result]   - task_worked: #{result['hours']['task_worked']}"
         end
 
         result
       rescue JSON::ParserError => e
-        puts "[ClaudeCode] [parse_result] ERROR: JSON parsing failed: #{e.message}"
-        puts "[ClaudeCode] [parse_result] Attempted to parse: #{json_content.inspect}"
+        Logger.debug "[ClaudeCode] [parse_result] ERROR: JSON parsing failed: #{e.message}"
+        Logger.debug "[ClaudeCode] [parse_result] Attempted to parse: #{json_content.inspect}"
         error_result("Failed to parse JSON: #{e.message}")
       end
     end
 
     def find_json_end(json_str)
-      puts "[ClaudeCode] [find_json_end] Searching for JSON object end, string length: #{json_str.length}"
+      Logger.debug "[ClaudeCode] [find_json_end] Searching for JSON object end, string length: #{json_str.length}"
       brace_count = 0
       i = 0
 
@@ -306,43 +306,43 @@ module WvRunner
 
         if char == '{'
           brace_count += 1
-          puts "[ClaudeCode] [find_json_end] Found '{' at index #{i}, brace_count: #{brace_count}"
+          Logger.debug "[ClaudeCode] [find_json_end] Found '{' at index #{i}, brace_count: #{brace_count}"
         elsif char == '}'
           brace_count -= 1
-          puts "[ClaudeCode] [find_json_end] Found '}' at index #{i}, brace_count: #{brace_count}"
+          Logger.debug "[ClaudeCode] [find_json_end] Found '}' at index #{i}, brace_count: #{brace_count}"
           if brace_count.zero?
-            puts "[ClaudeCode] [find_json_end] JSON object complete at index #{i + 1}"
+            Logger.debug "[ClaudeCode] [find_json_end] JSON object complete at index #{i + 1}"
             return i + 1
           end
         end
 
         i += 1
       end
-      puts "[ClaudeCode] [find_json_end] ERROR: JSON object not properly closed, final brace_count: #{brace_count}"
+      Logger.debug "[ClaudeCode] [find_json_end] ERROR: JSON object not properly closed, final brace_count: #{brace_count}"
       nil
     end
 
     def error_result(message)
-      puts "[ClaudeCode] [error_result] Creating error result: #{message}"
+      Logger.debug "[ClaudeCode] [error_result] Creating error result: #{message}"
       { 'status' => 'error', 'message' => message }
     end
 
     def find_claude_executable
-      puts '[ClaudeCode] [find_claude_executable] Searching for Claude executable...'
+      Logger.debug '[ClaudeCode] [find_claude_executable] Searching for Claude executable...'
       paths = %w[~/.claude/local/claude /usr/local/bin/claude /opt/homebrew/bin/claude]
 
       paths.each do |path|
         expanded_path = File.expand_path(path)
-        puts "[ClaudeCode] [find_claude_executable] Checking: #{expanded_path}"
+        Logger.debug "[ClaudeCode] [find_claude_executable] Checking: #{expanded_path}"
         if File.executable?(expanded_path)
-          puts "[ClaudeCode] [find_claude_executable] Found executable Claude at: #{expanded_path}"
+          Logger.debug "[ClaudeCode] [find_claude_executable] Found executable Claude at: #{expanded_path}"
           return expanded_path
         else
-          puts "[ClaudeCode] [find_claude_executable] Not found or not executable: #{expanded_path}"
+          Logger.debug "[ClaudeCode] [find_claude_executable] Not found or not executable: #{expanded_path}"
         end
       end
 
-      puts '[ClaudeCode] [find_claude_executable] ERROR: Claude executable not found in any of the standard locations'
+      Logger.debug '[ClaudeCode] [find_claude_executable] ERROR: Claude executable not found in any of the standard locations'
       nil
     end
   end

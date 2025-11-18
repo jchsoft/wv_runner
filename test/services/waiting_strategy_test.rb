@@ -5,7 +5,7 @@ class WaitingStrategyTest < Minitest::Test
     strategy = WvRunner::WaitingStrategy.new
     slept = false
     strategy.stub :sleep, ->(seconds) { slept = seconds == 3600 } do
-      assert_output(/No tasks available/) { strategy.wait_one_hour }
+      assert_output(/Waiting 1 hour before retry/) { strategy.wait_one_hour }
     end
     assert slept
   end

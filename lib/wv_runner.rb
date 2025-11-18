@@ -1,5 +1,6 @@
 require "wv_runner/version"
 require "wv_runner/version_manager"
+require "wv_runner/logger"
 require "wv_runner/services/work_loop"
 require "wv_runner/services/claude_code"
 require "wv_runner/services/decider"
