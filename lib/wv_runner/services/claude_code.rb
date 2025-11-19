@@ -332,7 +332,7 @@ module WvRunner
 
     def find_claude_executable
       Logger.debug '[ClaudeCode] [find_claude_executable] Searching for Claude executable...'
-      paths = %w[~/.claude/local/claude /usr/local/bin/claude /opt/homebrew/bin/claude]
+      paths = %w[~/.claude/local/claude ~/.local/bin/claude /usr/local/bin/claude /opt/homebrew/bin/claude]
 
       paths.each do |path|
         expanded_path = File.expand_path(path)
@@ -345,7 +345,25 @@ module WvRunner
         end
       end
 
-      Logger.debug '[ClaudeCode] [find_claude_executable] ERROR: Claude executable not found in any of the standard locations'
+      # Fallback: try 'which claude' command
+      Logger.debug '[ClaudeCode] [find_claude_executable] Trying which claude fallback...'
+      which_path = find_claude_via_which
+      if which_path
+        Logger.debug "[ClaudeCode] [find_claude_executable] Found executable Claude via 'which': #{which_path}"
+        return which_path
+      end
+
+      Logger.debug '[ClaudeCode] [find_claude_executable] ERROR: Claude executable not found in any of the standard locations or via which'
+      nil
+    end
+
+    def find_claude_via_which
+      output = IO.popen(['which', 'claude'], &:read).strip
+      return output if output && !output.empty? && File.executable?(output)
+
+      nil
+    rescue StandardError => e
+      Logger.debug "[ClaudeCode] [find_claude_via_which] Error running 'which claude': #{e.message}"
       nil
     end
   end
