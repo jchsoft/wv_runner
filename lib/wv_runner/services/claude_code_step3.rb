@@ -4,6 +4,10 @@ require_relative 'claude_code_base'
 
 module WvRunner
   class ClaudeCodeStep3 < ClaudeCodeBase
+    def model_name
+      'haiku'
+    end
+
     private
 
     def build_instructions(input_state = nil)

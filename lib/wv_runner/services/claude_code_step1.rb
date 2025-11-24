@@ -4,6 +4,10 @@ require_relative 'claude_code_base'
 
 module WvRunner
   class ClaudeCodeStep1 < ClaudeCodeBase
+    def model_name
+      'sonnet'
+    end
+
     private
 
     def build_instructions(_input_state = nil)

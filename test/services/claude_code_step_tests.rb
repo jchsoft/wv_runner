@@ -23,6 +23,11 @@ class ClaudeCodeStep1Test < Minitest::Test
     step1 = WvRunner::ClaudeCodeStep1.new
     assert_kind_of WvRunner::ClaudeCodeBase, step1
   end
+
+  def test_step1_uses_sonnet_model
+    step1 = WvRunner::ClaudeCodeStep1.new
+    assert_equal 'sonnet', step1.model_name
+  end
 end
 
 class ClaudeCodeStep2Test < Minitest::Test
@@ -66,6 +71,11 @@ class ClaudeCodeStep2Test < Minitest::Test
     step2 = WvRunner::ClaudeCodeStep2.new
     assert_kind_of WvRunner::ClaudeCodeBase, step2
   end
+
+  def test_step2_uses_haiku_model
+    step2 = WvRunner::ClaudeCodeStep2.new
+    assert_equal 'haiku', step2.model_name
+  end
 end
 
 class ClaudeCodeStep3Test < Minitest::Test
@@ -98,5 +108,10 @@ class ClaudeCodeStep3Test < Minitest::Test
   def test_step3_inherits_from_claude_code_base
     step3 = WvRunner::ClaudeCodeStep3.new
     assert_kind_of WvRunner::ClaudeCodeBase, step3
+  end
+
+  def test_step3_uses_haiku_model
+    step3 = WvRunner::ClaudeCodeStep3.new
+    assert_equal 'haiku', step3.model_name
   end
 end

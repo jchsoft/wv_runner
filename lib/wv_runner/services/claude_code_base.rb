@@ -11,6 +11,7 @@ module WvRunner
   # Handles common execution, streaming, and JSON parsing logic
   # Subclasses must implement:
   # - build_instructions(input_state) → returns instruction string
+  # - model_name() → returns the model to use (e.g., 'sonnet', 'haiku')
   class ClaudeCodeBase
     CLAUDE_EXECUTION_TIMEOUT = 3600 # 1 hour in seconds
     def initialize(verbose: false)
@@ -32,7 +33,9 @@ module WvRunner
       Logger.debug "[#{self.class.name}] Building instructions..."
 
       instructions = build_instructions(input_state)
-      command = [claude_path, '-p', instructions, '--output-format=stream-json', '--verbose',
+      model = model_name
+      Logger.debug "[#{self.class.name}] Using model: #{model}"
+      command = [claude_path, '-m', model, '-p', instructions, '--output-format=stream-json', '--verbose',
                  '--permission-mode=acceptEdits']
       Logger.debug "command: #{command.map { |arg| Shellwords.escape(arg) }.join(' ')}"
       Logger.debug "[#{self.class.name}] Executing Claude with instructions (length: #{instructions.length} chars)"
@@ -102,6 +105,10 @@ module WvRunner
 
     def build_instructions(_input_state)
       raise NotImplementedError, "#{self.class} must implement build_instructions(input_state)"
+    end
+
+    def model_name
+      raise NotImplementedError, "#{self.class} must implement model_name"
     end
 
     def parse_output(stdout, elapsed_hours)
