@@ -20,20 +20,48 @@ module WvRunner
         INPUT STATE FROM PREVIOUS STEP:
         {{WORKFLOW_STATE}}
 
+        CRITICAL REQUIREMENTS FOR THIS STEP:
+        - Tests MUST pass before proceeding
+        - If tests fail, you MUST request another iteration
+        - Tests related to the task are MANDATORY to pass
+        - Ideally ALL tests should pass
+
         WORKFLOW:
         1. GIT: Verify you're on the correct branch from Step 1
         2. REVIEW THE CODE from files created in Step 1
         3. REFACTOR CODE according to Ruby/Rails best practices
-        4. FIX ALL TESTS - run repeatedly until ALL PASS
-        5. COMMIT your changes with message: "Step 2: Refactor code and fix tests"
-        6. LOG WORK to the task with 50% progress
-        7. DECIDE NEXT STEP - if more work needed: next_step "refactor_and_tests", else "push_and_pr"
+        4. RUN ALL TESTS - This is CRITICAL:
+           - First run: ruby test_runner.rb (or appropriate test command)
+           - If tests fail, FIX them and run again
+           - Keep fixing and running until tests pass
+           - Focus especially on tests related to the current task
+        5. VERIFY TEST RESULTS:
+           - Check if ALL tests pass (preferred)
+           - At minimum, tests related to the task MUST pass
+           - If tests still fail after fixes, set tests_passing: false
+        6. COMMIT your changes with message: "Step 2: Refactor code and fix tests"
+        7. LOG WORK to the task with 50% progress
+        8. DECIDE NEXT STEP based on test results:
+           - If tests ARE passing: next_step "push_and_pr"
+           - If tests NOT passing: next_step "refactor_and_tests" (to retry)
 
-        At the END, output JSON in this exact format:
+        At the END, output JSON based on test results:
 
+        If tests PASSED:
         ```json
         WORKFLOW_STATE: {"step": 2, "task_id": <TASK_ID>, "branch_name": "<BRANCH_NAME>", "status": "success", "tests_passing": true, "next_step": "push_and_pr"}
         ```
+
+        If tests FAILED and need retry:
+        ```json
+        WORKFLOW_STATE: {"step": 2, "task_id": <TASK_ID>, "branch_name": "<BRANCH_NAME>", "status": "success", "tests_passing": false, "next_step": "refactor_and_tests", "retry_reason": "Tests still failing: <brief description>"}
+        ```
+
+        IMPORTANT:
+        - The runner will retry Step 2 if next_step is "refactor_and_tests"
+        - Maximum 3 iterations allowed
+        - Be honest about test results - set tests_passing: false if tests fail
+        - Include retry_reason to explain what's still failing
 
         CRITICAL: The JSON MUST be inside triple backticks on a separate line with NO other text after.
       INSTRUCTIONS

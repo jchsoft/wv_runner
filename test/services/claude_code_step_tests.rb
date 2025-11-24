@@ -76,6 +76,43 @@ class ClaudeCodeStep2Test < Minitest::Test
     step2 = WvRunner::ClaudeCodeStep2.new
     assert_equal 'haiku', step2.model_name
   end
+
+  def test_step2_instructions_include_test_requirements
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=7' do
+        step2 = WvRunner::ClaudeCodeStep2.new
+        instructions = step2.send(:build_instructions, nil)
+        assert_includes instructions, 'CRITICAL REQUIREMENTS'
+        assert_includes instructions, 'Tests MUST pass before proceeding'
+        assert_includes instructions, 'If tests fail, you MUST request another iteration'
+      end
+    end
+  end
+
+  def test_step2_instructions_include_test_running_steps
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=7' do
+        step2 = WvRunner::ClaudeCodeStep2.new
+        instructions = step2.send(:build_instructions, nil)
+        assert_includes instructions, 'RUN ALL TESTS'
+        assert_includes instructions, 'ruby test_runner.rb'
+        assert_includes instructions, 'Keep fixing and running until tests pass'
+      end
+    end
+  end
+
+  def test_step2_instructions_include_retry_logic
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=7' do
+        step2 = WvRunner::ClaudeCodeStep2.new
+        instructions = step2.send(:build_instructions, nil)
+        assert_includes instructions, 'tests_passing: false'
+        assert_includes instructions, 'next_step "refactor_and_tests"'
+        assert_includes instructions, 'retry_reason'
+        assert_includes instructions, 'Maximum 3 iterations allowed'
+      end
+    end
+  end
 end
 
 class ClaudeCodeStep3Test < Minitest::Test
