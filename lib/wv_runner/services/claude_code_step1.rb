@@ -17,7 +17,7 @@ module WvRunner
         Work on next task from: workvector://pieces/jchsoft/@next?project_relative_id=#{project_id}
 
         STEP 1: TASK IMPLEMENTATION AND TESTS
-        This is the FIRST step in a multi-step workflow.
+        This is the FIRST step in a multi-step workflow. Overthink!
 
         WORKFLOW:
         1. GIT: Make sure you are on the main branch
