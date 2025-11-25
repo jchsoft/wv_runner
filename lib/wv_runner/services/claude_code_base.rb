@@ -35,8 +35,7 @@ module WvRunner
       instructions = build_instructions(input_state)
       model = model_name
       Logger.debug "[#{self.class.name}] Using model: #{model}"
-      command = [claude_path, '-m', model, '-p', instructions, '--output-format=stream-json', '--verbose',
-                 '--permission-mode=acceptEdits']
+      command = [claude_path, '-p', instructions, '--model', model, '--output-format=stream-json', '--verbose', '--permission-mode=acceptEdits']
       Logger.debug "command: #{command.map { |arg| Shellwords.escape(arg) }.join(' ')}"
       Logger.debug "[#{self.class.name}] Executing Claude with instructions (length: #{instructions.length} chars)"
       Logger.info_stdout "[#{self.class.name}] Starting real-time stream of Claude output:"

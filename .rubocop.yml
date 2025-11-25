@@ -1,0 +1,83 @@
+# Omakase Ruby styling for Rails
+inherit_gem: { rubocop-rails-omakase: rubocop.yml }
+
+# Exclude bin/ files from RuboCop checks (Rails generated files)
+AllCops:
+  Exclude:
+    - 'bin/**/*'
+
+# Overwrite or add rules to create your own house style
+#
+# Prefer single-quoted strings unless interpolation is needed
+Style/StringLiterals:
+  Enabled: false
+
+# Use compact array syntax without spaces
+Layout/SpaceInsideArrayLiteralBrackets:
+  Enabled: false
+
+# Disable trailing whitespace check - editors should handle this
+Layout/TrailingWhitespace:
+  Enabled: false
+
+Layout/LineLength:
+  Max: 200
+
+Metrics/MethodLength:
+  CountComments: false  # count full line comments?
+  Max: 14
+
+Metrics/ClassLength:
+  CountComments: false  # count full line comments?
+  Max: 110
+
+Metrics/AbcSize:
+  Max: 20
+
+Style/AndOr:
+  Enabled: false
+
+Naming/PredicatePrefix:
+  Enabled: false
+  ForbiddenPrefixes:
+    - has_
+    - have_
+
+Style/ClassAndModuleChildren:
+  EnforcedStyle: nested
+  SupportedStyles:
+    - nested
+    - compact
+  Enabled: false
+
+# Prefer `has_?` style for Hash methods
+Style/PreferredHashMethods:
+  EnforcedStyle: verbose
+
+Lint/MissingSuper:
+  Exclude:
+    - 'app/services/**/*'
+
+Rails/RefuteMethods:
+  EnforcedStyle: refute
+
+Style/HashSyntax:
+  Enabled: true
+  EnforcedShorthandSyntax: either
+
+Style/SymbolArray:
+  EnforcedStyle: brackets
+
+# Keep current case indentation style
+Layout/CaseIndentation:
+  Enabled: false
+
+# Keep current hash and array style  
+Layout/SpaceInsideHashLiteralBraces:
+  Enabled: false
+
+Style/TrailingCommaInArrayLiteral:
+  Enabled: false
+  
+Style/TrailingCommaInHashLiteral:
+  Enabled: false
