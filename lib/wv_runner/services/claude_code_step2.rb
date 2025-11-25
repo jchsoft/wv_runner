@@ -29,7 +29,7 @@ module WvRunner
         WORKFLOW:
         1. GIT: Verify you're on the correct branch from Step 1
         2. REVIEW THE CODE from files created in Step 1
-        3. REFACTOR CODE according to Ruby/Rails best practices
+        3. REFACTOR CODE according to Ruby/Rails best practices (check CLAUDE.md for guidelines)
         4. RUN ALL TESTS - This is CRITICAL:
            - First run: ruby test_runner.rb (or appropriate test command)
            - If tests fail, FIX them and run again
@@ -40,7 +40,7 @@ module WvRunner
            - At minimum, tests related to the task MUST pass
            - If tests still fail after fixes, set tests_passing: false
         6. COMMIT your changes with message: "Step 2: Refactor code and fix tests"
-        7. LOG WORK to the task with 50% progress
+        7. LOG WORK to the task starting with 50% progress
         8. DECIDE NEXT STEP based on test results:
            - If tests ARE passing: next_step "push_and_pr"
            - If tests NOT passing: next_step "refactor_and_tests" (to retry)
