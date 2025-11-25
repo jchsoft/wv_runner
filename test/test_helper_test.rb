@@ -18,6 +18,8 @@ class TestHelperTest < Minitest::Test
 
   def test_all_services_are_available
     assert defined?(WvRunner::ClaudeCode)
+    assert defined?(WvRunner::ClaudeCode::Honest)
+    assert defined?(WvRunner::ClaudeCode::Dry)
     assert defined?(WvRunner::WorkLoop)
     assert defined?(WvRunner::Decider)
   end
@@ -27,7 +29,8 @@ class TestHelperTest < Minitest::Test
   end
 
   def test_can_create_service_instances
-    assert WvRunner::ClaudeCode.new.is_a?(WvRunner::ClaudeCode)
+    assert WvRunner::ClaudeCode::Honest.new.is_a?(WvRunner::ClaudeCodeBase)
+    assert WvRunner::ClaudeCode::Dry.new.is_a?(WvRunner::ClaudeCodeBase)
     assert WvRunner::WorkLoop.new.is_a?(WvRunner::WorkLoop)
     assert WvRunner::Decider.new.is_a?(WvRunner::Decider)
   end

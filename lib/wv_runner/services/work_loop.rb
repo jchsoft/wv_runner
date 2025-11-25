@@ -5,7 +5,6 @@ module WvRunner
   # and handles task scheduling with quota management and waiting strategies
   class WorkLoop
     VALID_HOW_VALUES = %i[once today daily once_dry].freeze
-    MAX_STEP2_ITERATIONS = 3
 
     def initialize(verbose: false)
       @verbose = verbose
@@ -25,73 +24,16 @@ module WvRunner
     private
 
     def run_once
-      Logger.debug('[WorkLoop] [run_once] Starting multi-step workflow...')
-      step1_result = execute_step1
-      return step1_result if step1_result['status'] == 'error'
-
-      # Validate Step 1 result
-      validation_error = validate_step_result(step1_result, %w[status task_id branch_name])
-      return validation_error if validation_error
-
-      # Step 2: Refactor and tests (can loop if Claude requests another iteration)
-      current_state = step1_result
-      step2_iteration = 0
-
-      loop do
-        step2_iteration += 1
-        Logger.debug("[WorkLoop] [run_once] Step 2 iteration #{step2_iteration}/#{MAX_STEP2_ITERATIONS}")
-
-        if step2_iteration > MAX_STEP2_ITERATIONS
-          Logger.error("[WorkLoop] Maximum Step 2 iterations (#{MAX_STEP2_ITERATIONS}) reached")
-          return { 'status' => 'error', 'message' => "Too many Step 2 iterations (max: #{MAX_STEP2_ITERATIONS})" }
-        end
-
-        step2_result = execute_step2(current_state)
-        return step2_result if step2_result['status'] == 'error'
-
-        # Validate Step 2 result
-        validation_error = validate_step_result(step2_result, %w[status task_id branch_name])
-        return validation_error if validation_error
-
-        current_state = step2_result
-
-        # Check if we should do another iteration of Step 2
-        next_step = step2_result.dig('next_step')
-        if next_step == 'refactor_and_tests'
-          Logger.info_stdout('[WorkLoop] Claude requested another refactor iteration...')
-          sleep(2)
-          next
-        else
-          Logger.debug("[WorkLoop] Moving to Step 3 (next_step: #{next_step})")
-          break
-        end
-      end
-
-      # Step 3: Push and create PR
-      step3_result = execute_step3(current_state)
-      Logger.info_stdout("[WorkLoop] Multi-step workflow completed with status: #{step3_result['status']}")
-      Logger.debug("[WorkLoop] [run_once] Full result: #{step3_result.inspect}")
-      step3_result
-    end
-
-    def execute_step1
-      Logger.debug('[WorkLoop] [execute_step1] Running Step 1: Task and Prototype...')
-      ClaudeCodeStep1.new(verbose: @verbose).run
-    end
-
-    def execute_step2(state)
-      Logger.debug("[WorkLoop] [execute_step2] Running Step 2: Refactor and Tests with state: #{state.inspect}")
-      ClaudeCodeStep2.new(verbose: @verbose).run(state)
-    end
-
-    def execute_step3(state)
-      Logger.debug("[WorkLoop] [execute_step3] Running Step 3: Push and PR with state: #{state.inspect}")
-      ClaudeCodeStep3.new(verbose: @verbose).run(state)
+      Logger.debug('[WorkLoop] [run_once] Starting single task execution...')
+      result = ClaudeCode::Honest.new(verbose: @verbose).run
+      Logger.info_stdout("[WorkLoop] Task completed with status: #{result['status']}")
+      Logger.debug("[WorkLoop] [run_once] Full result: #{result.inspect}")
+      result
     end
 
     def run_once_dry
       Logger.debug('[WorkLoop] [run_once_dry] Starting dry-run task load (no execution)...')
-      result = ClaudeCode.new(verbose: @verbose).run_dry
+      result = ClaudeCode::Dry.new(verbose: @verbose).run
       Logger.info_stdout("[WorkLoop] Dry-run completed with status: #{result['status']}")
       Logger.debug("[WorkLoop] [run_once_dry] Full result: #{result.inspect}")
       result
@@ -125,8 +67,8 @@ module WvRunner
     end
 
     def run_task_iteration(results)
-      Logger.debug('[WorkLoop] [run_task_iteration] Running ClaudeCode for next task...')
-      result = ClaudeCode.new(verbose: @verbose).run
+      Logger.debug('[WorkLoop] [run_task_iteration] Running ClaudeCode::Honest for next task...')
+      result = ClaudeCode::Honest.new(verbose: @verbose).run
       results << result
       Logger.debug("[WorkLoop] [run_task_iteration] Task completed with status: #{result['status']}")
       Logger.debug("[WorkLoop] [run_task_iteration] Task result: #{result.inspect}")
@@ -236,23 +178,6 @@ module WvRunner
       is_end = hour >= 23
       Logger.debug("[WorkLoop] [end_of_day?] Current hour: #{hour}, is_end_of_day: #{is_end}")
       is_end
-    end
-
-    def validate_step_result(result, required_keys)
-      Logger.debug("[WorkLoop] [validate_step_result] Validating result with required keys: #{required_keys.inspect}")
-      Logger.debug("[WorkLoop] [validate_step_result] Result keys: #{result.keys.inspect}")
-
-      missing_keys = required_keys.reject { |key| result.key?(key) }
-
-      if missing_keys.any?
-        error_msg = "Invalid step result: missing required keys: #{missing_keys.join(', ')}"
-        Logger.error("[WorkLoop] [validate_step_result] #{error_msg}")
-        Logger.error("[WorkLoop] [validate_step_result] Received result: #{result.inspect}")
-        return { 'status' => 'error', 'message' => error_msg }
-      end
-
-      Logger.debug('[WorkLoop] [validate_step_result] Validation passed')
-      nil
     end
 
     def validate_how(how)

@@ -5,7 +5,12 @@ require 'test_helper'
 class ClaudeCodeBaseTest < Minitest::Test
   def test_claude_code_base_cannot_be_instantiated_with_abstract_methods
     base = WvRunner::ClaudeCodeBase.new
-    assert_raises(NotImplementedError) { base.send(:build_instructions, nil) }
+    assert_raises(NotImplementedError) { base.send(:build_instructions) }
+  end
+
+  def test_model_name_is_abstract
+    base = WvRunner::ClaudeCodeBase.new
+    assert_raises(NotImplementedError) { base.send(:model_name) }
   end
 
   def test_find_json_end_with_simple_json
@@ -61,41 +66,56 @@ class ClaudeCodeBaseTest < Minitest::Test
     assert_equal 'Test error message', result['message']
   end
 
-  def test_inject_state_into_instructions_with_no_state
-    base = WvRunner::ClaudeCodeBase.new
-    template = 'Original instructions with {{WORKFLOW_STATE}}'
-    result = base.send(:inject_state_into_instructions, template, nil)
-    assert_equal template, result
-  end
-
-  def test_inject_state_into_instructions_with_state
-    base = WvRunner::ClaudeCodeBase.new
-    template = 'Instructions with state: {{WORKFLOW_STATE}}'
-    state = { task_id: 123, name: 'Test Task' }
-    result = base.send(:inject_state_into_instructions, template, state)
-    assert_includes result, '"task_id":123'
-    assert_includes result, '"name":"Test Task"'
-    refute_includes result, '{{WORKFLOW_STATE}}'
-  end
-
-  def test_validate_state_with_all_required_keys
-    base = WvRunner::ClaudeCodeBase.new
-    state = { 'status' => 'success', 'task_id' => 123, 'branch_name' => 'test' }
-    result = base.send(:validate_state, state, %w[status task_id branch_name])
-    assert_nil result
-  end
-
-  def test_validate_state_with_missing_keys
-    base = WvRunner::ClaudeCodeBase.new
-    state = { 'status' => 'success' }
-    result = base.send(:validate_state, state, %w[status task_id branch_name])
-    assert_equal 'error', result['status']
-    assert_includes result['message'], 'missing required keys'
-    assert_includes result['message'], 'task_id'
-    assert_includes result['message'], 'branch_name'
-  end
-
   def test_timeout_constant_is_defined
     assert_equal 3600, WvRunner::ClaudeCodeBase::CLAUDE_EXECUTION_TIMEOUT
+  end
+
+  def test_parse_result_returns_parsed_json_with_task_worked
+    mock_output = 'WVRUNNER_RESULT: {"status": "success", "hours": {"per_day": 8, "task_estimated": 2}}'
+    base = WvRunner::ClaudeCodeBase.new
+    result = base.send(:parse_result, mock_output, 1.5)
+
+    assert_equal 'success', result['status']
+    assert_equal 8, result['hours']['per_day']
+    assert_equal 2, result['hours']['task_estimated']
+    assert_equal 1.5, result['hours']['task_worked']
+  end
+
+  def test_parse_result_handles_error_when_result_not_found
+    mock_output = 'Some output without JSON'
+    base = WvRunner::ClaudeCodeBase.new
+    result = base.send(:parse_result, mock_output, 0.5)
+
+    assert_equal 'error', result['status']
+    assert_equal 'No WVRUNNER_RESULT found in output', result['message']
+  end
+
+  def test_parse_result_handles_invalid_json
+    mock_output = 'WVRUNNER_RESULT: {invalid json}'
+    base = WvRunner::ClaudeCodeBase.new
+    result = base.send(:parse_result, mock_output, 0.5)
+
+    assert_equal 'error', result['status']
+    assert_match(/Failed to parse JSON/, result['message'])
+  end
+
+  def test_parse_result_handles_json_with_escaped_quotes_from_real_claude_output
+    # Real-world case: Claude outputs JSON with escaped quotes in markdown code block
+    mock_output = "Perfect! I've loaded the task information. Let me parse and display the details:\n\n## Task Information\n\n**Task Name:** (ActionDispatch::MissingController) \"uninitialized constant Api::OfficesController\"\n\n```json\nWVRUNNER_RESULT: {\\\"status\\\": \\\"success\\\", \\\"task_info\\\": {\\\"name\\\": \\\"(ActionDispatch::MissingController) \\\\\\\"uninitialized constant Api::OfficesController\\\\\\\"\\\", \\\"id\\\": 9005, \\\"description\\\": \\\"Test description\\\", \\\"status\\\": \\\"Nove\\\", \\\"priority\\\": \\\"Urgentni\\\", \\\"assigned_user\\\": \\\"Karel Mracek\\\", \\\"scrum_points\\\": \\\"Mirne obtizne\\\"}, \\\"hours\\\": {\\\"per_day\\\": 8, \\\"task_estimated\\\": 1.0}}\n```"
+
+    base = WvRunner::ClaudeCodeBase.new
+    result = base.send(:parse_result, mock_output, 0.25)
+
+    assert_equal 'success', result['status'], 'Should parse JSON with escaped quotes successfully'
+    assert_equal 9005, result['task_info']['id']
+    assert_equal 'Karel Mracek', result['task_info']['assigned_user']
+    assert_equal 8, result['hours']['per_day']
+    assert_equal 1.0, result['hours']['task_estimated']
+    assert_equal 0.25, result['hours']['task_worked']
+  end
+
+  def test_accept_edits_defaults_to_true
+    base = WvRunner::ClaudeCodeBase.new
+    assert base.send(:accept_edits?)
   end
 end

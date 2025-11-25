@@ -7,36 +7,28 @@ require 'timeout'
 require_relative 'output_formatter'
 
 module WvRunner
-  # Base class for all Claude Code workflow step executors
+  # Base class for Claude Code executors
   # Handles common execution, streaming, and JSON parsing logic
   # Subclasses must implement:
-  # - build_instructions(input_state) → returns instruction string
-  # - model_name() → returns the model to use (e.g., 'sonnet', 'haiku')
+  # - build_instructions() -> returns instruction string
+  # - model_name() -> returns the model to use (e.g., 'sonnet', 'haiku', 'opus')
   class ClaudeCodeBase
     CLAUDE_EXECUTION_TIMEOUT = 3600 # 1 hour in seconds
+
     def initialize(verbose: false)
       @verbose = verbose
       OutputFormatter.verbose_mode = verbose
     end
 
-    # Public interface for running a workflow step with optional input state
-    def run(input_state = nil)
+    def run
       Logger.info_stdout "[#{self.class.name}] Starting execution..."
       Logger.info_stdout "[#{self.class.name}] Output mode: #{@verbose ? 'VERBOSE' : 'NORMAL'}"
       start_time = Time.now
 
-      Logger.debug "[#{self.class.name}] Resolving Claude executable path..."
-      claude_path = ENV['CLAUDE_PATH'] || find_claude_executable
-      raise 'Claude executable not found. Set CLAUDE_PATH environment variable.' unless claude_path
+      claude_path = resolve_claude_path
+      instructions = build_instructions
+      command = build_command(claude_path, instructions)
 
-      Logger.info_stdout "[#{self.class.name}] Found Claude at: #{claude_path}"
-      Logger.debug "[#{self.class.name}] Building instructions..."
-
-      instructions = build_instructions(input_state)
-      model = model_name
-      Logger.debug "[#{self.class.name}] Using model: #{model}"
-      command = [claude_path, '-p', instructions, '--model', model, '--output-format=stream-json', '--verbose', '--permission-mode=acceptEdits']
-      Logger.debug "command: #{command.map { |arg| Shellwords.escape(arg) }.join(' ')}"
       Logger.debug "[#{self.class.name}] Executing Claude with instructions (length: #{instructions.length} chars)"
       Logger.info_stdout "[#{self.class.name}] Starting real-time stream of Claude output:"
       Logger.info_stdout '-' * 80
@@ -49,13 +41,33 @@ module WvRunner
       elapsed_hours = ((Time.now - start_time) / 3600.0).round(2)
       Logger.info_stdout "[#{self.class.name}] Elapsed time: #{elapsed_hours} hours"
 
-      parse_output(stdout_content, elapsed_hours)
+      parse_result(stdout_content, elapsed_hours)
     rescue Timeout::Error
       elapsed_hours = ((Time.now - start_time) / 3600.0).round(2)
       error_result("Claude execution timed out after #{CLAUDE_EXECUTION_TIMEOUT} seconds (#{elapsed_hours} hours)")
     end
 
     private
+
+    def resolve_claude_path
+      Logger.debug "[#{self.class.name}] Resolving Claude executable path..."
+      claude_path = ENV['CLAUDE_PATH'] || find_claude_executable
+      raise 'Claude executable not found. Set CLAUDE_PATH environment variable.' unless claude_path
+
+      Logger.info_stdout "[#{self.class.name}] Found Claude at: #{claude_path}"
+      claude_path
+    end
+
+    def build_command(claude_path, instructions)
+      cmd = [claude_path, '-p', instructions, '--model', model_name, '--output-format=stream-json', '--verbose']
+      cmd << '--permission-mode=acceptEdits' if accept_edits?
+      Logger.debug "command: #{cmd.map { |arg| Shellwords.escape(arg) }.join(' ')}"
+      cmd
+    end
+
+    def accept_edits?
+      true # Override in subclass if needed
+    end
 
     def execute_with_streaming(command)
       stdout_content = ''.dup
@@ -102,70 +114,83 @@ module WvRunner
       raise
     end
 
-    def build_instructions(_input_state)
-      raise NotImplementedError, "#{self.class} must implement build_instructions(input_state)"
+    def build_instructions
+      raise NotImplementedError, "#{self.class} must implement build_instructions"
     end
 
     def model_name
       raise NotImplementedError, "#{self.class} must implement model_name"
     end
 
-    def parse_output(stdout, elapsed_hours)
-      Logger.debug "[#{self.class.name}] [parse_output] Starting to parse Claude output..."
-      Logger.debug "[#{self.class.name}] [parse_output] Total output length: #{stdout.length} chars"
+    def parse_result(stdout, elapsed_hours)
+      Logger.debug "[#{self.class.name}] [parse_result] Starting to parse Claude output..."
+      Logger.debug "[#{self.class.name}] [parse_result] Total output length: #{stdout.length} chars"
 
-      marker = 'WORKFLOW_STATE: '
-      Logger.debug "[#{self.class.name}] [parse_output] Searching for marker: '#{marker}'"
+      marker = 'WVRUNNER_RESULT: '
+      Logger.debug "[#{self.class.name}] [parse_result] Searching for marker: '#{marker}'"
 
       index = stdout.index(marker)
       unless index
-        Logger.debug "[#{self.class.name}] [parse_output] ERROR: Marker not found in output!"
-        Logger.debug "[#{self.class.name}] [parse_output] Last 500 chars of output: #{stdout.last(500)}"
-        return error_result('No WORKFLOW_STATE found in output')
+        Logger.debug "[#{self.class.name}] [parse_result] ERROR: Marker not found in output!"
+        Logger.debug "[#{self.class.name}] [parse_result] Last 500 chars of output: #{stdout.last(500)}"
+        return error_result('No WVRUNNER_RESULT found in output')
       end
 
-      Logger.debug "[#{self.class.name}] [parse_output] Marker found at index #{index}"
+      Logger.debug "[#{self.class.name}] [parse_result] Marker found at index #{index}"
 
       after_marker = stdout[(index + marker.length)..]
-      Logger.debug "[#{self.class.name}] [parse_output] Content after marker (first 300 chars): #{after_marker[0...300]}"
+      Logger.debug "[#{self.class.name}] [parse_result] Content after marker (first 300 chars): #{after_marker[0...300]}"
 
       brace_index = after_marker.index('{')
       unless brace_index
-        Logger.debug "[#{self.class.name}] [parse_output] ERROR: No opening brace found after marker!"
-        return error_result('Could not find JSON object after WORKFLOW_STATE marker')
+        Logger.debug "[#{self.class.name}] [parse_result] ERROR: No opening brace found after marker!"
+        return error_result('Could not find JSON object after WVRUNNER_RESULT marker')
       end
 
-      Logger.debug "[#{self.class.name}] [parse_output] Opening brace found at index #{brace_index}"
+      Logger.debug "[#{self.class.name}] [parse_result] Opening brace found at index #{brace_index}"
 
       json_str = after_marker[brace_index..]
-      Logger.debug "[#{self.class.name}] [parse_output] Extracted JSON string (first 200 chars): #{json_str[0...200]}"
+      Logger.debug "[#{self.class.name}] [parse_result] Extracted JSON string (first 200 chars): #{json_str[0...200]}"
 
       json_end = find_json_end(json_str)
       unless json_end
-        Logger.debug "[#{self.class.name}] [parse_output] ERROR: Could not find JSON object boundaries!"
-        Logger.debug "[#{self.class.name}] [parse_output] JSON string: #{json_str[0...300]}"
+        Logger.debug "[#{self.class.name}] [parse_result] ERROR: Could not find JSON object boundaries!"
+        Logger.debug "[#{self.class.name}] [parse_result] JSON string: #{json_str[0...300]}"
         return error_result('Could not find complete JSON object')
       end
 
-      Logger.debug "[#{self.class.name}] [parse_output] JSON object ends at position #{json_end}"
+      Logger.debug "[#{self.class.name}] [parse_result] JSON object ends at position #{json_end}"
 
       json_content = json_str[0...json_end].strip
       json_content = json_content.gsub('\"', '"')
       json_content = json_content.gsub('\\\"', '\"')
-      Logger.debug "[#{self.class.name}] [parse_output] Final JSON content to parse: #{json_content}"
+      Logger.debug "[#{self.class.name}] [parse_result] Final JSON content to parse: #{json_content}"
 
       begin
-        result = JSON.parse(json_content).tap do |obj|
-          obj['hours'] ||= {}
-          obj['hours']['task_worked'] = elapsed_hours
-        end
-        Logger.debug "[#{self.class.name}] [parse_output] Successfully parsed result: #{result.inspect}"
+        result = JSON.parse(json_content).tap { |obj| obj['hours']['task_worked'] = elapsed_hours }
+        Logger.debug "[#{self.class.name}] [parse_result] Successfully parsed result: #{result.inspect}"
+        log_task_info(result)
         result
       rescue JSON::ParserError => e
-        Logger.debug "[#{self.class.name}] [parse_output] ERROR: JSON parsing failed: #{e.message}"
-        Logger.debug "[#{self.class.name}] [parse_output] Attempted to parse: #{json_content.inspect}"
+        Logger.debug "[#{self.class.name}] [parse_result] ERROR: JSON parsing failed: #{e.message}"
+        Logger.debug "[#{self.class.name}] [parse_result] Attempted to parse: #{json_content.inspect}"
         error_result("Failed to parse JSON: #{e.message}")
       end
+    end
+
+    def log_task_info(result)
+      if result['task_info']
+        Logger.debug '[parse_result] DEBUG: Extracted task_info:'
+        Logger.debug "  - name: #{result['task_info']['name']}"
+        Logger.debug "  - id: #{result['task_info']['id']}"
+        Logger.debug "  - status: #{result['task_info']['status']}"
+      end
+      return unless result['hours']
+
+      Logger.debug '[parse_result] DEBUG: Extracted hours:'
+      Logger.debug "  - per_day: #{result['hours']['per_day']}"
+      Logger.debug "  - task_estimated: #{result['hours']['task_estimated']}"
+      Logger.debug "  - task_worked: #{result['hours']['task_worked']}"
     end
 
     def find_json_end(json_str)
@@ -223,7 +248,6 @@ module WvRunner
         end
       end
 
-      # Fallback: try 'which claude' command
       Logger.debug "[#{self.class.name}] [find_claude_executable] Trying 'which claude' fallback..."
       which_path = find_claude_via_which
       if which_path
@@ -231,7 +255,7 @@ module WvRunner
         return which_path
       end
 
-      Logger.debug "[#{self.class.name}] [find_claude_executable] ERROR: Claude executable not found in any of the standard locations or via 'which'"
+      Logger.debug "[#{self.class.name}] [find_claude_executable] ERROR: Claude executable not found in any standard locations"
       nil
     end
 
@@ -249,32 +273,6 @@ module WvRunner
       return nil unless File.exist?('CLAUDE.md')
 
       File.read('CLAUDE.md').match(/project_relative_id=(\d+)/)&.then { |m| m[1].to_i }
-    end
-
-    def validate_state(state, required_keys)
-      Logger.debug "[#{self.class.name}] [validate_state] Validating state with required keys: #{required_keys.inspect}"
-      Logger.debug "[#{self.class.name}] [validate_state] State keys: #{state.keys.inspect}"
-
-      missing_keys = required_keys.reject { |key| state.key?(key) }
-
-      if missing_keys.any?
-        error_msg = "Invalid state: missing required keys: #{missing_keys.join(', ')}"
-        Logger.error "[#{self.class.name}] [validate_state] #{error_msg}"
-        Logger.error "[#{self.class.name}] [validate_state] Received state: #{state.inspect}"
-        return error_result(error_msg)
-      end
-
-      Logger.debug "[#{self.class.name}] [validate_state] State validation passed"
-      nil
-    end
-
-    protected
-
-    def inject_state_into_instructions(instructions_template, input_state = nil)
-      return instructions_template unless input_state
-
-      state_json = JSON.generate(input_state)
-      instructions_template.gsub('{{WORKFLOW_STATE}}', state_json)
     end
   end
 end
