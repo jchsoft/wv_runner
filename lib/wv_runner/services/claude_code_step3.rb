@@ -23,13 +23,12 @@ module WvRunner
 
         WORKFLOW:
         1. GIT: Verify you're on the correct branch from Step 2
-        2. FINAL TEST VERIFICATION - run all tests one more time
+        2. RUN RUBOCOP on modified Ruby files ONLY (NOT entire codebase)
         3. COMMIT any remaining changes with message: "Step 3: Final cleanup and PR preparation"
-        4. RUN RUBOCOP on modified files ONLY (NOT entire codebase)
-        5. PUSH the branch to remote repository
-        6. CREATE A PULL REQUEST using GitHub CLI
-        7. EXTRACT PR URL from the gh pr create output
-        8. LOG WORK to the task with 90% progress
+        4. PUSH the branch to remote repository
+        5. CREATE A PULL REQUEST using GitHub CLI (using ".github/pull_request_template.md" if present)
+        6. EXTRACT PR URL from the gh pr create output
+        7. LOG WORK to the task with 90% progress
 
         At the END, output JSON in this exact format:
 
