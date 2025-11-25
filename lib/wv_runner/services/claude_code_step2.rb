@@ -32,16 +32,13 @@ module WvRunner
         3. REFACTOR CODE according to Ruby/Rails best practices (check CLAUDE.md for guidelines)
         4. RUN ALL TESTS - This is CRITICAL:
            - First run: ruby test_runner.rb (or appropriate test command)
-           - If tests fail, FIX them and run again
+           - If tests fail, FIX them and RUN AGAIN
            - Keep fixing and running until tests pass
            - Focus especially on tests related to the current task
-        5. VERIFY TEST RESULTS:
-           - Check if ALL tests pass (preferred)
-           - At minimum, tests related to the task MUST pass
-           - If tests still fail after fixes, set tests_passing: false
-        6. COMMIT your changes with message: "Step 2: Refactor code and fix tests"
-        7. LOG WORK to the task starting with 50% progress
-        8. DECIDE NEXT STEP based on test results:
+           - RUN RUBOCOP on modified Ruby files ONLY (NOT entire codebase)
+        5. COMMIT your changes with message: "Step 2: Refactor code and fix tests"
+        6. LOG WORK with progress between 50% - 80%
+        7. DECIDE NEXT STEP based on test results:
            - If tests ARE passing: next_step "push_and_pr"
            - If tests NOT passing: next_step "refactor_and_tests" (to retry)
 
