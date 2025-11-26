@@ -24,7 +24,7 @@ module WvRunner
              - This ensures you start from a clean, stable state
           2. Make sure task is new and **NOT ALREADY STARTED** or completed
           3. CREATE A NEW BRANCH at the start of the task (use task name as branch name, e.g., "feature/task-name" or "fix/issue-name")
-          4. COMPLETE the task according to requirements
+          4. COMPLETE the task according to requirements (following rules in global CLAUDE.md)
           5. COMMIT your changes with clear commit messages
           6. MAKE SURE all code changes are properly tested
           7. COMMIT your changes with clear commit messages
