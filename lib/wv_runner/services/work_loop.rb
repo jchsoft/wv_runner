@@ -49,6 +49,12 @@ module WvRunner
         Logger.debug("[WorkLoop] [run_today] Starting iteration ##{iteration_count}...")
         run_task_iteration(results)
 
+        # Exit immediately when no more tasks available
+        if no_tasks_available?(results.last)
+          Logger.info_stdout('[WorkLoop] No more tasks available, ending today mode')
+          break
+        end
+
         decider = Decider.new(task_results: results)
         remaining = decider.remaining_hours
         Logger.debug("[WorkLoop] [run_today] After iteration ##{iteration_count}: remaining hours = #{remaining}h, total completed = #{results.length} tasks")
@@ -128,10 +134,9 @@ module WvRunner
 
         if no_tasks_available?(results.last)
           Logger.info_stdout('[WorkLoop] No tasks available, will wait 1 hour before retry...')
-          if handle_no_tasks_error(results)
-            Logger.debug('[WorkLoop] [run_today_tasks] Retrying after no tasks error...')
-            next
-          end
+          break unless handle_no_tasks_in_daily_mode
+          Logger.debug('[WorkLoop] [run_today_tasks] Retrying after wait...')
+          next
         end
 
         if should_stop_running_today?(results)
@@ -148,10 +153,23 @@ module WvRunner
       results
     end
 
-    def handle_no_tasks_error(_results)
-      Logger.debug('[WorkLoop] [handle_no_tasks_error] No tasks available, waiting 1 hour before retry...')
+    def handle_no_tasks_in_daily_mode
+      # Check if past end of workday (18:00) - don't retry, let it go to next day
+      if end_of_workday?
+        Logger.info_stdout('[WorkLoop] Past end of workday (18:00), will resume tomorrow')
+        return false
+      end
+
+      Logger.debug('[WorkLoop] [handle_no_tasks_in_daily_mode] Waiting 1 hour before retry...')
       WaitingStrategy.new.wait_one_hour
-      Logger.debug('[WorkLoop] [handle_no_tasks_error] Wait complete, ready to retry')
+
+      # After waiting, check again if we're past workday end
+      if end_of_workday?
+        Logger.info_stdout('[WorkLoop] Now past end of workday (18:00), will resume tomorrow')
+        return false
+      end
+
+      Logger.debug('[WorkLoop] [handle_no_tasks_in_daily_mode] Wait complete, ready to retry')
       true
     end
 
@@ -168,8 +186,8 @@ module WvRunner
     end
 
     def no_tasks_available?(result)
-      is_no_tasks = result['status'] == 'error' && result['message']&.include?('No tasks')
-      Logger.debug("[WorkLoop] [no_tasks_available?] Checking result - status: #{result['status']}, message: #{result['message']&.truncate(100)}, is_no_tasks: #{is_no_tasks}")
+      is_no_tasks = result['status'] == 'no_more_tasks'
+      Logger.debug("[WorkLoop] [no_tasks_available?] Checking result - status: #{result['status']}, is_no_tasks: #{is_no_tasks}")
       is_no_tasks
     end
 
@@ -177,6 +195,13 @@ module WvRunner
       hour = Time.now.hour
       is_end = hour >= 23
       Logger.debug("[WorkLoop] [end_of_day?] Current hour: #{hour}, is_end_of_day: #{is_end}")
+      is_end
+    end
+
+    def end_of_workday?
+      hour = Time.now.hour
+      is_end = hour >= 18
+      Logger.debug("[WorkLoop] [end_of_workday?] Current hour: #{hour}, is_end_of_workday: #{is_end}")
       is_end
     end
 

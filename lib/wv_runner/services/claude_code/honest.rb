@@ -51,7 +51,10 @@ module WvRunner
           How to get the data:
           1. Read workvector://user -> use "hour_goal" value for per_day
           2. From the task you're working on -> parse "duration_best" field (e.g., "1 hodina" -> 1.0) for task_estimated
-          3. Set status: "success" if task completed, "failure" if not completed
+          3. Set status:
+             - "success" if task completed successfully
+             - "no_more_tasks" if no tasks available (workvector returns "No available tasks found")
+             - "failure" for other errors
         INSTRUCTIONS
       end
     end

@@ -74,4 +74,65 @@ class WorkLoopTest < Minitest::Test
     loop_instance = WvRunner::WorkLoop.new(verbose: true)
     assert_instance_of WvRunner::WorkLoop, loop_instance
   end
+
+  # Tests for no_more_tasks handling
+  def test_no_tasks_available_detects_no_more_tasks_status
+    loop_instance = WvRunner::WorkLoop.new
+    result = { 'status' => 'no_more_tasks' }
+
+    assert loop_instance.send(:no_tasks_available?, result)
+  end
+
+  def test_no_tasks_available_returns_false_for_success
+    loop_instance = WvRunner::WorkLoop.new
+    result = { 'status' => 'success' }
+
+    refute loop_instance.send(:no_tasks_available?, result)
+  end
+
+  def test_no_tasks_available_returns_false_for_error
+    loop_instance = WvRunner::WorkLoop.new
+    result = { 'status' => 'error', 'message' => 'Some error' }
+
+    refute loop_instance.send(:no_tasks_available?, result)
+  end
+
+  def test_run_today_exits_immediately_on_no_more_tasks
+    mock = Object.new
+    def mock.run
+      { 'status' => 'no_more_tasks', 'hours' => { 'per_day' => 8, 'task_estimated' => 0 } }
+    end
+
+    WvRunner::ClaudeCode::Honest.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new
+      results = loop_instance.execute(:today)
+
+      assert_equal 1, results.length
+      assert_equal 'no_more_tasks', results.first['status']
+    end
+  end
+
+  def test_end_of_workday_returns_true_after_18
+    loop_instance = WvRunner::WorkLoop.new
+
+    Time.stub(:now, Time.new(2025, 1, 15, 18, 30)) do
+      assert loop_instance.send(:end_of_workday?)
+    end
+  end
+
+  def test_end_of_workday_returns_false_before_18
+    loop_instance = WvRunner::WorkLoop.new
+
+    Time.stub(:now, Time.new(2025, 1, 15, 14, 30)) do
+      refute loop_instance.send(:end_of_workday?)
+    end
+  end
+
+  def test_handle_no_tasks_in_daily_mode_returns_false_after_workday
+    loop_instance = WvRunner::WorkLoop.new
+
+    Time.stub(:now, Time.new(2025, 1, 15, 19, 0)) do
+      refute loop_instance.send(:handle_no_tasks_in_daily_mode)
+    end
+  end
 end
