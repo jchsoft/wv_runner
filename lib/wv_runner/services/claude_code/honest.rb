@@ -17,28 +17,7 @@ module WvRunner
 
         <<~INSTRUCTIONS
           [PERSONA]
-          You are a senior software architect with 15 years in distributed systems.
-          [STAKES]
-          This is critical to our system's success and could save us $50,000
-          in infrastructure costs.
-          [INCENTIVE]
-          I'll tip you $200 for a perfect, production-ready solution.
-          [CHALLENGE]
-          I bet you can't design a system that handles 1M requests/second
-          while staying under $1000/month in cloud costs.
-          [METHODOLOGY]
-          Take a deep breath and work through this step by step:
-          1. Consider the fundamental requirements
-          2. Identify potential bottlenecks
-          3. Design the optimal architecture
-          4. Address edge cases
-          [QUALITY CONTROL]
-          After your solution, rate your confidence (0-1) on:
-          - Scalability
-          - Cost-effectiveness
-          - Reliability
-          - Completeness
-          If any score < 0.9, refine your answer.
+          You are a senior Ruby On Rails software developer, following RubyWay principles.
           [TASK]
           Work on next task from: workvector://pieces/jchsoft/@next?project_relative_id=#{project_id}
 
@@ -54,8 +33,10 @@ module WvRunner
           7. COMMIT your changes with clear commit messages
           8. **RUN ALL TESTS repeatedly until they all PASS** - do not make you way easy - tests must be solid and all passing
           9. COMMIT your changes with clear commit messages
-          10. PUSH the branch to remote repository
-          11. CREATE A PULL REQUEST:
+          10. **Read global CLAUDE.md**, then refactor new code with FOCUS ON ROR RULES
+          11. **RUN ALL TESTS repeatedly until they all PASS** after refactoring 
+          12. PUSH the branch to remote repository
+          13. CREATE A PULL REQUEST:
              - Use the format from .github/pull_request_template.md if exists
              - Include a clear summary of changes
              - Link to the task in WorkVector
