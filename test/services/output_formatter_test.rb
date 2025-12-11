@@ -125,6 +125,29 @@ class OutputFormatterTest < Minitest::Test
     assert_includes result, '"type":'
   end
 
+  def test_strips_system_reminder_tags
+    WvRunner::OutputFormatter.verbose_mode = false
+    json_line = '{"type": "assistant", "message": {"content": [{"type": "text", "text": "Hello<system-reminder>Internal note</system-reminder>World"}]}}'
+    result = WvRunner::OutputFormatter.format_line(json_line)
+    # Should remove system-reminder tags
+    assert_includes result, "Hello"
+    assert_includes result, "World"
+    refute_includes result, "system-reminder"
+    refute_includes result, "Internal note"
+  end
+
+  def test_strips_multiline_system_reminder_tags
+    WvRunner::OutputFormatter.verbose_mode = false
+    # Use \\n for escaped newlines as they come from JSON stream
+    text_with_reminder = 'Before\\n<system-reminder>\\nMultiple\\nlines\\n</system-reminder>\\nAfter'
+    json_line = '{"type": "assistant", "message": {"content": [{"type": "text", "text": "' + text_with_reminder + '"}]}}'
+    result = WvRunner::OutputFormatter.format_line(json_line)
+    assert_includes result, "Before"
+    assert_includes result, "After"
+    refute_includes result, "Multiple"
+    refute_includes result, "lines"
+  end
+
   def test_verbose_mode_flag
     assert_equal false, WvRunner::OutputFormatter.verbose_mode
     WvRunner::OutputFormatter.verbose_mode = true

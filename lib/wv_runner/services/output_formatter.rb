@@ -113,7 +113,13 @@ module WvRunner
     def self.format_text_content(item)
       text = item['text'].to_s
       # Replace literal \n with actual newlines
-      text.gsub('\\n', "\n")
+      text = text.gsub('\\n', "\n")
+      # Remove system-reminder tags and their content (not meant for user display)
+      strip_system_reminders(text)
+    end
+
+    def self.strip_system_reminders(text)
+      text.gsub(%r{<system-reminder>.*?</system-reminder>}m, '').strip
     end
 
     def self.format_tool_use_content(item)
