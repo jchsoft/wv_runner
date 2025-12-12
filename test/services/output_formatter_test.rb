@@ -153,4 +153,32 @@ class OutputFormatterTest < Minitest::Test
     WvRunner::OutputFormatter.verbose_mode = true
     assert_equal true, WvRunner::OutputFormatter.verbose_mode
   end
+
+  def test_normal_mode_with_todo_write_formats_with_emoji
+    WvRunner::OutputFormatter.verbose_mode = false
+    json_line = '{"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "tool_456", "name": "TodoWrite", "input": {"todos": [{"content": "First task", "status": "completed", "activeForm": "Doing first"}, {"content": "Second task", "status": "in_progress", "activeForm": "Doing second"}, {"content": "Third task", "status": "pending", "activeForm": "Doing third"}]}}]}}'
+    result = WvRunner::OutputFormatter.format_line(json_line)
+    # Should format with emoji instead of JSON
+    assert_includes result, "Tool: TodoWrite"
+    assert_includes result, "✅ First task"
+    assert_includes result, "🔄 Second task"
+    assert_includes result, "⏳ Third task"
+    # Should NOT include JSON structure
+    refute_includes result, '"todos"'
+    refute_includes result, '"activeForm"'
+  end
+
+  def test_format_todo_write_input_maps_statuses_to_emoji
+    todos = [
+      { 'content' => 'Done task', 'status' => 'completed' },
+      { 'content' => 'Working task', 'status' => 'in_progress' },
+      { 'content' => 'Waiting task', 'status' => 'pending' },
+      { 'content' => 'Unknown status', 'status' => 'unknown' }
+    ]
+    result = WvRunner::OutputFormatter.format_todo_write_input(todos)
+    assert_includes result, "✅ Done task"
+    assert_includes result, "🔄 Working task"
+    assert_includes result, "⏳ Waiting task"
+    assert_includes result, "⏳ Unknown status" # fallback to pending emoji
+  end
 end

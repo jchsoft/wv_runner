@@ -125,9 +125,27 @@ module WvRunner
     def self.format_tool_use_content(item)
       name = item['name'].to_s
       tool_id = item['id'].to_s
-      input_text = item['input'].is_a?(Hash) ? JSON.pretty_generate(item['input']) : item['input'].inspect
+
+      input_text = if name == 'TodoWrite' && item.dig('input', 'todos').is_a?(Array)
+                     format_todo_write_input(item['input']['todos'])
+                   elsif item['input'].is_a?(Hash)
+                     JSON.pretty_generate(item['input'])
+                   else
+                     item['input'].inspect
+                   end
 
       "Tool: #{name} (ID: #{tool_id})\nInput:\n#{input_text}"
+    end
+
+    def self.format_todo_write_input(todos)
+      todos.map do |todo|
+        emoji = case todo['status']
+                when 'completed' then '✅'
+                when 'in_progress' then '🔄'
+                else '⏳'
+                end
+        "#{emoji} #{todo['content']}"
+      end.join("\n")
     end
 
     def self.format_tool_result_content(item)
