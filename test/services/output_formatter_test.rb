@@ -57,6 +57,15 @@ class OutputFormatterTest < Minitest::Test
     assert_match /\n\[Claude\]/, result
   end
 
+  def test_strips_system_reminder_from_non_json_output
+    line = 'Some text<system-reminder>Internal note</system-reminder>More text'
+    result = WvRunner::OutputFormatter.format_line(line)
+    assert_includes result, "Some text"
+    assert_includes result, "More text"
+    refute_includes result, "system-reminder"
+    refute_includes result, "Internal note"
+  end
+
   # Verbose mode tests (original behavior)
   def test_verbose_mode_outputs_full_json
     WvRunner::OutputFormatter.verbose_mode = true
@@ -66,6 +75,17 @@ class OutputFormatterTest < Minitest::Test
     assert_includes result, '"type":'
     assert_includes result, '"message":'
     assert_includes result, '"content":'
+  end
+
+  def test_verbose_mode_strips_system_reminders
+    WvRunner::OutputFormatter.verbose_mode = true
+    json_line = '{"type": "assistant", "message": {"content": [{"type": "text", "text": "Before<system-reminder>Secret stuff</system-reminder>After"}]}}'
+    result = WvRunner::OutputFormatter.format_line(json_line)
+    # Should strip system-reminder even in verbose mode
+    assert_includes result, "Before"
+    assert_includes result, "After"
+    refute_includes result, "system-reminder"
+    refute_includes result, "Secret stuff"
   end
 
   # Normal mode tests (filtered output)
@@ -180,5 +200,18 @@ class OutputFormatterTest < Minitest::Test
     assert_includes result, "🔄 Working task"
     assert_includes result, "⏳ Waiting task"
     assert_includes result, "⏳ Unknown status" # fallback to pending emoji
+  end
+
+  def test_strips_system_reminder_from_tool_result_content
+    WvRunner::OutputFormatter.verbose_mode = false
+    reminder_content = "File contents here<system-reminder>\nWhenever you read a file...\n</system-reminder>\nMore content"
+    json_line = '{"type": "assistant", "message": {"content": [{"type": "tool_result", "content": "' + reminder_content.gsub("\n", "\\n") + '", "is_error": false}]}}'
+    result = WvRunner::OutputFormatter.format_line(json_line)
+    # Should include actual content
+    assert_includes result, "File contents here"
+    assert_includes result, "More content"
+    # Should NOT include system-reminder content
+    refute_includes result, "system-reminder"
+    refute_includes result, "Whenever you read a file"
   end
 end

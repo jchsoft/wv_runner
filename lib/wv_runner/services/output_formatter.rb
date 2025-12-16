@@ -17,6 +17,8 @@ module WvRunner
 
     def self.format_line(line)
       formatted = verbose_mode ? process_line(line) : process_line_normal(line)
+      # Strip system-reminder tags from ALL output (covers verbose mode, fallbacks, etc.)
+      formatted = strip_system_reminders(formatted)
       # Add blank line before [Claude] prefix, return unfrozen string
       "\n[Claude] #{formatted}".dup
     end
@@ -151,7 +153,7 @@ module WvRunner
     def self.format_tool_result_content(item)
       is_error = item['is_error'] ? 'ERROR' : 'OK'
       result_type = item['type'].to_s
-      content = item['content'].to_s
+      content = strip_system_reminders(item['content'].to_s)
 
       "Tool Result (#{is_error}) [#{result_type}]:\n#{content}"
     end
