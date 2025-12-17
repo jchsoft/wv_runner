@@ -59,7 +59,7 @@ class WorkLoopTest < Minitest::Test
   end
 
   def test_valid_how_values_constant
-    assert_equal %i[once today daily once_dry], WvRunner::WorkLoop::VALID_HOW_VALUES
+    assert_equal %i[once today daily once_dry review], WvRunner::WorkLoop::VALID_HOW_VALUES
   end
 
   def test_execute_validates_how_parameter
@@ -67,7 +67,64 @@ class WorkLoopTest < Minitest::Test
 
     error = assert_raises(ArgumentError) { loop_instance.execute(:unknown) }
     assert_includes error.message, "Invalid 'how' value"
-    assert_includes error.message, 'once, today, daily, once_dry'
+    assert_includes error.message, 'once, today, daily, once_dry, review'
+  end
+
+  def test_execute_with_review_calls_review
+    mock = Object.new
+    def mock.run
+      { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 0.5 } }
+    end
+
+    WvRunner::ClaudeCode::Review.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new
+      result = loop_instance.execute(:review)
+
+      assert_equal 'success', result['status']
+      assert_equal 0.5, result['hours']['task_estimated']
+    end
+  end
+
+  def test_execute_with_review_handles_no_reviews
+    mock = Object.new
+    def mock.run
+      { 'status' => 'no_reviews', 'message' => 'No human reviews found to address' }
+    end
+
+    WvRunner::ClaudeCode::Review.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new
+      result = loop_instance.execute(:review)
+
+      assert_equal 'no_reviews', result['status']
+    end
+  end
+
+  def test_execute_with_review_handles_not_on_branch
+    mock = Object.new
+    def mock.run
+      { 'status' => 'not_on_branch', 'message' => 'Cannot review on main/master branch' }
+    end
+
+    WvRunner::ClaudeCode::Review.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new
+      result = loop_instance.execute(:review)
+
+      assert_equal 'not_on_branch', result['status']
+    end
+  end
+
+  def test_execute_with_review_handles_no_pr
+    mock = Object.new
+    def mock.run
+      { 'status' => 'no_pr', 'message' => 'No PR found for current branch' }
+    end
+
+    WvRunner::ClaudeCode::Review.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new
+      result = loop_instance.execute(:review)
+
+      assert_equal 'no_pr', result['status']
+    end
   end
 
   def test_verbose_mode_can_be_enabled
