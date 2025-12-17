@@ -31,16 +31,17 @@ module WvRunner
           5. COMMIT your changes with clear commit messages
           6. MAKE SURE all code changes are properly tested
           7. COMMIT your changes with clear commit messages
-          8. **RUN ALL TESTS repeatedly until they all PASS** - do not make you way easy - tests must be solid and all passing
-          9. COMMIT your changes with clear commit messages
-          10. **Read global CLAUDE.md**, then refactor new code with FOCUS ON ROR RULES
-          11. **RUN ALL TESTS repeatedly until they all PASS** after refactoring 
-          12. PUSH the branch to remote repository
-          13. CREATE A PULL REQUEST:
+          8. **RUN ALL UNIT TESTS repeatedly until they all PASS** - do not make you way easy - tests must be solid and all passing
+          9. **RUN ALL SYSTEM TESTS repeatedly until they all PASS** - do not make you way easy - tests must be solid and all passing - system tests last longer, even 5 minutes 
+          10. COMMIT your changes with clear commit messages
+          11. **Read global CLAUDE.md**, then refactor new code with FOCUS ON ROR RULES
+          12. **RUN ALL UNIT TESTS repeatedly until they all PASS** after refactoring
+          13. **RUN ALL SYSTEM TESTS repeatedly until they all PASS** after refactoring
+          14. PUSH the branch to remote repository
+          15. CREATE A PULL REQUEST:
              - Use the format from .github/pull_request_template.md if exists
              - Include a clear summary of changes
              - Link to the task in WorkVector
-             - Ensure all tests pass before requesting review
 
           At the END, output JSON in this exact format - on a new line in a code block:
 
