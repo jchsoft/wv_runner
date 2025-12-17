@@ -18,7 +18,7 @@ class TasksTest < Minitest::Test
     rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
     content = File.read(rake_file)
 
-    assert content.include?("MODES = %i[once once_dry today daily]")
+    assert content.include?("MODES = %i[once once_dry today daily review]")
     assert content.include?("execute(mode)")
   end
 
@@ -26,7 +26,7 @@ class TasksTest < Minitest::Test
     rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
     content = File.read(rake_file)
 
-    assert content.include?("MODES = %i[once once_dry today daily]")
+    assert content.include?("MODES = %i[once once_dry today daily review]")
     assert content.include?("dry-run")
   end
 
@@ -34,7 +34,7 @@ class TasksTest < Minitest::Test
     rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
     content = File.read(rake_file)
 
-    assert content.include?("MODES = %i[once once_dry today daily]")
+    assert content.include?("MODES = %i[once once_dry today daily review]")
     assert content.include?("end of today")
   end
 
@@ -42,8 +42,16 @@ class TasksTest < Minitest::Test
     rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
     content = File.read(rake_file)
 
-    assert content.include?("MODES = %i[once once_dry today daily]")
+    assert content.include?("MODES = %i[once once_dry today daily review]")
     assert content.include?("daily loop")
+  end
+
+  def test_rake_file_defines_review_task
+    rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
+    content = File.read(rake_file)
+
+    assert content.include?("MODES = %i[once once_dry today daily review]")
+    assert content.include?("PR review feedback")
   end
 
   def test_all_tasks_require_environment
@@ -61,6 +69,6 @@ class TasksTest < Minitest::Test
 
     # Tasks have descriptions defined via case statement
     assert content.include?("desc case mode")
-    assert_equal 4, content.scan(/when :(\w+)/).length, "Should have 4 mode descriptions"
+    assert_equal 5, content.scan(/when :(\w+)/).length, "Should have 5 mode descriptions"
   end
 end
