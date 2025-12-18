@@ -28,22 +28,22 @@ module WvRunner
           2. Make sure task is new and **NOT ALREADY STARTED** or completed
           3. CREATE A NEW BRANCH at the start of the task (use task name as branch name, e.g., "feature/task-name" or "fix/issue-name")
           4. COMPLETE the task according to requirements (following rules in global CLAUDE.md)
-          5. COMMIT your changes with clear commit messages
+          5. COMMIT your changes with clear commit messages - **save work progress to task**
           6. MAKE SURE all code changes are properly tested
-          7. COMMIT your changes with clear commit messages
+          7. COMMIT your changes with clear commit messages - **save work progress to task**
           8. **RUN ALL UNIT TESTS repeatedly until they all PASS** - do not make you way easy - tests must be solid and all passing
           9. **PREPARE SCREENSHOT FOR REVIEW** - save screenshot in new systems test to be used later for PR, if you created some
           10. **RUN ALL SYSTEM TESTS repeatedly until they all PASS** - do not make you way easy - tests must be solid and all passing - system tests last longer, even 5 minutes 
-          11. COMMIT your changes with clear commit messages
+          11. COMMIT your changes with clear commit messages - **save work progress to task**
           12. **Read global CLAUDE.md**, then refactor new code with FOCUS ON ROR RULES
           13. **RUN ALL UNIT TESTS repeatedly until they all PASS** after refactoring
           14. **RUN ALL SYSTEM TESTS repeatedly until they all PASS** after refactoring
-          15. PUSH the branch to remote repository
+          15. PUSH the branch to remote repository - **save work progress to task**
           16. CREATE A PULL REQUEST:
              - Use the format from .github/pull_request_template.md if exists
              - Include a clear summary of changes
              - Link to the task in WorkVector
-          17. **ADD SCREENSHOTS TO PR COMMENTS** - add them using skill "pr-screenshot"
+          17. **ADD SCREENSHOTS TO PR COMMENTS** - add them using skill "pr-screenshot" - **save work progress to task**
 
           At the END, output JSON in this exact format - on a new line in a code block:
 
