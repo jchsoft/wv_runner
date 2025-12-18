@@ -40,9 +40,10 @@ module WvRunner
              - Also run: gh api repos/{owner}/{repo}/pulls/{pr_number}/comments for inline comments
              - If no human reviews found: output success with message "no reviews to address"
 
-          5. CREATE SUBTASK (optional): If review has substantial feedback
+          5. CREATE SUBTASK
              - Use mcp__workvector-production__CreatePieceTool to create subtask under the original task
              - Include summarized review feedback in description
+             - LOG work progress to this task
 
           6. FIX REVIEW ISSUES: Address all problems mentioned in the review
              - Read the review comments carefully
