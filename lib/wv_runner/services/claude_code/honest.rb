@@ -44,6 +44,7 @@ module WvRunner
              - Include a clear summary of changes
              - Link to the task in WorkVector
           17. **ADD SCREENSHOTS TO PR COMMENTS** - add them using skill "pr-screenshot" - **save work progress to task**
+          18. **RUN LOCAL CI** - if exists "bin/ci" file, run it
 
           At the END, output JSON in this exact format - on a new line in a code block:
 

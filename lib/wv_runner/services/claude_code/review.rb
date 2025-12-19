@@ -68,6 +68,8 @@ module WvRunner
 
           11. PUSH: Push all changes to the branch
               - git push origin HEAD
+  
+          12. RUN LOCAL CI: If exists "bin/ci" file, run it
 
           At the END, output JSON in this exact format - on a new line in a code block:
 
