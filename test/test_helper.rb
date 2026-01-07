@@ -1,5 +1,10 @@
 require "minitest/autorun"
-require "minitest/mock"
+begin
+  require "minitest/mock"
+rescue LoadError
+  gem "minitest-mock"
+  require "minitest/mock"
+end
 require "active_support"
 require "active_support/core_ext/time"
 require "active_support/core_ext/numeric/time"

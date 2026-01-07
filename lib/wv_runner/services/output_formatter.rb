@@ -104,6 +104,8 @@ module WvRunner
           format_tool_use_content(item)
         when 'tool_result'
           format_tool_result_content(item)
+        when 'thinking'
+          format_thinking_content(item)
         else
           "#{item['type']}: #{item.inspect}"
         end
@@ -156,6 +158,11 @@ module WvRunner
       content = strip_system_reminders(item['content'].to_s)
 
       "Tool Result (#{is_error}) [#{result_type}]:\n#{content}"
+    end
+
+    def self.format_thinking_content(item)
+      thinking_text = item['thinking'].to_s
+      "thinking: 💭 \"#{thinking_text}\""
     end
 
     def self.json_like?(line)

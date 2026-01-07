@@ -214,4 +214,32 @@ class OutputFormatterTest < Minitest::Test
     refute_includes result, "system-reminder"
     refute_includes result, "Whenever you read a file"
   end
+
+  def test_normal_mode_with_thinking_content
+    WvRunner::OutputFormatter.verbose_mode = false
+    json_line = '{"type": "assistant", "message": {"content": [{"type": "thinking", "thinking": "Now let me update the third failing test:", "signature": "EtEBCkYICxgCKkBrkSKI..."}]}}'
+    result = WvRunner::OutputFormatter.format_line(json_line)
+    # Should format thinking with icon and quoted text
+    assert_includes result, "thinking:"
+    assert_includes result, "💭"
+    assert_includes result, '"Now let me update the third failing test:"'
+    # Should NOT include signature or raw JSON structure
+    refute_includes result, "signature"
+    refute_includes result, "EtEBCkYICxgCKkBrkSKI"
+  end
+
+  def test_format_thinking_content_formats_with_icon
+    item = { 'type' => 'thinking', 'thinking' => 'Let me analyze this problem', 'signature' => 'abc123' }
+    result = WvRunner::OutputFormatter.format_thinking_content(item)
+    assert_equal 'thinking: 💭 "Let me analyze this problem"', result
+  end
+
+  def test_normal_mode_with_mixed_content_including_thinking
+    WvRunner::OutputFormatter.verbose_mode = false
+    json_line = '{"type": "assistant", "message": {"content": [{"type": "thinking", "thinking": "Planning my approach"}, {"type": "text", "text": "Here is the solution"}]}}'
+    result = WvRunner::OutputFormatter.format_line(json_line)
+    # Should include both thinking and text
+    assert_includes result, '💭 "Planning my approach"'
+    assert_includes result, "Here is the solution"
+  end
 end
