@@ -118,4 +118,117 @@ class ClaudeCodeBaseTest < Minitest::Test
     base = WvRunner::ClaudeCodeBase.new
     assert base.send(:accept_edits?)
   end
+
+  # Tests for retry and error handling constants
+  def test_max_retry_attempts_constant_is_defined
+    assert_equal 3, WvRunner::ClaudeCodeBase::MAX_RETRY_ATTEMPTS
+  end
+
+  def test_retry_wait_seconds_constant_is_defined
+    assert_equal 30, WvRunner::ClaudeCodeBase::RETRY_WAIT_SECONDS
+  end
+
+  # Tests for StreamClosedError exception
+  def test_stream_closed_error_exists
+    assert_kind_of Class, WvRunner::StreamClosedError
+    assert WvRunner::StreamClosedError < StandardError
+  end
+
+  def test_stream_closed_error_can_be_raised_with_message
+    error = WvRunner::StreamClosedError.new('test error message')
+    assert_equal 'test error message', error.message
+  end
+
+  # Tests for build_command with continue_session
+  def test_build_command_without_continue_session
+    base = WvRunner::ClaudeCodeBase.new
+    base.define_singleton_method(:model_name) { 'opus' }
+
+    cmd = base.send(:build_command, '/usr/bin/claude', 'test instructions', continue_session: false)
+
+    assert_equal '/usr/bin/claude', cmd[0]
+    refute_includes cmd, '--continue'
+    assert_includes cmd, '-p'
+    assert_includes cmd, 'test instructions'
+    assert_includes cmd, '--model'
+    assert_includes cmd, 'opus'
+  end
+
+  def test_build_command_with_continue_session
+    base = WvRunner::ClaudeCodeBase.new
+    base.define_singleton_method(:model_name) { 'opus' }
+
+    cmd = base.send(:build_command, '/usr/bin/claude', 'test instructions', continue_session: true)
+
+    assert_equal '/usr/bin/claude', cmd[0]
+    assert_equal '--continue', cmd[1], 'Continue flag should be second element'
+    assert_includes cmd, '-p'
+    assert_includes cmd, 'test instructions'
+  end
+
+  # Tests for stream_lines method
+  def test_stream_lines_yields_each_line
+    base = WvRunner::ClaudeCodeBase.new
+    io = StringIO.new("line1\nline2\nline3\n")
+    lines = []
+
+    base.send(:stream_lines, io) { |line| lines << line.strip }
+
+    assert_equal %w[line1 line2 line3], lines
+  end
+
+  # Tests for handle_stream_error method
+  def test_handle_stream_error_returns_early_when_stopping
+    base = WvRunner::ClaudeCodeBase.new
+    base.instance_variable_set(:@stopping, true)
+
+    yielded = false
+    base.send(:handle_stream_error, IOError.new('test'), 'stdout') { yielded = true }
+
+    refute yielded, 'Should not yield when stopping'
+  end
+
+  def test_handle_stream_error_yields_error_message_when_not_stopping
+    base = WvRunner::ClaudeCodeBase.new
+    base.instance_variable_set(:@stopping, false)
+
+    error_msg = nil
+    base.send(:handle_stream_error, IOError.new('stream closed'), 'stdout') { |msg| error_msg = msg }
+
+    assert_match(/stdout stream closed unexpectedly/, error_msg)
+    assert_match(/stream closed/, error_msg)
+  end
+
+  # Tests for handle_recoverable_error method
+  def test_handle_recoverable_error_returns_nil_for_retry
+    base = WvRunner::ClaudeCodeBase.new
+    base.instance_variable_set(:@retry_count, 0)
+    start_time = Time.now
+
+    result = base.send(:handle_recoverable_error, 'Timeout', start_time)
+
+    assert_nil result, 'Should return nil to signal retry'
+  end
+
+  def test_handle_recoverable_error_returns_error_when_max_retries_reached
+    base = WvRunner::ClaudeCodeBase.new
+    base.instance_variable_set(:@retry_count, 2) # MAX_RETRY_ATTEMPTS - 1
+    start_time = Time.now
+
+    result = base.send(:handle_recoverable_error, 'Timeout', start_time)
+
+    assert_equal 'error', result['status']
+    assert_match(/retries exhausted/, result['message'])
+  end
+
+  # Tests for initialization of new instance variables
+  def test_initialize_sets_stopping_to_false
+    base = WvRunner::ClaudeCodeBase.new
+    refute base.instance_variable_get(:@stopping)
+  end
+
+  def test_initialize_sets_retry_count_to_zero
+    base = WvRunner::ClaudeCodeBase.new
+    assert_equal 0, base.instance_variable_get(:@retry_count)
+  end
 end

@@ -7,6 +7,9 @@ require 'timeout'
 require_relative 'output_formatter'
 
 module WvRunner
+  # Raised when IO stream unexpectedly closes during Claude execution
+  class StreamClosedError < StandardError; end
+
   # Base class for Claude Code executors
   # Handles common execution, streaming, and JSON parsing logic
   # Subclasses must implement:
@@ -14,9 +17,13 @@ module WvRunner
   # - model_name() -> returns the model to use (e.g., 'sonnet', 'haiku', 'opus')
   class ClaudeCodeBase
     CLAUDE_EXECUTION_TIMEOUT = 3600 # 1 hour in seconds
+    MAX_RETRY_ATTEMPTS = 3
+    RETRY_WAIT_SECONDS = 30
 
     def initialize(verbose: false)
       @verbose = verbose
+      @stopping = false
+      @retry_count = 0
       OutputFormatter.verbose_mode = verbose
     end
 
@@ -24,16 +31,42 @@ module WvRunner
       Logger.info_stdout "[#{self.class.name}] Starting execution..."
       Logger.info_stdout "[#{self.class.name}] Output mode: #{@verbose ? 'VERBOSE' : 'NORMAL'}"
       start_time = Time.now
+      @accumulated_output = ''.dup
 
+      run_with_retry(start_time)
+    end
+
+    private
+
+    def run_with_retry(start_time)
+      loop do
+        result = attempt_execution(start_time)
+        return result if result
+
+        @retry_count += 1
+        break if @retry_count >= MAX_RETRY_ATTEMPTS
+
+        Logger.info_stdout "[#{self.class.name}] Waiting #{RETRY_WAIT_SECONDS}s before retry #{@retry_count}/#{MAX_RETRY_ATTEMPTS}..."
+        sleep(RETRY_WAIT_SECONDS)
+      end
+
+      elapsed_hours = ((Time.now - start_time) / 3600.0).round(2)
+      error_result("Claude execution failed after #{MAX_RETRY_ATTEMPTS} retry attempts (#{elapsed_hours} hours)")
+    end
+
+    def attempt_execution(start_time)
       claude_path = resolve_claude_path
       instructions = build_instructions
-      command = build_command(claude_path, instructions)
+      command = build_command(claude_path, instructions, continue_session: @retry_count.positive?)
 
       Logger.debug "[#{self.class.name}] Executing Claude with instructions (length: #{instructions.length} chars)"
       Logger.info_stdout "[#{self.class.name}] Starting real-time stream of Claude output:"
+      Logger.info_stdout "[#{self.class.name}] Retry attempt: #{@retry_count + 1}/#{MAX_RETRY_ATTEMPTS}" if @retry_count.positive?
       Logger.info_stdout '-' * 80
 
+      @stopping = false
       stdout_content = execute_with_streaming(command)
+      @accumulated_output << stdout_content
 
       Logger.info_stdout '-' * 80
       Logger.info_stdout "[#{self.class.name}] Claude execution completed, parsing results..."
@@ -41,13 +74,24 @@ module WvRunner
       elapsed_hours = ((Time.now - start_time) / 3600.0).round(2)
       Logger.info_stdout "[#{self.class.name}] Elapsed time: #{elapsed_hours} hours"
 
-      parse_result(stdout_content, elapsed_hours)
+      parse_result(@accumulated_output, elapsed_hours)
     rescue Timeout::Error
-      elapsed_hours = ((Time.now - start_time) / 3600.0).round(2)
-      error_result("Claude execution timed out after #{CLAUDE_EXECUTION_TIMEOUT} seconds (#{elapsed_hours} hours)")
+      handle_recoverable_error('Timeout', start_time)
+    rescue StreamClosedError => e
+      handle_recoverable_error("Stream closed: #{e.message}", start_time)
     end
 
-    private
+    def handle_recoverable_error(error_type, start_time)
+      elapsed_hours = ((Time.now - start_time) / 3600.0).round(2)
+
+      if @retry_count >= MAX_RETRY_ATTEMPTS - 1
+        Logger.error "[#{self.class.name}] #{error_type} - max retries reached"
+        return error_result("#{error_type} after #{CLAUDE_EXECUTION_TIMEOUT}s (#{elapsed_hours}h), retries exhausted")
+      end
+
+      Logger.warn "[#{self.class.name}] #{error_type} after #{elapsed_hours}h - will retry with --continue"
+      nil # Signal to retry
+    end
 
     def resolve_claude_path
       Logger.debug "[#{self.class.name}] Resolving Claude executable path..."
@@ -58,8 +102,10 @@ module WvRunner
       claude_path
     end
 
-    def build_command(claude_path, instructions)
-      cmd = [claude_path, '-p', instructions, '--model', model_name, '--output-format=stream-json', '--verbose']
+    def build_command(claude_path, instructions, continue_session: false)
+      cmd = [claude_path]
+      cmd << '--continue' if continue_session
+      cmd.concat(['-p', instructions, '--model', model_name, '--output-format=stream-json', '--verbose'])
       cmd << '--permission-mode=acceptEdits' if accept_edits?
       Logger.debug "command: #{cmd.map { |arg| Shellwords.escape(arg) }.join(' ')}"
       cmd
@@ -72,13 +118,14 @@ module WvRunner
     def execute_with_streaming(command)
       stdout_content = ''.dup
       stderr_content = ''.dup
+      stream_error = nil
 
       Timeout.timeout(CLAUDE_EXECUTION_TIMEOUT) do
         Open3.popen3(*command) do |stdin, stdout, stderr, wait_thr|
           stdin.close
 
           stdout_thread = Thread.new do
-            stdout.each_line do |line|
+            stream_lines(stdout) do |line|
               stdout_content << line.dup
               if OutputFormatter.should_log_to_stdout?(line)
                 puts OutputFormatter.format_line(line)
@@ -86,17 +133,24 @@ module WvRunner
                 Logger.debug("[#{self.class.name}] [streaming] #{line.strip}")
               end
             end
+          rescue IOError, Errno::EBADF => e
+            handle_stream_error(e, 'stdout') { |err| stream_error = err }
           end
 
           stderr_thread = Thread.new do
-            stderr.each_line do |line|
+            stream_lines(stderr) do |line|
               Logger.warn "\n[Claude STDERR] #{line}"
               stderr_content << line.dup
             end
+          rescue IOError, Errno::EBADF => e
+            handle_stream_error(e, 'stderr') { |err| stream_error ||= err }
           end
 
           stdout_thread.join
           stderr_thread.join
+
+          # Check if stream was unexpectedly closed
+          raise StreamClosedError, stream_error if stream_error && !@stopping
 
           exit_status = wait_thr.value
           Logger.debug "[#{self.class.name}] Process exit status: #{exit_status.exitstatus}"
@@ -110,8 +164,21 @@ module WvRunner
 
       stdout_content
     rescue Timeout::Error
+      @stopping = true
       Logger.error "[#{self.class.name}] Claude execution timed out after #{CLAUDE_EXECUTION_TIMEOUT} seconds"
       raise
+    end
+
+    def stream_lines(io)
+      io.each_line { |line| yield line }
+    end
+
+    def handle_stream_error(error, stream_name)
+      return if @stopping # Expected closure during timeout/shutdown
+
+      error_msg = "#{stream_name} stream closed unexpectedly: #{error.message}"
+      Logger.warn "[#{self.class.name}] #{error_msg}"
+      yield error_msg
     end
 
     def build_instructions
