@@ -45,12 +45,12 @@ module WvRunner
       false
     end
 
-    # Status icons with ASCII fallback
+    # Status icons with BMP fallback (works in most terminals without emoji fonts)
     ICONS = {
-      completed: { emoji: '✅', ascii: '[x]' },
-      in_progress: { emoji: '🔄', ascii: '[>]' },
-      pending: { emoji: '⏳', ascii: '[ ]' },
-      thinking: { emoji: '💭', ascii: '[...]' }
+      completed: { emoji: '✅', ascii: '✔' },      # U+2714 HEAVY CHECK MARK
+      in_progress: { emoji: '🔄', ascii: '▶' },   # U+25B6 BLACK RIGHT-POINTING TRIANGLE
+      pending: { emoji: '⏳', ascii: '○' },        # U+25CB WHITE CIRCLE
+      thinking: { emoji: '💭', ascii: '…' }        # U+2026 HORIZONTAL ELLIPSIS
     }.freeze
 
     def self.icon(name)
