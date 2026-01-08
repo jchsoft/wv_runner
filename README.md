@@ -33,6 +33,18 @@ rake wv_runner:run_today
 rake wv_runner:run_daily
 ```
 
+### Environment Variables
+
+| Variable | Values | Description |
+|----------|--------|-------------|
+| `verbose` | `true` | Show full JSON output instead of formatted messages |
+| `WV_RUNNER_ASCII` | `1` | Use ASCII icons instead of emoji (for terminals without emoji support) |
+
+Example:
+```bash
+WV_RUNNER_ASCII=1 rake wv_runner:run_once
+```
+
 ## Architecture
 
 ### Core Components
