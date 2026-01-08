@@ -24,33 +24,19 @@ module WvRunner
       @@ascii_mode
     end
 
-    # Detect if terminal supports emoji (heuristic based on TERM and LC_ALL/LANG)
+    # Use ASCII fallback only when explicitly requested via WV_RUNNER_ASCII=1
     def self.use_ascii?
       return @@ascii_mode unless @@ascii_mode.nil?
 
-      # Check for explicit ASCII mode via environment
-      return true if ENV['WV_RUNNER_ASCII'] == '1' || ENV['WV_RUNNER_ASCII'] == 'true'
-
-      # SSH sessions without proper locale often can't display emoji
-      term = ENV['TERM'].to_s
-      lang = ENV['LANG'].to_s + ENV['LC_ALL'].to_s
-
-      # Common indicators of limited terminal
-      limited_terms = %w[linux vt100 vt220 dumb ansi]
-      return true if limited_terms.any? { |t| term.start_with?(t) }
-
-      # If no UTF-8 locale, likely can't display emoji
-      return true unless lang.downcase.include?('utf')
-
-      false
+      ENV['WV_RUNNER_ASCII'] == '1' || ENV['WV_RUNNER_ASCII'] == 'true'
     end
 
-    # Status icons with BMP fallback (works in most terminals without emoji fonts)
+    # Status icons (emoji by default, ASCII fallback available via WV_RUNNER_ASCII=1)
     ICONS = {
-      completed: { emoji: '✅', ascii: '✔' },      # U+2714 HEAVY CHECK MARK
-      in_progress: { emoji: '🔄', ascii: '▶' },   # U+25B6 BLACK RIGHT-POINTING TRIANGLE
-      pending: { emoji: '⏳', ascii: '○' },        # U+25CB WHITE CIRCLE
-      thinking: { emoji: '💭', ascii: '…' }        # U+2026 HORIZONTAL ELLIPSIS
+      completed: { emoji: '✅', ascii: '[x]' },
+      in_progress: { emoji: '🔄', ascii: '[>]' },
+      pending: { emoji: '⏳', ascii: '[ ]' },
+      thinking: { emoji: '💭', ascii: '[.]' }
     }.freeze
 
     def self.icon(name)

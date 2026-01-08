@@ -248,8 +248,8 @@ class OutputFormatterTest < Minitest::Test
     assert_includes result, "Here is the solution"
   end
 
-  # BMP fallback mode tests for terminals without emoji support
-  def test_ascii_mode_todo_write_uses_bmp_icons
+  # ASCII fallback mode tests (WV_RUNNER_ASCII=1)
+  def test_ascii_mode_todo_write_uses_ascii_icons
     WvRunner::OutputFormatter.ascii_mode = true
     todos = [
       { 'content' => 'Done task', 'status' => 'completed' },
@@ -257,19 +257,19 @@ class OutputFormatterTest < Minitest::Test
       { 'content' => 'Waiting task', 'status' => 'pending' }
     ]
     result = WvRunner::OutputFormatter.format_todo_write_input(todos)
-    assert_includes result, "✔ Done task"
-    assert_includes result, "▶ Working task"
-    assert_includes result, "○ Waiting task"
+    assert_includes result, "[x] Done task"
+    assert_includes result, "[>] Working task"
+    assert_includes result, "[ ] Waiting task"
     refute_includes result, "✅"
     refute_includes result, "🔄"
     refute_includes result, "⏳"
   end
 
-  def test_ascii_mode_thinking_uses_bmp_icon
+  def test_ascii_mode_thinking_uses_ascii_icon
     WvRunner::OutputFormatter.ascii_mode = true
     item = { 'type' => 'thinking', 'thinking' => 'Analyzing the problem' }
     result = WvRunner::OutputFormatter.format_thinking_content(item)
-    assert_equal 'thinking: … "Analyzing the problem"', result
+    assert_equal 'thinking: [.] "Analyzing the problem"', result
     refute_includes result, "💭"
   end
 
@@ -281,12 +281,12 @@ class OutputFormatterTest < Minitest::Test
     assert_equal '💭', WvRunner::OutputFormatter.icon(:thinking)
   end
 
-  def test_icon_method_returns_bmp_when_ascii_mode
+  def test_icon_method_returns_ascii_when_ascii_mode
     WvRunner::OutputFormatter.ascii_mode = true
-    assert_equal '✔', WvRunner::OutputFormatter.icon(:completed)
-    assert_equal '▶', WvRunner::OutputFormatter.icon(:in_progress)
-    assert_equal '○', WvRunner::OutputFormatter.icon(:pending)
-    assert_equal '…', WvRunner::OutputFormatter.icon(:thinking)
+    assert_equal '[x]', WvRunner::OutputFormatter.icon(:completed)
+    assert_equal '[>]', WvRunner::OutputFormatter.icon(:in_progress)
+    assert_equal '[ ]', WvRunner::OutputFormatter.icon(:pending)
+    assert_equal '[.]', WvRunner::OutputFormatter.icon(:thinking)
   end
 
   def test_icon_returns_empty_string_for_unknown_icon
