@@ -6,6 +6,7 @@ module WvRunner
   # Formats Claude output for better readability
   class OutputFormatter
     @@verbose_mode = false
+    @@ascii_mode = nil # nil = auto-detect, true = force ASCII, false = force emoji
 
     def self.verbose_mode=(value)
       @@verbose_mode = value
@@ -13,6 +14,50 @@ module WvRunner
 
     def self.verbose_mode
       @@verbose_mode
+    end
+
+    def self.ascii_mode=(value)
+      @@ascii_mode = value
+    end
+
+    def self.ascii_mode
+      @@ascii_mode
+    end
+
+    # Detect if terminal supports emoji (heuristic based on TERM and LC_ALL/LANG)
+    def self.use_ascii?
+      return @@ascii_mode unless @@ascii_mode.nil?
+
+      # Check for explicit ASCII mode via environment
+      return true if ENV['WV_RUNNER_ASCII'] == '1' || ENV['WV_RUNNER_ASCII'] == 'true'
+
+      # SSH sessions without proper locale often can't display emoji
+      term = ENV['TERM'].to_s
+      lang = ENV['LANG'].to_s + ENV['LC_ALL'].to_s
+
+      # Common indicators of limited terminal
+      limited_terms = %w[linux vt100 vt220 dumb ansi]
+      return true if limited_terms.any? { |t| term.start_with?(t) }
+
+      # If no UTF-8 locale, likely can't display emoji
+      return true unless lang.downcase.include?('utf')
+
+      false
+    end
+
+    # Status icons with ASCII fallback
+    ICONS = {
+      completed: { emoji: '✅', ascii: '[x]' },
+      in_progress: { emoji: '🔄', ascii: '[>]' },
+      pending: { emoji: '⏳', ascii: '[ ]' },
+      thinking: { emoji: '💭', ascii: '[...]' }
+    }.freeze
+
+    def self.icon(name)
+      icon_set = ICONS[name]
+      return '' unless icon_set
+
+      use_ascii? ? icon_set[:ascii] : icon_set[:emoji]
     end
 
     def self.format_line(line)
@@ -143,12 +188,12 @@ module WvRunner
 
     def self.format_todo_write_input(todos)
       todos.map do |todo|
-        emoji = case todo['status']
-                when 'completed' then '✅'
-                when 'in_progress' then '🔄'
-                else '⏳'
-                end
-        "#{emoji} #{todo['content']}"
+        status_icon = case todo['status']
+                      when 'completed' then icon(:completed)
+                      when 'in_progress' then icon(:in_progress)
+                      else icon(:pending)
+                      end
+        "#{status_icon} #{todo['content']}"
       end.join("\n")
     end
 
@@ -162,7 +207,7 @@ module WvRunner
 
     def self.format_thinking_content(item)
       thinking_text = item['thinking'].to_s
-      "thinking: 💭 \"#{thinking_text}\""
+      "thinking: #{icon(:thinking)} \"#{thinking_text}\""
     end
 
     def self.json_like?(line)

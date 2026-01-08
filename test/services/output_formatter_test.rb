@@ -3,8 +3,13 @@ require_relative '../../lib/wv_runner/services/output_formatter'
 
 class OutputFormatterTest < Minitest::Test
   def setup
-    # Reset verbose mode before each test
+    # Reset verbose mode and ascii mode before each test
     WvRunner::OutputFormatter.verbose_mode = false
+    WvRunner::OutputFormatter.ascii_mode = false # Force emoji mode for backwards compatibility
+  end
+
+  def teardown
+    WvRunner::OutputFormatter.ascii_mode = nil # Reset to auto-detect
   end
 
   def test_format_line_adds_blank_line_before_output
@@ -241,5 +246,60 @@ class OutputFormatterTest < Minitest::Test
     # Should include both thinking and text
     assert_includes result, '💭 "Planning my approach"'
     assert_includes result, "Here is the solution"
+  end
+
+  # ASCII mode tests for terminals without emoji support
+  def test_ascii_mode_todo_write_uses_ascii_icons
+    WvRunner::OutputFormatter.ascii_mode = true
+    todos = [
+      { 'content' => 'Done task', 'status' => 'completed' },
+      { 'content' => 'Working task', 'status' => 'in_progress' },
+      { 'content' => 'Waiting task', 'status' => 'pending' }
+    ]
+    result = WvRunner::OutputFormatter.format_todo_write_input(todos)
+    assert_includes result, "[x] Done task"
+    assert_includes result, "[>] Working task"
+    assert_includes result, "[ ] Waiting task"
+    refute_includes result, "✅"
+    refute_includes result, "🔄"
+    refute_includes result, "⏳"
+  end
+
+  def test_ascii_mode_thinking_uses_ascii_icon
+    WvRunner::OutputFormatter.ascii_mode = true
+    item = { 'type' => 'thinking', 'thinking' => 'Analyzing the problem' }
+    result = WvRunner::OutputFormatter.format_thinking_content(item)
+    assert_equal 'thinking: [...] "Analyzing the problem"', result
+    refute_includes result, "💭"
+  end
+
+  def test_icon_method_returns_emoji_when_not_ascii_mode
+    WvRunner::OutputFormatter.ascii_mode = false
+    assert_equal '✅', WvRunner::OutputFormatter.icon(:completed)
+    assert_equal '🔄', WvRunner::OutputFormatter.icon(:in_progress)
+    assert_equal '⏳', WvRunner::OutputFormatter.icon(:pending)
+    assert_equal '💭', WvRunner::OutputFormatter.icon(:thinking)
+  end
+
+  def test_icon_method_returns_ascii_when_ascii_mode
+    WvRunner::OutputFormatter.ascii_mode = true
+    assert_equal '[x]', WvRunner::OutputFormatter.icon(:completed)
+    assert_equal '[>]', WvRunner::OutputFormatter.icon(:in_progress)
+    assert_equal '[ ]', WvRunner::OutputFormatter.icon(:pending)
+    assert_equal '[...]', WvRunner::OutputFormatter.icon(:thinking)
+  end
+
+  def test_icon_returns_empty_string_for_unknown_icon
+    assert_equal '', WvRunner::OutputFormatter.icon(:unknown_icon)
+  end
+
+  def test_use_ascii_respects_explicit_ascii_mode_true
+    WvRunner::OutputFormatter.ascii_mode = true
+    assert WvRunner::OutputFormatter.use_ascii?
+  end
+
+  def test_use_ascii_respects_explicit_ascii_mode_false
+    WvRunner::OutputFormatter.ascii_mode = false
+    refute WvRunner::OutputFormatter.use_ascii?
   end
 end
