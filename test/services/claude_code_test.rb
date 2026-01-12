@@ -40,7 +40,7 @@ class ClaudeCodeHonestTest < Minitest::Test
         honest = WvRunner::ClaudeCode::Honest.new
         instructions = honest.send(:build_instructions)
         assert_includes instructions, 'git checkout main'
-        assert_includes instructions, 'GIT: Make sure you are on the main branch'
+        assert_includes instructions, 'GIT STATE CHECK'
         assert_includes instructions, 'clean, stable state'
       end
     end
@@ -60,7 +60,7 @@ class ClaudeCodeHonestTest < Minitest::Test
       File.stub :read, "project_relative_id=7\n" do
         honest = WvRunner::ClaudeCode::Honest.new
         instructions = honest.send(:build_instructions)
-        assert_includes instructions, 'NOT ALREADY STARTED'
+        assert_includes instructions, 'NOT already started or completed'
       end
     end
   end
@@ -70,13 +70,13 @@ class ClaudeCodeHonestTest < Minitest::Test
       File.stub :read, 'project_relative_id=99' do
         honest = WvRunner::ClaudeCode::Honest.new
         instructions = honest.send(:build_instructions)
-        assert_includes instructions, 'CREATE A NEW BRANCH'
-        assert_includes instructions, 'COMPLETE the task'
-        assert_includes instructions, 'COMMIT your changes'
-        assert_includes instructions, 'RUN ALL UNIT TESTS'
-        assert_includes instructions, 'RUN ALL SYSTEM TESTS'
-        assert_includes instructions, 'PUSH the branch'
-        assert_includes instructions, 'CREATE A PULL REQUEST'
+        assert_includes instructions, 'CREATE BRANCH'
+        assert_includes instructions, 'IMPLEMENT TASK'
+        assert_includes instructions, 'incremental commits'
+        assert_includes instructions, 'RUN UNIT TESTS'
+        assert_includes instructions, 'RUN SYSTEM TESTS'
+        assert_includes instructions, 'PUSH'
+        assert_includes instructions, 'CREATE PULL REQUEST'
       end
     end
   end

@@ -22,33 +22,60 @@ module WvRunner
           Work on next task from: workvector://pieces/jchsoft/@next?project_relative_id=#{project_id} and ultrathink!
 
           WORKFLOW:
-          1. GIT: Make sure you are on the main branch
-             - Run: git checkout main (switch to main branch if not already there)
+          1. GIT STATE CHECK: Ensure you start from main branch
+             - Run: git checkout main
              - This ensures you start from a clean, stable state
-          2. Make sure task is new and **NOT ALREADY STARTED** or completed
-          3. CREATE A NEW BRANCH at the start of the task (use task name as branch name, e.g., "feature/task-name" or "fix/issue-name")
-          4. COMPLETE the task according to requirements (following rules in global CLAUDE.md)
-          5. COMMIT your changes with clear commit messages
-          6. MAKE SURE all code changes are properly tested
-          7. COMMIT your changes with clear commit messages
-          8. **RUN ALL UNIT TESTS repeatedly until they all PASS** - do not make you way easy - tests must be solid and all passing
-          9. **PREPARE SCREENSHOT FOR REVIEW** - save screenshot in new systems test to be used later for PR, if you created some
-          10. **RUN ALL SYSTEM TESTS repeatedly until they all PASS** - do not make you way easy - tests must be solid and all passing - system tests last longer, even 5 minutes 
-          11. COMMIT your changes with clear commit messages
-          12. **Read global CLAUDE.md**, then refactor new code with FOCUS ON ROR RULES
-          13. **RUN ALL UNIT TESTS repeatedly until they all PASS** after refactoring
-          14. **RUN ALL SYSTEM TESTS repeatedly until they all PASS** after refactoring
-          15. PUSH the branch to remote repository
-          16. CREATE A PULL REQUEST:
-             - Use the format from .github/pull_request_template.md if exists
-             - Include a clear summary of changes
-             - Link to the task in WorkVector
-          17. **ADD SCREENSHOTS TO PR COMMENTS** - add them using skill "pr-screenshot"
-          18. **MANDATORY: RUN LOCAL CI** - run "bin/ci" to verify the PR passes all checks
-              - This step is NOT optional - task is INCOMPLETE without CI verification
-              - If bin/ci doesn't exist, skip this step
 
-          ⚠️ TASK IS NOT COMPLETE UNTIL LOCAL CI PASSES (step 18)
+          2. TASK FETCH: Get the next available task
+             - Read: workvector://pieces/jchsoft/@next?project_relative_id=#{project_id}
+             - If no tasks available: STOP and output status "no_more_tasks"
+             - Verify task is NOT already started or completed
+
+          3. CREATE BRANCH: Start work on a new feature branch
+             - Use task name as branch name (e.g., "feature/task-name" or "fix/issue-name")
+             - Run: git checkout -b <branch-name>
+
+          4. IMPLEMENT TASK: Complete the task according to requirements
+             - Follow rules in global CLAUDE.md
+             - Make incremental commits with clear messages
+
+          5. RUN UNIT TESTS: Execute all unit tests
+             - Run the test suite
+             - If failures: fix them and commit fixes
+             - Repeat until all pass
+
+          6. PREPARE SCREENSHOTS: Save screenshots for PR review
+             - If you created new system tests with visual changes, save screenshots
+             - These will be used later for PR
+
+          7. RUN SYSTEM TESTS: Execute all system tests
+             - Run system tests (may take up to 5 minutes)
+             - If failures: fix them and commit fixes
+             - Repeat until all pass
+
+          8. REFACTOR: Read global CLAUDE.md, then refactor with FOCUS ON ROR RULES
+             - Apply Ruby/Rails best practices
+             - Commit refactoring changes
+
+          9. VERIFY TESTS AFTER REFACTOR: Re-run all tests
+             - Run unit tests - repeat until all pass
+             - Run system tests - repeat until all pass
+
+          10. PUSH: Push branch to remote repository
+              - Run: git push origin HEAD
+
+          11. CREATE PULL REQUEST: Open PR for review
+              - Use format from .github/pull_request_template.md if exists
+              - Include clear summary of changes
+              - Link to the task in WorkVector
+
+          12. ADD SCREENSHOTS TO PR: Add screenshots using skill "pr-screenshot"
+
+          13. RUN LOCAL CI: If "bin/ci" exists, run it to verify PR passes
+              - This step is MANDATORY - task is INCOMPLETE without CI verification
+              - If bin/ci doesn't exist: skip this step
+
+          ⚠️ TASK IS NOT COMPLETE UNTIL LOCAL CI PASSES (step 13)
 
           At the END, output JSON in this exact format - on a new line in a code block:
 
