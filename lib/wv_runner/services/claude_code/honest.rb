@@ -44,7 +44,11 @@ module WvRunner
              - Include a clear summary of changes
              - Link to the task in WorkVector
           17. **ADD SCREENSHOTS TO PR COMMENTS** - add them using skill "pr-screenshot"
-          18. **RUN LOCAL CI** - if exists "bin/ci" file, run it
+          18. **MANDATORY: RUN LOCAL CI** - run "bin/ci" to verify the PR passes all checks
+              - This step is NOT optional - task is INCOMPLETE without CI verification
+              - If bin/ci doesn't exist, skip this step
+
+          ⚠️ TASK IS NOT COMPLETE UNTIL LOCAL CI PASSES (step 18)
 
           At the END, output JSON in this exact format - on a new line in a code block:
 
