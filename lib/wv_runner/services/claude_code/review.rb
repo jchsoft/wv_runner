@@ -69,7 +69,10 @@ module WvRunner
           11. PUSH: Push all changes to the branch
               - git push origin HEAD
   
-          12. RUN LOCAL CI: If exists "bin/ci" file, run it
+          12. RUN LOCAL CI: If "bin/ci" exists, run it in background to avoid timeout
+              - IMPORTANT: Use Bash tool with run_in_background=true to start CI
+              - Then poll the output every 30 seconds using Read or Bash tail until complete
+              - This prevents API timeout during long-running CI
 
           At the END, output JSON in this exact format - on a new line in a code block:
 
