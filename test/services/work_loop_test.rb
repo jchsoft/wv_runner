@@ -59,7 +59,7 @@ class WorkLoopTest < Minitest::Test
   end
 
   def test_valid_how_values_constant
-    assert_equal %i[once today daily once_dry review], WvRunner::WorkLoop::VALID_HOW_VALUES
+    assert_equal %i[once today daily once_dry review reviews], WvRunner::WorkLoop::VALID_HOW_VALUES
   end
 
   def test_execute_validates_how_parameter
@@ -67,7 +67,7 @@ class WorkLoopTest < Minitest::Test
 
     error = assert_raises(ArgumentError) { loop_instance.execute(:unknown) }
     assert_includes error.message, "Invalid 'how' value"
-    assert_includes error.message, 'once, today, daily, once_dry, review'
+    assert_includes error.message, 'once, today, daily, once_dry, review, reviews'
   end
 
   def test_execute_with_review_calls_review
@@ -124,6 +124,49 @@ class WorkLoopTest < Minitest::Test
       result = loop_instance.execute(:review)
 
       assert_equal 'no_pr', result['status']
+    end
+  end
+
+  def test_execute_with_reviews_calls_reviews
+    mock = Object.new
+    def mock.run
+      { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 1.5 } }
+    end
+
+    WvRunner::ClaudeCode::Reviews.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new
+      result = loop_instance.execute(:reviews)
+
+      assert_equal 'success', result['status']
+      assert_equal 1.5, result['hours']['task_estimated']
+    end
+  end
+
+  def test_execute_with_reviews_handles_no_reviews
+    mock = Object.new
+    def mock.run
+      { 'status' => 'no_reviews', 'message' => 'No PRs with human reviews found' }
+    end
+
+    WvRunner::ClaudeCode::Reviews.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new
+      result = loop_instance.execute(:reviews)
+
+      assert_equal 'no_reviews', result['status']
+    end
+  end
+
+  def test_execute_with_reviews_handles_failure
+    mock = Object.new
+    def mock.run
+      { 'status' => 'failure', 'message' => 'Error processing reviews' }
+    end
+
+    WvRunner::ClaudeCode::Reviews.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new
+      result = loop_instance.execute(:reviews)
+
+      assert_equal 'failure', result['status']
     end
   end
 
