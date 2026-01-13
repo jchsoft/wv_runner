@@ -1,45 +1,28 @@
 # frozen_string_literal: true
 
-require_relative '../claude_code_base'
+require_relative 'review'
 
 module WvRunner
   module ClaudeCode
-    # Handles PR review feedback - reads human reviews, creates subtasks, fixes issues
-    class Review < ClaudeCodeBase
-      def model_name
-        'sonnet'
-      end
-
+    # Handles ONE PR review - finds next PR with reviews, checks out branch, fixes issues
+    # Called in a loop by WorkLoop to process multiple PRs with fresh context each time
+    class Reviews < Review
       private
-
-      def build_instructions
-        [
-          persona_section,
-          task_section,
-          workflow_section,
-          output_format_section
-        ].join("\n")
-      end
-
-      def persona_section
-        <<~PERSONA
-          [PERSONA]
-          You are a senior Ruby On Rails software developer, following RubyWay principles.
-        PERSONA
-      end
 
       def task_section
         <<~TASK
           [TASK]
-          Review and fix feedback from Pull Request reviews on the current branch.
+          Find the NEXT Pull Request that has an unaddressed review from the project lead.
+          Check out its branch, fix the review feedback, and return.
+          This will be called repeatedly in a loop until no more reviews exist.
         TASK
       end
 
       def workflow_section
         <<~WORKFLOW
           WORKFLOW:
-          #{git_state_check_step}
-          #{pr_existence_check_step}
+          #{find_next_pr_with_review_step}
+          #{checkout_branch_step}
           #{extract_task_info_step}
           #{load_review_comments_step}
           #{create_subtask_step}
@@ -53,20 +36,23 @@ module WvRunner
         WORKFLOW
       end
 
-      def git_state_check_step
+      def find_next_pr_with_review_step
         <<~STEP.strip
-          1. GIT STATE CHECK: Verify you are NOT on main/master branch
-             - Run: git branch --show-current
-             - If on main or master: STOP and output error status - cannot review on main branch
-             - If on feature branch: continue
+          1. FIND NEXT PR WITH REVIEW: Search for the first open PR with human reviews
+             - Run: gh pr list --json number,title,headRefName,url --state open
+             - For each PR, check if it has reviews: gh api repos/{owner}/{repo}/pulls/{pr_number}/reviews
+             - Filter for reviews from humans (not bots/automated)
+             - Find the FIRST PR that has an unaddressed human review
+             - If no PRs with reviews found: output status "no_reviews" and STOP immediately
         STEP
       end
 
-      def pr_existence_check_step
+      def checkout_branch_step
         <<~STEP.strip
-          2. PR EXISTENCE CHECK: Verify a PR exists for current branch
-             - Run: gh pr view --json number,title,body,url
-             - If no PR exists: STOP and output error status - no PR found for this branch
+          2. CHECKOUT BRANCH: Switch to the PR's branch
+             - Run: git fetch origin {branch_name}
+             - Run: git checkout {branch_name}
+             - Run: git pull origin {branch_name}
         STEP
       end
 
@@ -80,21 +66,19 @@ module WvRunner
 
       def load_review_comments_step
         <<~STEP.strip
-          4. LOAD REVIEW COMMENTS: Get the latest human review
+          4. LOAD REVIEW COMMENTS: Get the latest human review for current PR
              - Run: gh api repos/{owner}/{repo}/pulls/{pr_number}/reviews
-             - Filter for reviews from humans (not bots/automated)
              - Get the most recent human review
              - Also run: gh api repos/{owner}/{repo}/pulls/{pr_number}/comments for inline comments
-             - If no human reviews found: output success with message "no reviews to address"
         STEP
       end
 
       def create_subtask_step
         <<~STEP.strip
-          5. CREATE SUBTASK
+          5. CREATE SUBTASK: Create subtask for the review work
              - Use mcp__workvector-production__CreatePieceTool to create subtask under the original task
              - Include summarized review feedback in description
-             - LOG work progress to this task
+             - LOG work progress to this subtask
         STEP
       end
 
@@ -148,48 +132,17 @@ module WvRunner
 
       def run_local_ci_step
         <<~STEP.strip
-          12. RUN LOCAL CI: If "bin/ci" exists, run it in background to avoid timeout
-              - IMPORTANT: Use Bash tool with run_in_background=true to start CI
-              - Then poll the output every 30 seconds using Read or Bash tail until complete
-              - This prevents API timeout during long-running CI
+          12. RUN LOCAL CI: If exists "bin/ci" file, run it
         STEP
-      end
-
-      def output_format_section
-        <<~OUTPUT
-          At the END, output JSON in this exact format - on a new line in a code block:
-
-          ```json
-          WVRUNNER_RESULT: {"status": "success", "hours": {"per_day": X, "task_estimated": Y}}
-          ```
-
-          CRITICAL FORMATTING:
-          1. The JSON MUST be inside triple backticks (```json ... ```) on a separate line
-          2. Output VALID JSON with proper string escaping. Any quotes in string values must be escaped as \\"
-          3. NO other text after the closing triple backticks
-
-          #{status_values_section}
-          #{hours_data_section}
-        OUTPUT
       end
 
       def status_values_section
         <<~STATUS.strip
           Status values:
           - "success" if review addressed and changes pushed
-          - "no_reviews" if no human reviews found to address
-          - "not_on_branch" if on main/master branch
-          - "no_pr" if no PR exists for current branch
-          - "failure" for other errors
+          - "no_reviews" if no PRs with human reviews found
+          - "failure" for errors during processing
         STATUS
-      end
-
-      def hours_data_section
-        <<~HOURS.strip
-          How to get hours data:
-          1. Read workvector://user -> use "hour_goal" value for per_day
-          2. Set task_estimated to 0.5 (review tasks are typically short)
-        HOURS
       end
     end
   end

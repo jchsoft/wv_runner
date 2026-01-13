@@ -59,7 +59,7 @@ class WorkLoopTest < Minitest::Test
   end
 
   def test_valid_how_values_constant
-    assert_equal %i[once today daily once_dry review], WvRunner::WorkLoop::VALID_HOW_VALUES
+    assert_equal %i[once today daily once_dry review reviews], WvRunner::WorkLoop::VALID_HOW_VALUES
   end
 
   def test_execute_validates_how_parameter
@@ -67,7 +67,7 @@ class WorkLoopTest < Minitest::Test
 
     error = assert_raises(ArgumentError) { loop_instance.execute(:unknown) }
     assert_includes error.message, "Invalid 'how' value"
-    assert_includes error.message, 'once, today, daily, once_dry, review'
+    assert_includes error.message, 'once, today, daily, once_dry, review, reviews'
   end
 
   def test_execute_with_review_calls_review
@@ -124,6 +124,60 @@ class WorkLoopTest < Minitest::Test
       result = loop_instance.execute(:review)
 
       assert_equal 'no_pr', result['status']
+    end
+  end
+
+  def test_execute_with_reviews_loops_and_returns_array
+    # Mock returns success first, then no_reviews to stop the loop
+    call_count = [0]
+    mock = Object.new
+    mock.define_singleton_method(:run) do
+      call_count[0] += 1
+      call_count[0] == 1 ? { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 1.5 } } : { 'status' => 'no_reviews' }
+    end
+
+    WvRunner::ClaudeCode::Reviews.stub(:new, mock) do
+      Kernel.stub(:sleep, nil) do
+        loop_instance = WvRunner::WorkLoop.new
+        results = loop_instance.execute(:reviews)
+
+        assert_instance_of Array, results
+        assert_equal 2, results.length
+        assert_equal 'success', results.first['status']
+        assert_equal 'no_reviews', results.last['status']
+      end
+    end
+  end
+
+  def test_execute_with_reviews_stops_on_no_reviews
+    mock = Object.new
+    def mock.run
+      { 'status' => 'no_reviews', 'message' => 'No PRs with human reviews found' }
+    end
+
+    WvRunner::ClaudeCode::Reviews.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new
+      results = loop_instance.execute(:reviews)
+
+      assert_instance_of Array, results
+      assert_equal 1, results.length
+      assert_equal 'no_reviews', results.first['status']
+    end
+  end
+
+  def test_execute_with_reviews_stops_on_failure
+    mock = Object.new
+    def mock.run
+      { 'status' => 'failure', 'message' => 'Error processing reviews' }
+    end
+
+    WvRunner::ClaudeCode::Reviews.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new
+      results = loop_instance.execute(:reviews)
+
+      assert_instance_of Array, results
+      assert_equal 1, results.length
+      assert_equal 'failure', results.first['status']
     end
   end
 

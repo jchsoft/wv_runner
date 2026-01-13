@@ -252,3 +252,84 @@ class ClaudeCodeReviewTest < Minitest::Test
     assert_includes instructions, 'CreatePieceTool'
   end
 end
+
+class ClaudeCodeReviewsTest < Minitest::Test
+  def test_reviews_responds_to_run
+    reviews = WvRunner::ClaudeCode::Reviews.new
+    assert_respond_to reviews, :run
+  end
+
+  def test_reviews_inherits_from_review
+    assert WvRunner::ClaudeCode::Reviews < WvRunner::ClaudeCode::Review
+  end
+
+  def test_reviews_uses_sonnet_model
+    reviews = WvRunner::ClaudeCode::Reviews.new
+    assert_equal 'sonnet', reviews.send(:model_name)
+  end
+
+  def test_reviews_accepts_edits
+    reviews = WvRunner::ClaudeCode::Reviews.new
+    assert reviews.send(:accept_edits?)
+  end
+
+  def test_reviews_instructions_includes_find_next_pr_step
+    reviews = WvRunner::ClaudeCode::Reviews.new
+    instructions = reviews.send(:build_instructions)
+    assert_includes instructions, 'FIND NEXT PR WITH REVIEW'
+    assert_includes instructions, 'gh pr list'
+    assert_includes instructions, '--state open'
+  end
+
+  def test_reviews_instructions_includes_checkout_branch
+    reviews = WvRunner::ClaudeCode::Reviews.new
+    instructions = reviews.send(:build_instructions)
+    assert_includes instructions, 'CHECKOUT BRANCH'
+    assert_includes instructions, 'git fetch'
+    assert_includes instructions, 'git checkout'
+  end
+
+  def test_reviews_mentions_called_repeatedly_in_loop
+    reviews = WvRunner::ClaudeCode::Reviews.new
+    instructions = reviews.send(:build_instructions)
+    assert_includes instructions, 'called repeatedly in a loop'
+  end
+
+  def test_reviews_instructions_includes_fix_workflow
+    reviews = WvRunner::ClaudeCode::Reviews.new
+    instructions = reviews.send(:build_instructions)
+    assert_includes instructions, 'FIX REVIEW ISSUES'
+    assert_includes instructions, 'COMMIT CHANGES'
+    assert_includes instructions, 'RUN UNIT TESTS'
+    assert_includes instructions, 'RUN SYSTEM TESTS'
+    assert_includes instructions, 'PUSH'
+  end
+
+  def test_reviews_instructions_includes_wvrunner_result
+    reviews = WvRunner::ClaudeCode::Reviews.new
+    instructions = reviews.send(:build_instructions)
+    assert_includes instructions, 'WVRUNNER_RESULT'
+    assert_includes instructions, 'status'
+    assert_includes instructions, 'hours'
+  end
+
+  def test_reviews_has_different_task_section_than_review
+    review = WvRunner::ClaudeCode::Review.new
+    reviews = WvRunner::ClaudeCode::Reviews.new
+
+    review_task = review.send(:task_section)
+    reviews_task = reviews.send(:task_section)
+
+    refute_equal review_task, reviews_task
+    assert_includes reviews_task, 'NEXT Pull Request'
+  end
+
+  def test_reviews_handles_single_pr_per_call
+    reviews = WvRunner::ClaudeCode::Reviews.new
+    instructions = reviews.send(:build_instructions)
+    # Reviews now handles single PR per call, loop is in WorkLoop
+    refute_includes instructions, 'not_on_branch'  # Does not check current branch
+    refute_includes instructions, 'no_pr'  # Does not check current PR existence
+    assert_includes instructions, 'FIRST PR'  # Finds first PR with reviews
+  end
+end
