@@ -127,22 +127,29 @@ class WorkLoopTest < Minitest::Test
     end
   end
 
-  def test_execute_with_reviews_calls_reviews
+  def test_execute_with_reviews_loops_and_returns_array
+    # Mock returns success first, then no_reviews to stop the loop
+    call_count = [0]
     mock = Object.new
-    def mock.run
-      { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 1.5 } }
+    mock.define_singleton_method(:run) do
+      call_count[0] += 1
+      call_count[0] == 1 ? { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 1.5 } } : { 'status' => 'no_reviews' }
     end
 
     WvRunner::ClaudeCode::Reviews.stub(:new, mock) do
-      loop_instance = WvRunner::WorkLoop.new
-      result = loop_instance.execute(:reviews)
+      Kernel.stub(:sleep, nil) do
+        loop_instance = WvRunner::WorkLoop.new
+        results = loop_instance.execute(:reviews)
 
-      assert_equal 'success', result['status']
-      assert_equal 1.5, result['hours']['task_estimated']
+        assert_instance_of Array, results
+        assert_equal 2, results.length
+        assert_equal 'success', results.first['status']
+        assert_equal 'no_reviews', results.last['status']
+      end
     end
   end
 
-  def test_execute_with_reviews_handles_no_reviews
+  def test_execute_with_reviews_stops_on_no_reviews
     mock = Object.new
     def mock.run
       { 'status' => 'no_reviews', 'message' => 'No PRs with human reviews found' }
@@ -150,13 +157,15 @@ class WorkLoopTest < Minitest::Test
 
     WvRunner::ClaudeCode::Reviews.stub(:new, mock) do
       loop_instance = WvRunner::WorkLoop.new
-      result = loop_instance.execute(:reviews)
+      results = loop_instance.execute(:reviews)
 
-      assert_equal 'no_reviews', result['status']
+      assert_instance_of Array, results
+      assert_equal 1, results.length
+      assert_equal 'no_reviews', results.first['status']
     end
   end
 
-  def test_execute_with_reviews_handles_failure
+  def test_execute_with_reviews_stops_on_failure
     mock = Object.new
     def mock.run
       { 'status' => 'failure', 'message' => 'Error processing reviews' }
@@ -164,9 +173,11 @@ class WorkLoopTest < Minitest::Test
 
     WvRunner::ClaudeCode::Reviews.stub(:new, mock) do
       loop_instance = WvRunner::WorkLoop.new
-      result = loop_instance.execute(:reviews)
+      results = loop_instance.execute(:reviews)
 
-      assert_equal 'failure', result['status']
+      assert_instance_of Array, results
+      assert_equal 1, results.length
+      assert_equal 'failure', results.first['status']
     end
   end
 

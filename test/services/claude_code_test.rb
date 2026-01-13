@@ -273,19 +273,12 @@ class ClaudeCodeReviewsTest < Minitest::Test
     assert reviews.send(:accept_edits?)
   end
 
-  def test_reviews_instructions_includes_find_prs_step
+  def test_reviews_instructions_includes_find_next_pr_step
     reviews = WvRunner::ClaudeCode::Reviews.new
     instructions = reviews.send(:build_instructions)
-    assert_includes instructions, 'FIND PRS WITH REVIEWS'
+    assert_includes instructions, 'FIND NEXT PR WITH REVIEW'
     assert_includes instructions, 'gh pr list'
     assert_includes instructions, '--state open'
-  end
-
-  def test_reviews_instructions_includes_process_loop
-    reviews = WvRunner::ClaudeCode::Reviews.new
-    instructions = reviews.send(:build_instructions)
-    assert_includes instructions, 'PROCESS PR LOOP'
-    assert_includes instructions, 'Process PRs one at a time'
   end
 
   def test_reviews_instructions_includes_checkout_branch
@@ -296,11 +289,10 @@ class ClaudeCodeReviewsTest < Minitest::Test
     assert_includes instructions, 'git checkout'
   end
 
-  def test_reviews_instructions_includes_continue_loop
+  def test_reviews_mentions_called_repeatedly_in_loop
     reviews = WvRunner::ClaudeCode::Reviews.new
     instructions = reviews.send(:build_instructions)
-    assert_includes instructions, 'CONTINUE LOOP'
-    assert_includes instructions, 'Return to step 2'
+    assert_includes instructions, 'called repeatedly in a loop'
   end
 
   def test_reviews_instructions_includes_fix_workflow
@@ -329,14 +321,15 @@ class ClaudeCodeReviewsTest < Minitest::Test
     reviews_task = reviews.send(:task_section)
 
     refute_equal review_task, reviews_task
-    assert_includes reviews_task, 'all Pull Requests'
+    assert_includes reviews_task, 'NEXT Pull Request'
   end
 
-  def test_reviews_status_values_differ_from_review
+  def test_reviews_handles_single_pr_per_call
     reviews = WvRunner::ClaudeCode::Reviews.new
     instructions = reviews.send(:build_instructions)
-    assert_includes instructions, 'all reviews addressed'
-    refute_includes instructions, 'not_on_branch'
-    refute_includes instructions, 'no_pr'
+    # Reviews now handles single PR per call, loop is in WorkLoop
+    refute_includes instructions, 'not_on_branch'  # Does not check current branch
+    refute_includes instructions, 'no_pr'  # Does not check current PR existence
+    assert_includes instructions, 'FIRST PR'  # Finds first PR with reviews
   end
 end
