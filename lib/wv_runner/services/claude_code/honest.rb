@@ -74,6 +74,7 @@ module WvRunner
           13. RUN LOCAL CI: If "bin/ci" exists, run it in background to avoid timeout
               - This step is MANDATORY - task is INCOMPLETE without CI verification
               - If bin/ci doesn't exist: skip this step
+              - If some test in step 9. failed: skip this step
               - IMPORTANT: Use Bash tool with run_in_background=true to start CI
               - Then poll the output every 30 seconds using Read or Bash tail until complete
               - This prevents API timeout during long-running CI
