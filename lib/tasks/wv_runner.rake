@@ -1,5 +1,5 @@
 namespace :wv_runner do
-  MODES = %i[once once_dry today daily review reviews].freeze
+  MODES = %i[once once_dry today daily review reviews workflow].freeze
 
   MODES.each do |mode|
     desc case mode
@@ -15,7 +15,9 @@ namespace :wv_runner do
            'Handle PR review feedback on current branch (pass verbose=true for verbose output, default: normal mode)'
          when :reviews
            'Find and process all PRs with unaddressed reviews (pass verbose=true for verbose output, default: normal mode)'
-         end
+         when :workflow
+           'Run full workflow: process reviews first, then tasks for today (pass verbose=true for verbose output, default: normal mode)'
+    end
     task mode => :environment do
       run_wv_runner_task(mode)
     end

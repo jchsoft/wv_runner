@@ -4,7 +4,7 @@ module WvRunner
   # WorkLoop orchestrates Claude Code execution with different modes (once, today, daily)
   # and handles task scheduling with quota management and waiting strategies
   class WorkLoop
-    VALID_HOW_VALUES = %i[once today daily once_dry review reviews].freeze
+    VALID_HOW_VALUES = %i[once today daily once_dry review reviews workflow].freeze
 
     def initialize(verbose: false)
       @verbose = verbose
@@ -68,6 +68,20 @@ module WvRunner
 
       Logger.info_stdout("[WorkLoop] Reviews loop complete, total processed: #{results.length}")
       results
+    end
+
+    def run_workflow
+      Logger.debug('[WorkLoop] [run_workflow] Starting workflow: reviews then tasks...')
+      workflow_results = { 'reviews' => [], 'tasks' => [] }
+
+      Logger.info_stdout('[WorkLoop] Phase 1: Processing PR reviews...')
+      workflow_results['reviews'] = run_reviews
+
+      Logger.info_stdout('[WorkLoop] Phase 2: Processing tasks for today...')
+      workflow_results['tasks'] = run_today
+
+      Logger.info_stdout("[WorkLoop] Workflow complete: #{workflow_results['reviews'].length} reviews, #{workflow_results['tasks'].length} tasks")
+      workflow_results
     end
 
     def run_today
