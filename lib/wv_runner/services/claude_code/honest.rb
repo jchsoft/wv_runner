@@ -46,6 +46,7 @@ module WvRunner
 
           6. PREPARE SCREENSHOTS: Save screenshots for PR review
              - If you created new system tests with visual changes, save screenshots
+             - be sure that screenshots shows tested feature, if not - scroll
              - These will be used later for PR
 
           7. RUN SYSTEM TESTS: Execute all system tests
