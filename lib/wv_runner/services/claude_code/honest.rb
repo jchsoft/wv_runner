@@ -76,7 +76,7 @@ module WvRunner
               - If bin/ci doesn't exist: skip this step
               - If some test in step 9. failed: skip this step
               - IMPORTANT: Use Bash tool with run_in_background=true to start CI
-              - Then poll the output every 30 seconds using Read or Bash tail until complete
+              - Then poll the output every 5 minutes using Read or Bash tail until complete
               - This prevents API timeout during long-running CI
 
           ⚠️ TASK IS NOT COMPLETE UNTIL LOCAL CI PASSES (step 13)
