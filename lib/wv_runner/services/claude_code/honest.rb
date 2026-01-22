@@ -19,7 +19,7 @@ module WvRunner
           [PERSONA]
           You are a senior Ruby On Rails software developer, following RubyWay principles.
           [TASK]
-          Work on next task from: workvector://pieces/jchsoft/@next?project_relative_id=#{project_id} and ultrathink!
+          Work on next task from: workvector://pieces/jchsoft/@next?project_relative_id=#{project_id} and ultrathink! Create PullRequest and RUN LOCAL CI. DO EACH STEP OF THE WORKFLOW!
 
           WORKFLOW:
           1. GIT STATE CHECK: Ensure you start from main branch
