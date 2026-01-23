@@ -36,7 +36,14 @@ module WvRunner
       completed: { emoji: '✅', ascii: '[x]' },
       in_progress: { emoji: '🔄', ascii: '[>]' },
       pending: { emoji: '⏳', ascii: '[ ]' },
-      thinking: { emoji: '💭', ascii: '[.]' }
+      thinking: { emoji: '💭', ascii: '[.]' },
+      task: { emoji: '📋', ascii: '[TASK]' }
+    }.freeze
+
+    # ANSI escape codes for terminal formatting
+    ANSI = {
+      bold: "\e[1m",
+      reset: "\e[0m"
     }.freeze
 
     def self.icon(name)
@@ -149,6 +156,13 @@ module WvRunner
       text = item['text'].to_s
       # Replace literal \n with actual newlines
       text = text.gsub('\\n', "\n")
+
+      # Detect and format task info block
+      if text.include?('WVRUNNER_TASK_INFO:')
+        formatted = format_task_info_block(text)
+        return formatted if formatted
+      end
+
       # Remove system-reminder tags and their content (not meant for user display)
       strip_system_reminders(text)
     end
@@ -227,6 +241,56 @@ module WvRunner
     def self.process_newlines(text)
       # Convert literal \n to actual newlines for better readability
       text.gsub('\\n', "\n")
+    end
+
+    # Task info block formatting
+    def self.format_task_info_block(text)
+      return nil unless text.include?('WVRUNNER_TASK_INFO:')
+
+      # Extract data from the marker format
+      id = text[/ID:\s*(.+)/, 1]&.strip
+      title = text[/TITLE:\s*(.+)/, 1]&.strip
+      desc_match = text.match(/DESCRIPTION:\s*(.+?)(?=END_TASK_INFO|\z)/m)
+      description = desc_match ? desc_match[1].strip : nil
+
+      return nil unless id && title
+
+      render_task_box(id, title, description)
+    end
+
+    def self.render_task_box(id, title, description)
+      width = 80
+      double_line = use_ascii? ? '=' * width : '═' * width
+      single_line = use_ascii? ? '-' * width : '─' * width
+      task_icon = icon(:task)
+
+      truncated_desc = truncate_description(description, 200)
+
+      lines = []
+      lines << double_line
+      lines << "#{bold}#{task_icon} TASK ##{id}: #{title}#{reset}"
+      lines << single_line
+      lines << truncated_desc if truncated_desc && !truncated_desc.empty?
+      lines << double_line
+      lines.join("\n")
+    end
+
+    def self.truncate_description(text, max_length)
+      return nil if text.nil? || text.empty?
+
+      # Process newlines first
+      processed = text.gsub('\\n', "\n").strip
+      return processed if processed.length <= max_length
+
+      "#{processed[0, max_length - 3]}..."
+    end
+
+    def self.bold
+      use_ascii? ? '' : ANSI[:bold]
+    end
+
+    def self.reset
+      use_ascii? ? '' : ANSI[:reset]
     end
   end
 end

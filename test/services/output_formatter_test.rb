@@ -302,4 +302,123 @@ class OutputFormatterTest < Minitest::Test
     WvRunner::OutputFormatter.ascii_mode = false
     refute WvRunner::OutputFormatter.use_ascii?
   end
+
+  # Task info block formatting tests
+  def test_format_task_info_block_extracts_data
+    text = <<~TEXT
+      WVRUNNER_TASK_INFO:
+      ID: 9396
+      TITLE: HP: Testimonials Section
+      DESCRIPTION: Implement the testimonials section
+      END_TASK_INFO
+    TEXT
+    result = WvRunner::OutputFormatter.format_task_info_block(text)
+    assert_includes result, "TASK #9396"
+    assert_includes result, "HP: Testimonials Section"
+    assert_includes result, "Implement the testimonials section"
+  end
+
+  def test_format_task_info_block_returns_nil_without_marker
+    text = "Some regular text without marker"
+    result = WvRunner::OutputFormatter.format_task_info_block(text)
+    assert_nil result
+  end
+
+  def test_format_task_info_block_returns_nil_without_required_fields
+    text = "WVRUNNER_TASK_INFO:\nID: 123\nEND_TASK_INFO"
+    result = WvRunner::OutputFormatter.format_task_info_block(text)
+    assert_nil result # Missing TITLE
+  end
+
+  def test_render_task_box_with_emoji_mode
+    WvRunner::OutputFormatter.ascii_mode = false
+    result = WvRunner::OutputFormatter.render_task_box("123", "Test Task", "Description here")
+    assert_includes result, "📋 TASK #123: Test Task"
+    assert_includes result, "Description here"
+    assert_includes result, "═" # Unicode box character
+    assert_includes result, "─" # Unicode box character
+  end
+
+  def test_render_task_box_with_ascii_mode
+    WvRunner::OutputFormatter.ascii_mode = true
+    result = WvRunner::OutputFormatter.render_task_box("123", "Test Task", "Description here")
+    assert_includes result, "[TASK] TASK #123: Test Task"
+    assert_includes result, "Description here"
+    assert_includes result, "=" # ASCII fallback
+    assert_includes result, "-" # ASCII fallback
+    refute_includes result, "📋"
+    refute_includes result, "═"
+    refute_includes result, "─"
+  end
+
+  def test_truncate_description_short_text
+    result = WvRunner::OutputFormatter.truncate_description("Short text", 200)
+    assert_equal "Short text", result
+  end
+
+  def test_truncate_description_long_text
+    long_text = "A" * 250
+    result = WvRunner::OutputFormatter.truncate_description(long_text, 200)
+    assert_equal 200, result.length
+    assert result.end_with?("...")
+  end
+
+  def test_truncate_description_nil_text
+    result = WvRunner::OutputFormatter.truncate_description(nil, 200)
+    assert_nil result
+  end
+
+  def test_truncate_description_processes_newlines
+    result = WvRunner::OutputFormatter.truncate_description('Line1\\nLine2', 200)
+    assert_includes result, "\n"
+    assert_includes result, "Line1"
+    assert_includes result, "Line2"
+  end
+
+  def test_format_text_content_detects_task_info
+    WvRunner::OutputFormatter.verbose_mode = false
+    item = { 'text' => "WVRUNNER_TASK_INFO:\nID: 999\nTITLE: My Task\nDESCRIPTION: Task description\nEND_TASK_INFO" }
+    result = WvRunner::OutputFormatter.format_text_content(item)
+    assert_includes result, "TASK #999"
+    assert_includes result, "My Task"
+    assert_includes result, "Task description"
+  end
+
+  def test_format_text_content_falls_back_without_valid_task_info
+    WvRunner::OutputFormatter.verbose_mode = false
+    item = { 'text' => "WVRUNNER_TASK_INFO:\nSome malformed data\nEND_TASK_INFO" }
+    result = WvRunner::OutputFormatter.format_text_content(item)
+    # Should fall back to regular text processing (stripping system reminders)
+    assert_includes result, "WVRUNNER_TASK_INFO"
+  end
+
+  def test_bold_returns_ansi_in_emoji_mode
+    WvRunner::OutputFormatter.ascii_mode = false
+    assert_equal "\e[1m", WvRunner::OutputFormatter.bold
+  end
+
+  def test_bold_returns_empty_in_ascii_mode
+    WvRunner::OutputFormatter.ascii_mode = true
+    assert_equal "", WvRunner::OutputFormatter.bold
+  end
+
+  def test_reset_returns_ansi_in_emoji_mode
+    WvRunner::OutputFormatter.ascii_mode = false
+    assert_equal "\e[0m", WvRunner::OutputFormatter.reset
+  end
+
+  def test_reset_returns_empty_in_ascii_mode
+    WvRunner::OutputFormatter.ascii_mode = true
+    assert_equal "", WvRunner::OutputFormatter.reset
+  end
+
+  def test_task_icon_returns_emoji_in_emoji_mode
+    WvRunner::OutputFormatter.ascii_mode = false
+    assert_equal "📋", WvRunner::OutputFormatter.icon(:task)
+  end
+
+  def test_task_icon_returns_ascii_in_ascii_mode
+    WvRunner::OutputFormatter.ascii_mode = true
+    assert_equal "[TASK]", WvRunner::OutputFormatter.icon(:task)
+  end
 end

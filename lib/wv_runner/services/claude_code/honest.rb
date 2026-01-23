@@ -30,6 +30,12 @@ module WvRunner
              - Read: workvector://pieces/jchsoft/@next?project_relative_id=#{project_id}
              - If no tasks available: STOP and output status "no_more_tasks"
              - Verify task is NOT already started or completed
+             - DISPLAY TASK INFO: After loading, output in this exact format:
+               WVRUNNER_TASK_INFO:
+               ID: <relative_id>
+               TITLE: <task name>
+               DESCRIPTION: <first 200 chars of description, or full if shorter>
+               END_TASK_INFO
 
           3. CREATE BRANCH: Start work on a new feature branch
              - Use task name as branch name (e.g., "feature/task-name" or "fix/issue-name")

@@ -24,10 +24,16 @@ module WvRunner
 
           WORKFLOW (DRY RUN - NO EXECUTION):
           1. Fetch the next task from WorkVector using the URL above
-          2. DO NOT create a branch
-          3. DO NOT modify any code
-          4. DO NOT create a pull request
-          5. Just read and display the task information
+          2. DISPLAY TASK INFO: After loading, output in this exact format:
+             WVRUNNER_TASK_INFO:
+             ID: <relative_id>
+             TITLE: <task name>
+             DESCRIPTION: <first 200 chars of description, or full if shorter>
+             END_TASK_INFO
+          3. DO NOT create a branch
+          4. DO NOT modify any code
+          5. DO NOT create a pull request
+          6. Just read and display the task information
 
           At the END, output JSON in this exact format - on a new line in a code block:
 
