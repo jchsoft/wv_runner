@@ -77,6 +77,8 @@ module WvRunner
               - Link to the task in WorkVector
 
           12. ADD SCREENSHOTS TO PR: Add screenshots using skill "pr-screenshot"
+              - make sure the test is not due to some test failure
+              - be sure that screenshots shows tested feature
 
           13. RUN LOCAL CI: If "bin/ci" exists, run it in background to avoid timeout
               - This step is MANDATORY - task is INCOMPLETE without CI verification
