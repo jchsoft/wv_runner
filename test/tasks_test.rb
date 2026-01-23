@@ -152,4 +152,27 @@ class TasksTest < Minitest::Test
     assert content.include?("run_wv_runner_auto_squash_story_task"), "Should call auto-squash story task helper"
     assert content.include?("execute(:story_auto_squash)"), "Should execute story_auto_squash mode"
   end
+
+  # Tests for auto:squash:today task
+  def test_rake_file_defines_auto_squash_today_task
+    rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
+    content = File.read(rake_file)
+
+    assert content.include?("task today: :environment"), "Should define today task inside auto:squash"
+  end
+
+  def test_rake_file_defines_auto_squash_today_task_description
+    rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
+    content = File.read(rake_file)
+
+    assert content.include?("Run tasks until quota reached with automatic PR squash-merge"), "Should have auto-squash today task description"
+  end
+
+  def test_rake_file_auto_squash_today_task_calls_helper
+    rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
+    content = File.read(rake_file)
+
+    assert content.include?("run_wv_runner_auto_squash_today_task"), "Should call auto-squash today task helper"
+    assert content.include?("execute(:today_auto_squash)"), "Should execute today_auto_squash mode"
+  end
 end

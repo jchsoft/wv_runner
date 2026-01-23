@@ -37,6 +37,11 @@ namespace :wv_runner do
 
   namespace :auto do
     namespace :squash do
+      desc 'Run tasks until quota reached with automatic PR squash-merge after CI passes'
+      task today: :environment do
+        run_wv_runner_auto_squash_today_task
+      end
+
       desc 'Process all tasks in a Story with automatic PR squash-merge after CI passes'
       task :story, [:story_id] => :environment do |_t, args|
         story_id = args[:story_id]&.to_i
@@ -70,6 +75,14 @@ namespace :wv_runner do
     verbose = verbose_mode_enabled?
     display_output_mode(verbose)
     WvRunner::WorkLoop.new(verbose: verbose, story_id: story_id).execute(:story_auto_squash)
+  end
+
+  def run_wv_runner_auto_squash_today_task
+    display_version_info
+    puts '[WvRunner] AUTO-SQUASH TODAY mode - PRs will be automatically merged after CI passes'
+    verbose = verbose_mode_enabled?
+    display_output_mode(verbose)
+    WvRunner::WorkLoop.new(verbose: verbose).execute(:today_auto_squash)
   end
 
   def verbose_mode_enabled?

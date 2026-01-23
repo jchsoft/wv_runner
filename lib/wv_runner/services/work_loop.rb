@@ -4,7 +4,7 @@ module WvRunner
   # WorkLoop orchestrates Claude Code execution with different modes (once, today, daily)
   # and handles task scheduling with quota management and waiting strategies
   class WorkLoop
-    VALID_HOW_VALUES = %i[once today daily once_dry review reviews workflow story_manual story_auto_squash].freeze
+    VALID_HOW_VALUES = %i[once today daily once_dry review reviews workflow story_manual story_auto_squash today_auto_squash].freeze
 
     def initialize(verbose: false, story_id: nil)
       @verbose = verbose
@@ -135,6 +135,37 @@ module WvRunner
       end
 
       Logger.info_stdout("[WorkLoop] Story auto-squash workflow complete, total tasks processed: #{results.length}")
+      results
+    end
+
+    def run_today_auto_squash
+      Logger.debug('[WorkLoop] [run_today_auto_squash] Starting today auto-squash workflow...')
+      results = []
+      iteration_count = 0
+
+      loop do
+        iteration_count += 1
+        Logger.debug("[WorkLoop] [run_today_auto_squash] Starting iteration ##{iteration_count}...")
+        result = ClaudeCode::TodayAutoSquash.new(verbose: @verbose).run
+        results << result
+        Logger.info_stdout("[WorkLoop] Task ##{iteration_count} completed with status: #{result['status']}")
+
+        break if result['status'] == 'no_more_tasks'
+        break if result['status'] == 'failure'
+        break if result['status'] == 'ci_failed'
+
+        # Check quota using Decider
+        decider = Decider.new(task_results: results)
+        if decider.should_stop?
+          Logger.info_stdout('[WorkLoop] Quota reached, stopping auto-squash workflow')
+          break
+        end
+
+        Logger.debug('[WorkLoop] [run_today_auto_squash] Continuing to next task, sleeping 2 seconds...')
+        sleep(2)
+      end
+
+      Logger.info_stdout("[WorkLoop] Today auto-squash workflow complete, total tasks processed: #{results.length}")
       results
     end
 
