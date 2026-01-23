@@ -23,6 +23,16 @@ namespace :wv_runner do
         run_wv_runner_task(mode)
       end
     end
+
+    namespace :workflow do
+      desc 'Process all tasks in a Story, create PRs but leave them open for review (pass story_id as argument)'
+      task :story, [:story_id] => :environment do |_t, args|
+        story_id = args[:story_id]&.to_i
+        raise ArgumentError, 'story_id is required. Usage: rake wv_runner:manual:workflow:story[123]' unless story_id&.positive?
+
+        run_wv_runner_story_task(story_id)
+      end
+    end
   end
 
   namespace :auto do
@@ -40,6 +50,14 @@ namespace :wv_runner do
     verbose = verbose_mode_enabled?
     display_output_mode(verbose)
     WvRunner::WorkLoop.new(verbose: verbose).execute(mode)
+  end
+
+  def run_wv_runner_story_task(story_id)
+    display_version_info
+    puts "[WvRunner] Story ID: #{story_id}"
+    verbose = verbose_mode_enabled?
+    display_output_mode(verbose)
+    WvRunner::WorkLoop.new(verbose: verbose, story_id: story_id).execute(:story_manual)
   end
 
   def verbose_mode_enabled?

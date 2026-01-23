@@ -4,10 +4,11 @@ module WvRunner
   # WorkLoop orchestrates Claude Code execution with different modes (once, today, daily)
   # and handles task scheduling with quota management and waiting strategies
   class WorkLoop
-    VALID_HOW_VALUES = %i[once today daily once_dry review reviews workflow].freeze
+    VALID_HOW_VALUES = %i[once today daily once_dry review reviews workflow story_manual].freeze
 
-    def initialize(verbose: false)
+    def initialize(verbose: false, story_id: nil)
       @verbose = verbose
+      @story_id = story_id
     end
 
     def execute(how)
@@ -82,6 +83,32 @@ module WvRunner
 
       Logger.info_stdout("[WorkLoop] Workflow complete: #{workflow_results['reviews'].length} reviews, #{workflow_results['tasks'].length} tasks")
       workflow_results
+    end
+
+    def run_story_manual
+      raise ArgumentError, 'story_id is required for story_manual mode' unless @story_id
+
+      Logger.debug("[WorkLoop] [run_story_manual] Starting Story ##{@story_id} manual workflow...")
+      results = []
+      iteration_count = 0
+
+      loop do
+        iteration_count += 1
+        Logger.debug("[WorkLoop] [run_story_manual] Starting iteration ##{iteration_count}...")
+        result = ClaudeCode::StoryManual.new(story_id: @story_id, verbose: @verbose).run
+        results << result
+        Logger.info_stdout("[WorkLoop] Task ##{iteration_count} completed with status: #{result['status']}")
+
+        break if result['status'] == 'no_more_tasks'
+        break if result['status'] == 'failure'
+        break if result['status'] == 'task_already_started'
+
+        Logger.debug('[WorkLoop] [run_story_manual] Continuing to next task, sleeping 2 seconds...')
+        sleep(2)
+      end
+
+      Logger.info_stdout("[WorkLoop] Story manual workflow complete, total tasks processed: #{results.length}")
+      results
     end
 
     def run_today

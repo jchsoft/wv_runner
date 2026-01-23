@@ -86,4 +86,37 @@ class TasksTest < Minitest::Test
     assert content.include?("desc case mode")
     assert_equal 7, content.scan(/when :(\w+)/).length, "Should have 7 mode descriptions"
   end
+
+  def test_rake_file_defines_manual_workflow_story_task
+    rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
+    content = File.read(rake_file)
+
+    assert content.include?("namespace :workflow do"), "Should define workflow namespace inside manual"
+    assert content.include?("task :story"), "Should define story task"
+    assert content.include?("[:story_id]"), "Story task should accept story_id argument"
+  end
+
+  def test_rake_file_defines_story_task_description
+    rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
+    content = File.read(rake_file)
+
+    assert content.include?("Process all tasks in a Story"), "Should have story task description"
+    assert content.include?("leave them open for review"), "Should mention leaving PRs open"
+  end
+
+  def test_rake_file_story_task_validates_story_id
+    rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
+    content = File.read(rake_file)
+
+    assert content.include?("story_id is required"), "Should validate story_id presence"
+    assert content.include?("story_id&.positive?"), "Should validate story_id is positive"
+  end
+
+  def test_rake_file_story_task_calls_story_helper
+    rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
+    content = File.read(rake_file)
+
+    assert content.include?("run_wv_runner_story_task"), "Should call story task helper"
+    assert content.include?("execute(:story_manual)"), "Should execute story_manual mode"
+  end
 end

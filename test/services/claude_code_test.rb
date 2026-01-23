@@ -333,3 +333,112 @@ class ClaudeCodeReviewsTest < Minitest::Test
     assert_includes instructions, 'FIRST PR'  # Finds first PR with reviews
   end
 end
+
+class ClaudeCodeStoryManualTest < Minitest::Test
+  def test_story_manual_responds_to_run
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)
+    assert_respond_to story_manual, :run
+  end
+
+  def test_story_manual_inherits_from_claude_code_base
+    assert WvRunner::ClaudeCode::StoryManual < WvRunner::ClaudeCodeBase
+  end
+
+  def test_story_manual_uses_opus_model
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)
+    assert_equal 'opus', story_manual.send(:model_name)
+  end
+
+  def test_story_manual_accepts_edits
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)
+    assert story_manual.send(:accept_edits?)
+  end
+
+  def test_story_manual_requires_story_id
+    assert_raises(ArgumentError) do
+      WvRunner::ClaudeCode::StoryManual.new
+    end
+  end
+
+  def test_story_manual_instructions_includes_story_id
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 456)
+    instructions = story_manual.send(:build_instructions)
+    assert_includes instructions, 'Story #456'
+    assert_includes instructions, 'workvector://pieces/jchsoft/456'
+  end
+
+  def test_story_manual_instructions_includes_load_story_step
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)
+    instructions = story_manual.send(:build_instructions)
+    assert_includes instructions, 'LOAD STORY'
+    assert_includes instructions, 'subtasks array'
+    assert_includes instructions, 'NOT "Schváleno"'
+    assert_includes instructions, 'NOT "Hotovo?"'
+    assert_includes instructions, 'progress < 100'
+  end
+
+  def test_story_manual_instructions_includes_load_task_details_step
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)
+    instructions = story_manual.send(:build_instructions)
+    assert_includes instructions, 'LOAD TASK DETAILS'
+    assert_includes instructions, 'task_relative_id'
+    assert_includes instructions, 'WVRUNNER_TASK_INFO'
+  end
+
+  def test_story_manual_instructions_includes_workflow_steps
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)
+    instructions = story_manual.send(:build_instructions)
+    assert_includes instructions, 'GIT STATE CHECK'
+    assert_includes instructions, 'git checkout main'
+    assert_includes instructions, 'CREATE BRANCH'
+    assert_includes instructions, 'IMPLEMENT TASK'
+    assert_includes instructions, 'RUN UNIT TESTS'
+    assert_includes instructions, 'RUN SYSTEM TESTS'
+    assert_includes instructions, 'REFACTOR'
+    assert_includes instructions, 'PUSH'
+    assert_includes instructions, 'CREATE PULL REQUEST'
+  end
+
+  def test_story_manual_instructions_emphasizes_no_merge
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)
+    instructions = story_manual.send(:build_instructions)
+    assert_includes instructions, 'NO MERGE'
+    assert_includes instructions, 'MANUAL workflow'
+    assert_includes instructions, 'leave it open for human review'
+    assert_includes instructions, 'Human will review and merge'
+  end
+
+  def test_story_manual_instructions_includes_wvrunner_result
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 789)
+    instructions = story_manual.send(:build_instructions)
+    assert_includes instructions, 'WVRUNNER_RESULT'
+    assert_includes instructions, 'story_id'
+    assert_includes instructions, '789'
+    assert_includes instructions, 'task_id'
+  end
+
+  def test_story_manual_instructions_includes_status_values
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)
+    instructions = story_manual.send(:build_instructions)
+    assert_includes instructions, 'success'
+    assert_includes instructions, 'no_more_tasks'
+    assert_includes instructions, 'task_already_started'
+    assert_includes instructions, 'failure'
+  end
+
+  def test_story_manual_instructions_includes_ci_step
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)
+    instructions = story_manual.send(:build_instructions)
+    assert_includes instructions, 'RUN LOCAL CI'
+    assert_includes instructions, 'bin/ci'
+    assert_includes instructions, 'run_in_background'
+  end
+
+  def test_story_manual_instructions_includes_screenshot_steps
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)
+    instructions = story_manual.send(:build_instructions)
+    assert_includes instructions, 'PREPARE SCREENSHOTS'
+    assert_includes instructions, 'ADD SCREENSHOTS TO PR'
+    assert_includes instructions, 'pr-screenshot'
+  end
+end
