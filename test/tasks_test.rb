@@ -14,6 +14,21 @@ class TasksTest < Minitest::Test
     assert content.include?("namespace :wv_runner do")
   end
 
+  def test_rake_file_defines_manual_namespace
+    rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
+    content = File.read(rake_file)
+
+    assert content.include?("namespace :manual do"), "Should define manual namespace"
+  end
+
+  def test_rake_file_defines_auto_squash_namespace
+    rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
+    content = File.read(rake_file)
+
+    assert content.include?("namespace :auto do"), "Should define auto namespace"
+    assert content.include?("namespace :squash do"), "Should define squash namespace inside auto"
+  end
+
   def test_rake_file_defines_run_once_task
     rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
     content = File.read(rake_file)

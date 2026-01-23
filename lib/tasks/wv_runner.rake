@@ -1,25 +1,35 @@
 namespace :wv_runner do
-  MODES = %i[once once_dry today daily review reviews workflow].freeze
+  namespace :manual do
+    MODES = %i[once once_dry today daily review reviews workflow].freeze
 
-  MODES.each do |mode|
-    desc case mode
-         when :once
-           'Run a single task once (pass verbose=true for verbose output, default: normal mode)'
-         when :once_dry
-           'Load and display next task information (dry-run, no execution) (pass verbose=true for verbose output, default: normal mode)'
-         when :today
-           'Run tasks until end of today (pass verbose=true for verbose output, default: normal mode)'
-         when :daily
-           'Run tasks continuously in a daily loop (pass verbose=true for verbose output, default: normal mode)'
-         when :review
-           'Handle PR review feedback on current branch (pass verbose=true for verbose output, default: normal mode)'
-         when :reviews
-           'Find and process all PRs with unaddressed reviews (pass verbose=true for verbose output, default: normal mode)'
-         when :workflow
-           'Run full workflow: process reviews first, then tasks for today (pass verbose=true for verbose output, default: normal mode)'
+    MODES.each do |mode|
+      desc case mode
+           when :once
+             'Run a single task once (pass verbose=true for verbose output, default: normal mode)'
+           when :once_dry
+             'Load and display next task information (dry-run, no execution) (pass verbose=true for verbose output, default: normal mode)'
+           when :today
+             'Run tasks until end of today (pass verbose=true for verbose output, default: normal mode)'
+           when :daily
+             'Run tasks continuously in a daily loop (pass verbose=true for verbose output, default: normal mode)'
+           when :review
+             'Handle PR review feedback on current branch (pass verbose=true for verbose output, default: normal mode)'
+           when :reviews
+             'Find and process all PRs with unaddressed reviews (pass verbose=true for verbose output, default: normal mode)'
+           when :workflow
+             'Run full workflow: process reviews first, then tasks for today (pass verbose=true for verbose output, default: normal mode)'
+      end
+      task mode => :environment do
+        run_wv_runner_task(mode)
+      end
     end
-    task mode => :environment do
-      run_wv_runner_task(mode)
+  end
+
+  namespace :auto do
+    namespace :squash do
+      # Placeholder pro budoucí implementaci
+      # task :today
+      # task :story, [:story_id]
     end
   end
 
