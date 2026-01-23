@@ -139,6 +139,17 @@ class ClaudeCodeBaseTest < Minitest::Test
     assert_equal 'test error message', error.message
   end
 
+  # Tests for MissingMarkerError exception
+  def test_missing_marker_error_exists
+    assert_kind_of Class, WvRunner::MissingMarkerError
+    assert WvRunner::MissingMarkerError < StandardError
+  end
+
+  def test_missing_marker_error_can_be_raised_with_message
+    error = WvRunner::MissingMarkerError.new('marker not found')
+    assert_equal 'marker not found', error.message
+  end
+
   # Tests for build_command with continue_session
   def test_build_command_without_continue_session
     base = WvRunner::ClaudeCodeBase.new
@@ -230,5 +241,65 @@ class ClaudeCodeBaseTest < Minitest::Test
   def test_initialize_sets_retry_count_to_zero
     base = WvRunner::ClaudeCodeBase.new
     assert_equal 0, base.instance_variable_get(:@retry_count)
+  end
+
+  def test_initialize_sets_marker_retry_mode_to_false
+    base = WvRunner::ClaudeCodeBase.new
+    refute base.instance_variable_get(:@marker_retry_mode)
+  end
+
+  # Tests for handle_marker_retry method
+  def test_handle_marker_retry_returns_nil_for_retry
+    base = WvRunner::ClaudeCodeBase.new
+    base.instance_variable_set(:@retry_count, 0)
+    start_time = Time.now
+
+    result = base.send(:handle_marker_retry, start_time)
+
+    assert_nil result, 'Should return nil to signal retry'
+  end
+
+  def test_handle_marker_retry_sets_marker_retry_mode
+    base = WvRunner::ClaudeCodeBase.new
+    base.instance_variable_set(:@retry_count, 0)
+    start_time = Time.now
+
+    base.send(:handle_marker_retry, start_time)
+
+    assert base.instance_variable_get(:@marker_retry_mode), 'Should set marker_retry_mode to true'
+  end
+
+  def test_handle_marker_retry_returns_error_when_max_retries_reached
+    base = WvRunner::ClaudeCodeBase.new
+    base.instance_variable_set(:@retry_count, 2) # MAX_RETRY_ATTEMPTS - 1
+    start_time = Time.now
+
+    result = base.send(:handle_marker_retry, start_time)
+
+    assert_equal 'error', result['status']
+    assert_match(/Missing WVRUNNER_RESULT/, result['message'])
+    assert_match(/retries exhausted/, result['message'])
+  end
+
+  # Tests for build_marker_retry_instructions method
+  def test_build_marker_retry_instructions_contains_marker_format
+    base = WvRunner::ClaudeCodeBase.new
+    instructions = base.send(:build_marker_retry_instructions)
+
+    assert_includes instructions, 'WVRUNNER_RESULT:'
+    assert_includes instructions, 'status'
+    assert_includes instructions, 'success'
+    assert_includes instructions, 'hours'
+    assert_includes instructions, 'per_day'
+    assert_includes instructions, 'task_estimated'
+  end
+
+  def test_build_marker_retry_instructions_references_workvector
+    base = WvRunner::ClaudeCodeBase.new
+    instructions = base.send(:build_marker_retry_instructions)
+
+    assert_includes instructions, 'workvector://user'
+    assert_includes instructions, 'hour_goal'
+    assert_includes instructions, 'duration_best'
   end
 end

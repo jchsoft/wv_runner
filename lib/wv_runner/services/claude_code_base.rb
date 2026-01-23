@@ -10,6 +10,9 @@ module WvRunner
   # Raised when IO stream unexpectedly closes during Claude execution
   class StreamClosedError < StandardError; end
 
+  # Raised when WVRUNNER_RESULT marker is not found in output
+  class MissingMarkerError < StandardError; end
+
   # Base class for Claude Code executors
   # Handles common execution, streaming, and JSON parsing logic
   # Subclasses must implement:
@@ -24,6 +27,7 @@ module WvRunner
       @verbose = verbose
       @stopping = false
       @retry_count = 0
+      @marker_retry_mode = false
       OutputFormatter.verbose_mode = verbose
     end
 
@@ -56,12 +60,13 @@ module WvRunner
 
     def attempt_execution(start_time)
       claude_path = resolve_claude_path
-      instructions = build_instructions
-      command = build_command(claude_path, instructions, continue_session: @retry_count.positive?)
+      instructions = @marker_retry_mode ? build_marker_retry_instructions : build_instructions
+      command = build_command(claude_path, instructions, continue_session: @retry_count.positive? || @marker_retry_mode)
 
       Logger.debug "[#{self.class.name}] Executing Claude with instructions (length: #{instructions.length} chars)"
       Logger.info_stdout "[#{self.class.name}] Starting real-time stream of Claude output:"
       Logger.info_stdout "[#{self.class.name}] Retry attempt: #{@retry_count + 1}/#{MAX_RETRY_ATTEMPTS}" if @retry_count.positive?
+      Logger.info_stdout "[#{self.class.name}] Marker retry mode: ON" if @marker_retry_mode
       Logger.info_stdout '-' * 80
 
       @stopping = false
@@ -74,11 +79,20 @@ module WvRunner
       elapsed_hours = ((Time.now - start_time) / 3600.0).round(2)
       Logger.info_stdout "[#{self.class.name}] Elapsed time: #{elapsed_hours} hours"
 
-      parse_result(@accumulated_output, elapsed_hours)
+      result = parse_result(@accumulated_output, elapsed_hours)
+
+      # If marker not found and Claude completed successfully, retry with marker-only instruction
+      if result['status'] == 'error' && result['message'].include?('WVRUNNER_RESULT')
+        raise MissingMarkerError
+      end
+
+      result
     rescue Timeout::Error
       handle_recoverable_error('Timeout', start_time)
     rescue StreamClosedError => e
       handle_recoverable_error("Stream closed: #{e.message}", start_time)
+    rescue MissingMarkerError
+      handle_marker_retry(start_time)
     end
 
     def handle_recoverable_error(error_type, start_time)
@@ -91,6 +105,35 @@ module WvRunner
 
       Logger.warn "[#{self.class.name}] #{error_type} after #{elapsed_hours}h - will retry with --continue"
       nil # Signal to retry
+    end
+
+    def handle_marker_retry(start_time)
+      elapsed_hours = ((Time.now - start_time) / 3600.0).round(2)
+
+      if @retry_count >= MAX_RETRY_ATTEMPTS - 1
+        Logger.error "[#{self.class.name}] Missing marker - max retries reached"
+        return error_result("Missing WVRUNNER_RESULT after retries exhausted (#{elapsed_hours}h)")
+      end
+
+      Logger.warn "[#{self.class.name}] Missing WVRUNNER_RESULT marker - will retry with marker-only instruction"
+      @marker_retry_mode = true
+      nil # Signal to retry
+    end
+
+    def build_marker_retry_instructions
+      <<~INSTRUCTIONS
+        Your previous work appears complete but the WVRUNNER_RESULT marker was not found in the output.
+
+        Please output the result now in this exact format on a new line:
+
+        ```json
+        WVRUNNER_RESULT: {"status": "success", "hours": {"per_day": X, "task_estimated": Y}}
+        ```
+
+        To get the values:
+        1. Read workvector://user -> use "hour_goal" for per_day
+        2. From the task you worked on -> use "duration_best" for task_estimated (parse "1 hodina" -> 1.0)
+      INSTRUCTIONS
     end
 
     def resolve_claude_path
@@ -199,7 +242,11 @@ module WvRunner
       index = stdout.index(marker)
       unless index
         Logger.debug "[#{self.class.name}] [parse_result] ERROR: Marker not found in output!"
-        Logger.debug "[#{self.class.name}] [parse_result] Last 500 chars of output: #{stdout.last(500)}"
+        Logger.debug "[#{self.class.name}] [parse_result] First 500 chars: #{stdout.first(500)}"
+        Logger.debug "[#{self.class.name}] [parse_result] Last 500 chars: #{stdout.last(500)}"
+        # Check if there are any code blocks that might contain partial marker
+        code_blocks = stdout.scan(/```[\s\S]{0,100}/).first(3)
+        Logger.debug "[#{self.class.name}] [parse_result] Code block starts found: #{code_blocks.inspect}" if code_blocks.any?
         return error_result('No WVRUNNER_RESULT found in output')
       end
 
