@@ -119,4 +119,37 @@ class TasksTest < Minitest::Test
     assert content.include?("run_wv_runner_story_task"), "Should call story task helper"
     assert content.include?("execute(:story_manual)"), "Should execute story_manual mode"
   end
+
+  # Tests for auto:squash:story task
+  def test_rake_file_defines_auto_squash_story_task
+    rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
+    content = File.read(rake_file)
+
+    assert content.include?("namespace :auto do"), "Should define auto namespace"
+    assert content.include?("namespace :squash do"), "Should define squash namespace inside auto"
+    assert content.include?("task :story"), "Should define story task inside auto:squash"
+  end
+
+  def test_rake_file_defines_auto_squash_story_task_description
+    rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
+    content = File.read(rake_file)
+
+    assert content.include?("automatic PR squash-merge"), "Should have auto-squash task description"
+    assert content.include?("after CI passes"), "Should mention CI passing"
+  end
+
+  def test_rake_file_auto_squash_story_task_validates_story_id
+    rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
+    content = File.read(rake_file)
+
+    assert content.include?("wv_runner:auto:squash:story[123]"), "Should have usage example with story_id"
+  end
+
+  def test_rake_file_auto_squash_story_task_calls_helper
+    rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
+    content = File.read(rake_file)
+
+    assert content.include?("run_wv_runner_auto_squash_story_task"), "Should call auto-squash story task helper"
+    assert content.include?("execute(:story_auto_squash)"), "Should execute story_auto_squash mode"
+  end
 end

@@ -37,9 +37,13 @@ namespace :wv_runner do
 
   namespace :auto do
     namespace :squash do
-      # Placeholder pro budoucí implementaci
-      # task :today
-      # task :story, [:story_id]
+      desc 'Process all tasks in a Story with automatic PR squash-merge after CI passes'
+      task :story, [:story_id] => :environment do |_t, args|
+        story_id = args[:story_id]&.to_i
+        raise ArgumentError, 'story_id is required. Usage: rake wv_runner:auto:squash:story[123]' unless story_id&.positive?
+
+        run_wv_runner_auto_squash_story_task(story_id)
+      end
     end
   end
 
@@ -58,6 +62,14 @@ namespace :wv_runner do
     verbose = verbose_mode_enabled?
     display_output_mode(verbose)
     WvRunner::WorkLoop.new(verbose: verbose, story_id: story_id).execute(:story_manual)
+  end
+
+  def run_wv_runner_auto_squash_story_task(story_id)
+    display_version_info
+    puts "[WvRunner] Story ID: #{story_id} (AUTO-SQUASH mode)"
+    verbose = verbose_mode_enabled?
+    display_output_mode(verbose)
+    WvRunner::WorkLoop.new(verbose: verbose, story_id: story_id).execute(:story_auto_squash)
   end
 
   def verbose_mode_enabled?

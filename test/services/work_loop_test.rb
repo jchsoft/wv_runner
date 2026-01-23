@@ -59,7 +59,7 @@ class WorkLoopTest < Minitest::Test
   end
 
   def test_valid_how_values_constant
-    assert_equal %i[once today daily once_dry review reviews workflow story_manual], WvRunner::WorkLoop::VALID_HOW_VALUES
+    assert_equal %i[once today daily once_dry review reviews workflow story_manual story_auto_squash], WvRunner::WorkLoop::VALID_HOW_VALUES
   end
 
   def test_execute_validates_how_parameter
@@ -67,7 +67,7 @@ class WorkLoopTest < Minitest::Test
 
     error = assert_raises(ArgumentError) { loop_instance.execute(:unknown) }
     assert_includes error.message, "Invalid 'how' value"
-    assert_includes error.message, 'once, today, daily, once_dry, review, reviews, workflow, story_manual'
+    assert_includes error.message, 'once, today, daily, once_dry, review, reviews, workflow, story_manual, story_auto_squash'
   end
 
   def test_execute_with_review_calls_review
@@ -437,5 +437,98 @@ class WorkLoopTest < Minitest::Test
   def test_story_id_and_verbose_can_be_combined
     loop_instance = WvRunner::WorkLoop.new(verbose: true, story_id: 888)
     assert_instance_of WvRunner::WorkLoop, loop_instance
+  end
+
+  # Tests for story_auto_squash mode
+  def test_execute_with_story_auto_squash_requires_story_id
+    loop_instance = WvRunner::WorkLoop.new
+    error = assert_raises(ArgumentError) { loop_instance.execute(:story_auto_squash) }
+    assert_includes error.message, 'story_id is required'
+  end
+
+  def test_execute_with_story_auto_squash_calls_story_auto_squash_class
+    # Mock returns success first, then no_more_tasks to stop the loop
+    call_count = [0]
+    mock = Object.new
+    mock.define_singleton_method(:run) do
+      call_count[0] += 1
+      call_count[0] == 1 ? { 'status' => 'success', 'story_id' => 123, 'task_id' => 456, 'hours' => { 'per_day' => 8, 'task_estimated' => 2 } } : { 'status' => 'no_more_tasks' }
+    end
+
+    WvRunner::ClaudeCode::StoryAutoSquash.stub(:new, mock) do
+      Kernel.stub(:sleep, nil) do
+        loop_instance = WvRunner::WorkLoop.new(story_id: 123)
+        results = loop_instance.execute(:story_auto_squash)
+
+        assert_instance_of Array, results
+        assert_equal 2, results.length
+        assert_equal 'success', results.first['status']
+        assert_equal 'no_more_tasks', results.last['status']
+      end
+    end
+  end
+
+  def test_execute_with_story_auto_squash_stops_on_no_more_tasks
+    mock = Object.new
+    def mock.run
+      { 'status' => 'no_more_tasks', 'story_id' => 123 }
+    end
+
+    WvRunner::ClaudeCode::StoryAutoSquash.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new(story_id: 123)
+      results = loop_instance.execute(:story_auto_squash)
+
+      assert_instance_of Array, results
+      assert_equal 1, results.length
+      assert_equal 'no_more_tasks', results.first['status']
+    end
+  end
+
+  def test_execute_with_story_auto_squash_stops_on_failure
+    mock = Object.new
+    def mock.run
+      { 'status' => 'failure', 'message' => 'Error processing task' }
+    end
+
+    WvRunner::ClaudeCode::StoryAutoSquash.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new(story_id: 123)
+      results = loop_instance.execute(:story_auto_squash)
+
+      assert_instance_of Array, results
+      assert_equal 1, results.length
+      assert_equal 'failure', results.first['status']
+    end
+  end
+
+  def test_execute_with_story_auto_squash_stops_on_task_already_started
+    mock = Object.new
+    def mock.run
+      { 'status' => 'task_already_started', 'message' => 'Task already in progress' }
+    end
+
+    WvRunner::ClaudeCode::StoryAutoSquash.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new(story_id: 123)
+      results = loop_instance.execute(:story_auto_squash)
+
+      assert_instance_of Array, results
+      assert_equal 1, results.length
+      assert_equal 'task_already_started', results.first['status']
+    end
+  end
+
+  def test_execute_with_story_auto_squash_stops_on_ci_failed
+    mock = Object.new
+    def mock.run
+      { 'status' => 'ci_failed', 'message' => 'CI failed after retry' }
+    end
+
+    WvRunner::ClaudeCode::StoryAutoSquash.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new(story_id: 123)
+      results = loop_instance.execute(:story_auto_squash)
+
+      assert_instance_of Array, results
+      assert_equal 1, results.length
+      assert_equal 'ci_failed', results.first['status']
+    end
   end
 end

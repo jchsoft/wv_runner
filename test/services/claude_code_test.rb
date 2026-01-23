@@ -334,6 +334,109 @@ class ClaudeCodeReviewsTest < Minitest::Test
   end
 end
 
+class ClaudeCodeStoryAutoSquashTest < Minitest::Test
+  def test_story_auto_squash_responds_to_run
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+    assert_respond_to story_auto_squash, :run
+  end
+
+  def test_story_auto_squash_inherits_from_claude_code_base
+    assert WvRunner::ClaudeCode::StoryAutoSquash < WvRunner::ClaudeCodeBase
+  end
+
+  def test_story_auto_squash_uses_opus_model
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+    assert_equal 'opus', story_auto_squash.send(:model_name)
+  end
+
+  def test_story_auto_squash_accepts_edits
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+    assert story_auto_squash.send(:accept_edits?)
+  end
+
+  def test_story_auto_squash_requires_story_id
+    assert_raises(ArgumentError) do
+      WvRunner::ClaudeCode::StoryAutoSquash.new
+    end
+  end
+
+  def test_story_auto_squash_instructions_includes_story_id
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 456)
+    instructions = story_auto_squash.send(:build_instructions)
+    assert_includes instructions, 'Story #456'
+    assert_includes instructions, 'workvector://pieces/jchsoft/456'
+  end
+
+  def test_story_auto_squash_instructions_includes_load_story_step
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+    instructions = story_auto_squash.send(:build_instructions)
+    assert_includes instructions, 'LOAD STORY'
+    assert_includes instructions, 'subtasks array'
+    assert_includes instructions, 'NOT "Schváleno"'
+    assert_includes instructions, 'NOT "Hotovo?"'
+    assert_includes instructions, 'progress < 100'
+  end
+
+  def test_story_auto_squash_instructions_includes_workflow_steps
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+    instructions = story_auto_squash.send(:build_instructions)
+    assert_includes instructions, 'GIT STATE CHECK'
+    assert_includes instructions, 'git checkout main'
+    assert_includes instructions, 'CREATE BRANCH'
+    assert_includes instructions, 'IMPLEMENT TASK'
+    assert_includes instructions, 'RUN UNIT TESTS'
+    assert_includes instructions, 'RUN SYSTEM TESTS'
+    assert_includes instructions, 'REFACTOR'
+    assert_includes instructions, 'PUSH'
+    assert_includes instructions, 'CREATE PULL REQUEST'
+  end
+
+  def test_story_auto_squash_instructions_includes_auto_merge
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+    instructions = story_auto_squash.send(:build_instructions)
+    assert_includes instructions, 'AUTO-SQUASH'
+    assert_includes instructions, 'gh pr merge --squash --delete-branch'
+    assert_includes instructions, 'automatically merged after CI passes'
+  end
+
+  def test_story_auto_squash_instructions_includes_ci_retry_logic
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+    instructions = story_auto_squash.send(:build_instructions)
+    assert_includes instructions, 'bin/ci'
+    assert_includes instructions, 'IF CI FAILS (first attempt)'
+    assert_includes instructions, 'Retry CI'
+    assert_includes instructions, 'IF RETRY FAILS'
+    assert_includes instructions, 'ci_failed'
+  end
+
+  def test_story_auto_squash_instructions_includes_wvrunner_result
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 789)
+    instructions = story_auto_squash.send(:build_instructions)
+    assert_includes instructions, 'WVRUNNER_RESULT'
+    assert_includes instructions, 'story_id'
+    assert_includes instructions, '789'
+    assert_includes instructions, 'task_id'
+  end
+
+  def test_story_auto_squash_instructions_includes_status_values
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+    instructions = story_auto_squash.send(:build_instructions)
+    assert_includes instructions, 'success'
+    assert_includes instructions, 'no_more_tasks'
+    assert_includes instructions, 'task_already_started'
+    assert_includes instructions, 'ci_failed'
+    assert_includes instructions, 'failure'
+  end
+
+  def test_story_auto_squash_instructions_includes_screenshot_steps
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+    instructions = story_auto_squash.send(:build_instructions)
+    assert_includes instructions, 'PREPARE SCREENSHOTS'
+    assert_includes instructions, 'ADD SCREENSHOTS TO PR'
+    assert_includes instructions, 'pr-screenshot'
+  end
+end
+
 class ClaudeCodeStoryManualTest < Minitest::Test
   def test_story_manual_responds_to_run
     story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)

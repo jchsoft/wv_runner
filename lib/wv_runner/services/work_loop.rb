@@ -4,7 +4,7 @@ module WvRunner
   # WorkLoop orchestrates Claude Code execution with different modes (once, today, daily)
   # and handles task scheduling with quota management and waiting strategies
   class WorkLoop
-    VALID_HOW_VALUES = %i[once today daily once_dry review reviews workflow story_manual].freeze
+    VALID_HOW_VALUES = %i[once today daily once_dry review reviews workflow story_manual story_auto_squash].freeze
 
     def initialize(verbose: false, story_id: nil)
       @verbose = verbose
@@ -108,6 +108,33 @@ module WvRunner
       end
 
       Logger.info_stdout("[WorkLoop] Story manual workflow complete, total tasks processed: #{results.length}")
+      results
+    end
+
+    def run_story_auto_squash
+      raise ArgumentError, 'story_id is required for story_auto_squash mode' unless @story_id
+
+      Logger.debug("[WorkLoop] [run_story_auto_squash] Starting Story ##{@story_id} auto-squash workflow...")
+      results = []
+      iteration_count = 0
+
+      loop do
+        iteration_count += 1
+        Logger.debug("[WorkLoop] [run_story_auto_squash] Starting iteration ##{iteration_count}...")
+        result = ClaudeCode::StoryAutoSquash.new(story_id: @story_id, verbose: @verbose).run
+        results << result
+        Logger.info_stdout("[WorkLoop] Task ##{iteration_count} completed with status: #{result['status']}")
+
+        break if result['status'] == 'no_more_tasks'
+        break if result['status'] == 'failure'
+        break if result['status'] == 'task_already_started'
+        break if result['status'] == 'ci_failed'
+
+        Logger.debug('[WorkLoop] [run_story_auto_squash] Continuing to next task, sleeping 2 seconds...')
+        sleep(2)
+      end
+
+      Logger.info_stdout("[WorkLoop] Story auto-squash workflow complete, total tasks processed: #{results.length}")
       results
     end
 
