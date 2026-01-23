@@ -121,18 +121,22 @@ module WvRunner
     end
 
     def build_marker_retry_instructions
+      original_instructions = build_instructions
+
       <<~INSTRUCTIONS
-        Your previous work appears complete but the WVRUNNER_RESULT marker was not found in the output.
+        Your previous session was interrupted before completing the workflow.
 
-        Please output the result now in this exact format on a new line:
+        Please:
+        1. Check what you already completed (git status, git log, check for open PRs)
+        2. Continue from where you left off in the workflow below
+        3. Complete ALL remaining steps
+        4. At the END, output the WVRUNNER_RESULT marker as specified
 
-        ```json
-        WVRUNNER_RESULT: {"status": "success", "hours": {"per_day": X, "task_estimated": Y}}
-        ```
+        IMPORTANT: Do NOT just output the marker - first verify and complete any remaining work!
 
-        To get the values:
-        1. Read workvector://user -> use "hour_goal" for per_day
-        2. From the task you worked on -> use "duration_best" for task_estimated (parse "1 hodina" -> 1.0)
+        === ORIGINAL WORKFLOW (continue from where you left off) ===
+
+        #{original_instructions}
       INSTRUCTIONS
     end
 

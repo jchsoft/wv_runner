@@ -282,24 +282,30 @@ class ClaudeCodeBaseTest < Minitest::Test
   end
 
   # Tests for build_marker_retry_instructions method
-  def test_build_marker_retry_instructions_contains_marker_format
+  def test_build_marker_retry_instructions_contains_retry_guidance
     base = WvRunner::ClaudeCodeBase.new
+    base.define_singleton_method(:build_instructions) { 'Original workflow instructions here' }
+
     instructions = base.send(:build_marker_retry_instructions)
 
-    assert_includes instructions, 'WVRUNNER_RESULT:'
-    assert_includes instructions, 'status'
-    assert_includes instructions, 'success'
-    assert_includes instructions, 'hours'
-    assert_includes instructions, 'per_day'
-    assert_includes instructions, 'task_estimated'
+    assert_includes instructions, 'previous session was interrupted'
+    assert_includes instructions, 'Check what you already completed'
+    assert_includes instructions, 'git status'
+    assert_includes instructions, 'Continue from where you left off'
+    assert_includes instructions, 'Complete ALL remaining steps'
+    assert_includes instructions, 'WVRUNNER_RESULT'
+    assert_includes instructions, 'Do NOT just output the marker'
   end
 
-  def test_build_marker_retry_instructions_references_workvector
+  def test_build_marker_retry_instructions_includes_original_instructions
     base = WvRunner::ClaudeCodeBase.new
+    original_instructions = 'Step 1: Do this\nStep 2: Do that\nWVRUNNER_RESULT: {"status": "success"}'
+    base.define_singleton_method(:build_instructions) { original_instructions }
+
     instructions = base.send(:build_marker_retry_instructions)
 
-    assert_includes instructions, 'workvector://user'
-    assert_includes instructions, 'hour_goal'
-    assert_includes instructions, 'duration_best'
+    assert_includes instructions, 'ORIGINAL WORKFLOW'
+    assert_includes instructions, 'Step 1: Do this'
+    assert_includes instructions, 'Step 2: Do that'
   end
 end
