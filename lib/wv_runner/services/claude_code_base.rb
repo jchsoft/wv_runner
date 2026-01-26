@@ -28,6 +28,7 @@ module WvRunner
       @stopping = false
       @retry_count = 0
       @marker_retry_mode = false
+      @result_received = false
       OutputFormatter.verbose_mode = verbose
     end
 
@@ -166,6 +167,7 @@ module WvRunner
       stdout_content = ''.dup
       stderr_content = ''.dup
       stream_error = nil
+      @result_received = false
 
       Timeout.timeout(CLAUDE_EXECUTION_TIMEOUT) do
         Open3.popen3(*command) do |stdin, stdout, stderr, wait_thr|
@@ -174,6 +176,7 @@ module WvRunner
           stdout_thread = Thread.new do
             stream_lines(stdout) do |line|
               stdout_content << line.dup
+              check_for_result_message(line)
               if OutputFormatter.should_log_to_stdout?(line)
                 puts OutputFormatter.format_line(line)
               else
@@ -217,7 +220,10 @@ module WvRunner
     end
 
     def stream_lines(io)
-      io.each_line { |line| yield line }
+      io.each_line do |line|
+        yield line
+        break if @result_received
+      end
     end
 
     def handle_stream_error(error, stream_name)
@@ -226,6 +232,19 @@ module WvRunner
       error_msg = "#{stream_name} stream closed unexpectedly: #{error.message}"
       Logger.warn "[#{self.class.name}] #{error_msg}"
       yield error_msg
+    end
+
+    def check_for_result_message(line)
+      return if @result_received
+
+      parsed = JSON.parse(line)
+      return unless parsed['type'] == 'result'
+
+      @result_received = true
+      @stopping = true # Mark as expected shutdown
+      Logger.info_stdout "[#{self.class.name}] Result received, stopping streams..."
+    rescue JSON::ParserError
+      # Not JSON or invalid, ignore
     end
 
     def build_instructions

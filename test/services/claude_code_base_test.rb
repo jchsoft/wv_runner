@@ -308,4 +308,72 @@ class ClaudeCodeBaseTest < Minitest::Test
     assert_includes instructions, 'Step 1: Do this'
     assert_includes instructions, 'Step 2: Do that'
   end
+
+  # Tests for result_received flag and early stream termination
+  def test_initialize_sets_result_received_to_false
+    base = WvRunner::ClaudeCodeBase.new
+    refute base.instance_variable_get(:@result_received)
+  end
+
+  def test_check_for_result_message_sets_flag_on_result_type
+    base = WvRunner::ClaudeCodeBase.new
+    result_line = '{"type": "result", "cost_usd": 0.05}'
+
+    base.send(:check_for_result_message, result_line)
+
+    assert base.instance_variable_get(:@result_received)
+  end
+
+  def test_check_for_result_message_sets_stopping_on_result_type
+    base = WvRunner::ClaudeCodeBase.new
+    result_line = '{"type": "result", "cost_usd": 0.05}'
+
+    base.send(:check_for_result_message, result_line)
+
+    assert base.instance_variable_get(:@stopping)
+  end
+
+  def test_check_for_result_message_ignores_non_result_types
+    base = WvRunner::ClaudeCodeBase.new
+    assistant_line = '{"type": "assistant", "message": "Hello"}'
+
+    base.send(:check_for_result_message, assistant_line)
+
+    refute base.instance_variable_get(:@result_received)
+  end
+
+  def test_check_for_result_message_ignores_invalid_json
+    base = WvRunner::ClaudeCodeBase.new
+    invalid_line = 'This is not JSON at all'
+
+    base.send(:check_for_result_message, invalid_line)
+
+    refute base.instance_variable_get(:@result_received)
+  end
+
+  def test_check_for_result_message_skips_when_already_received
+    base = WvRunner::ClaudeCodeBase.new
+    base.instance_variable_set(:@result_received, true)
+    base.instance_variable_set(:@stopping, false)
+    result_line = '{"type": "result", "cost_usd": 0.05}'
+
+    base.send(:check_for_result_message, result_line)
+
+    # @stopping should remain false since we skipped processing
+    refute base.instance_variable_get(:@stopping)
+  end
+
+  def test_stream_lines_breaks_when_result_received
+    base = WvRunner::ClaudeCodeBase.new
+    io = StringIO.new("line1\nline2\nline3\nline4\n")
+    lines = []
+
+    base.send(:stream_lines, io) do |line|
+      lines << line.strip
+      # Simulate result received after line2
+      base.instance_variable_set(:@result_received, true) if line.strip == 'line2'
+    end
+
+    assert_equal %w[line1 line2], lines, 'Should stop after result_received is set'
+  end
 end
