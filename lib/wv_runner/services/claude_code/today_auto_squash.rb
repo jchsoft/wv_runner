@@ -7,9 +7,7 @@ module WvRunner
     # Processes tasks from @next queue with automatic PR squash-merge after CI passes
     # Similar to run_today but with automatic merge instead of leaving PR open
     class TodayAutoSquash < ClaudeCodeBase
-      def model_name
-        'opus'
-      end
+      def model_name = "opusplan"
 
       private
 

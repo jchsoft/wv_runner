@@ -6,9 +6,7 @@ module WvRunner
   module ClaudeCode
     # Handles PR review feedback - reads human reviews, creates subtasks, fixes issues
     class Review < ClaudeCodeBase
-      def model_name
-        'sonnet'
-      end
+      def model_name = "sonnet"
 
       private
 

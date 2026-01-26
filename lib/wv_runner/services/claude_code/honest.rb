@@ -6,9 +6,7 @@ module WvRunner
   module ClaudeCode
     # Executes real work - creates branches, modifies code, creates PRs
     class Honest < ClaudeCodeBase
-      def model_name
-        'opus'
-      end
+      def model_name = "opusplan"
 
       private
 
