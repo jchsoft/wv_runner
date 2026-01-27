@@ -60,10 +60,7 @@ module WvRunner
              - If failures: fix them and commit fixes
              - Repeat until all pass
 
-          7. PREPARE SCREENSHOTS: Save screenshots for PR review
-             - If you created new system tests with visual changes, save screenshots
-             - Be sure that screenshots shows tested feature, if not - scroll
-             - These will be used later for PR
+          7. do not prepare screenshots for PR review - it is autosquash
 
           8. RUN SYSTEM TESTS: Execute all system tests
              - Run system tests (may take up to 5 minutes)
@@ -87,9 +84,7 @@ module WvRunner
               - Link to the task in WorkVector
               - Note: PR will be automatically merged after CI passes
 
-          13. ADD SCREENSHOTS TO PR: Add screenshots using skill "pr-screenshot"
-              - Make sure the test is not due to some test failure
-              - Be sure that screenshots shows tested feature
+          13. do not add screenshots to PR review - it is autosquash
 
           14. RUN LOCAL CI AND AUTO-MERGE: Run CI and merge on success
               - If "bin/ci" does NOT exist: skip to step 15 with status "success"

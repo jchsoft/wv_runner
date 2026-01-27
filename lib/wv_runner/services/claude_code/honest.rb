@@ -52,6 +52,7 @@ module WvRunner
              - If you created new system tests with visual changes, save screenshots
              - be sure that screenshots shows tested feature, if not - scroll
              - These will be used later for PR
+             - may be there is a **special method** for this in ApplicationSystemTestCase
 
           7. RUN SYSTEM TESTS: Execute all system tests
              - Run system tests (may take up to 5 minutes)
