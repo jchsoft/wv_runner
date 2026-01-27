@@ -60,7 +60,9 @@ module WvRunner
              - If failures: fix them and commit fixes
              - Repeat until all pass
 
-          7. do not prepare screenshots for PR review - it is autosquash
+          7. COMPILE TEST ASSETS: Ensure test assets are ready
+             - Run: bin/rails assets:precompile RAILS_ENV=test
+             - This prevents test failures due to missing compiled assets
 
           8. RUN SYSTEM TESTS: Execute all system tests
              - Run system tests (may take up to 5 minutes)

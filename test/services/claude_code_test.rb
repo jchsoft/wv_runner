@@ -428,12 +428,11 @@ class ClaudeCodeStoryAutoSquashTest < Minitest::Test
     assert_includes instructions, 'failure'
   end
 
-  def test_story_auto_squash_instructions_includes_screenshot_steps
+  def test_story_auto_squash_instructions_includes_compile_assets_step
     story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
     instructions = story_auto_squash.send(:build_instructions)
-    assert_includes instructions, 'PREPARE SCREENSHOTS'
-    assert_includes instructions, 'ADD SCREENSHOTS TO PR'
-    assert_includes instructions, 'pr-screenshot'
+    assert_includes instructions, 'COMPILE TEST ASSETS'
+    assert_includes instructions, 'assets:precompile'
   end
 end
 
@@ -550,14 +549,13 @@ class ClaudeCodeTodayAutoSquashTest < Minitest::Test
     end
   end
 
-  def test_today_auto_squash_instructions_includes_screenshot_steps
+  def test_today_auto_squash_instructions_includes_compile_assets_step
     File.stub :exist?, true do
       File.stub :read, 'project_relative_id=99' do
         today_auto_squash = WvRunner::ClaudeCode::TodayAutoSquash.new
         instructions = today_auto_squash.send(:build_instructions)
-        assert_includes instructions, 'PREPARE SCREENSHOTS'
-        assert_includes instructions, 'ADD SCREENSHOTS TO PR'
-        assert_includes instructions, 'pr-screenshot'
+        assert_includes instructions, 'COMPILE TEST ASSETS'
+        assert_includes instructions, 'assets:precompile'
       end
     end
   end
