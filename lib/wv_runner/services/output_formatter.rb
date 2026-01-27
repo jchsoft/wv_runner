@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'json'
+require_relative 'approval_collector'
 
 module WvRunner
   # Formats Claude output for better readability
@@ -177,11 +178,11 @@ module WvRunner
 
       input_text = if name == 'TodoWrite' && item.dig('input', 'todos').is_a?(Array)
                      format_todo_write_input(item['input']['todos'])
-                   elsif item['input'].is_a?(Hash)
+      elsif item['input'].is_a?(Hash)
                      JSON.pretty_generate(item['input'])
-                   else
+      else
                      item['input'].inspect
-                   end
+      end
 
       "Tool: #{name} (ID: #{tool_id})\nInput:\n#{input_text}"
     end
@@ -192,7 +193,7 @@ module WvRunner
                       when 'completed' then icon(:completed)
                       when 'in_progress' then icon(:in_progress)
                       else icon(:pending)
-                      end
+        end
         "#{status_icon} #{todo['content']}"
       end.join("\n")
     end
@@ -201,6 +202,9 @@ module WvRunner
       is_error = item['is_error'] ? 'ERROR' : 'OK'
       result_type = item['type'].to_s
       content = strip_system_reminders(item['content'].to_s)
+
+      # Collect commands that require approval for summary at end of session
+      ApprovalCollector.extract_from_error(content) if item['is_error']
 
       "Tool Result (#{is_error}) [#{result_type}]:\n#{content}"
     end

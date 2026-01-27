@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative 'approval_collector'
+
 module WvRunner
   # WorkLoop orchestrates Claude Code execution with different modes (once, today, daily)
   # and handles task scheduling with quota management and waiting strategies
@@ -17,8 +19,13 @@ module WvRunner
       Logger.debug("[WorkLoop] [execute] Mode validated successfully: #{how.inspect}")
       Logger.debug("[WorkLoop] [execute] Calling run_#{how}...")
 
+      # Clear any previously collected approval commands
+      ApprovalCollector.clear
+
       send("run_#{how}").tap do |result|
         Logger.debug("[WorkLoop] [execute] Execution complete, result: #{result.inspect}")
+        # Print summary of commands that required approval
+        ApprovalCollector.print_summary
       end
     end
 
