@@ -49,6 +49,11 @@ namespace :wv_runner do
 
         run_wv_runner_auto_squash_story_task(story_id)
       end
+
+      desc 'Process queue continuously 24/7 with automatic PR squash-merge after CI passes (no quota checks)'
+      task queue: :environment do
+        run_wv_runner_auto_squash_queue_task
+      end
     end
   end
 
@@ -83,6 +88,15 @@ namespace :wv_runner do
     verbose = verbose_mode_enabled?
     display_output_mode(verbose)
     WvRunner::WorkLoop.new(verbose: verbose).execute(:today_auto_squash)
+  end
+
+  def run_wv_runner_auto_squash_queue_task
+    display_version_info
+    puts '[WvRunner] AUTO-SQUASH QUEUE mode - 24/7 processing without quota checks'
+    puts '[WvRunner] PRs will be automatically merged after CI passes'
+    verbose = verbose_mode_enabled?
+    display_output_mode(verbose)
+    WvRunner::WorkLoop.new(verbose: verbose).execute(:queue_auto_squash)
   end
 
   def verbose_mode_enabled?

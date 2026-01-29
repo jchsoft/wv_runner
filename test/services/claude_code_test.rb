@@ -678,3 +678,149 @@ class ClaudeCodeStoryManualTest < Minitest::Test
     assert_includes instructions, 'pr-screenshot'
   end
 end
+
+class ClaudeCodeQueueAutoSquashTest < Minitest::Test
+  def test_queue_auto_squash_responds_to_run
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        queue_auto_squash = WvRunner::ClaudeCode::QueueAutoSquash.new
+        assert_respond_to queue_auto_squash, :run
+      end
+    end
+  end
+
+  def test_queue_auto_squash_inherits_from_claude_code_base
+    assert WvRunner::ClaudeCode::QueueAutoSquash < WvRunner::ClaudeCodeBase
+  end
+
+  def test_queue_auto_squash_uses_opus_model
+    queue_auto_squash = WvRunner::ClaudeCode::QueueAutoSquash.new
+    assert_equal 'opus', queue_auto_squash.send(:model_name)
+  end
+
+  def test_queue_auto_squash_accepts_edits
+    queue_auto_squash = WvRunner::ClaudeCode::QueueAutoSquash.new
+    assert queue_auto_squash.send(:accept_edits?)
+  end
+
+  def test_queue_auto_squash_instructions_includes_project_id
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        queue_auto_squash = WvRunner::ClaudeCode::QueueAutoSquash.new
+        instructions = queue_auto_squash.send(:build_instructions)
+        assert_includes instructions, 'project_relative_id=99'
+        assert_includes instructions, 'workvector://pieces/jchsoft/@next'
+      end
+    end
+  end
+
+  def test_queue_auto_squash_instructions_includes_git_checkout_main
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        queue_auto_squash = WvRunner::ClaudeCode::QueueAutoSquash.new
+        instructions = queue_auto_squash.send(:build_instructions)
+        assert_includes instructions, 'git checkout main'
+        assert_includes instructions, 'GIT STATE CHECK'
+      end
+    end
+  end
+
+  def test_queue_auto_squash_instructions_includes_workflow_steps
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        queue_auto_squash = WvRunner::ClaudeCode::QueueAutoSquash.new
+        instructions = queue_auto_squash.send(:build_instructions)
+        assert_includes instructions, 'CREATE BRANCH'
+        assert_includes instructions, 'IMPLEMENT TASK'
+        assert_includes instructions, 'RUN UNIT TESTS'
+        assert_includes instructions, 'RUN SYSTEM TESTS'
+        assert_includes instructions, 'REFACTOR'
+        assert_includes instructions, 'PUSH'
+        assert_includes instructions, 'CREATE PULL REQUEST'
+      end
+    end
+  end
+
+  def test_queue_auto_squash_instructions_includes_auto_merge
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        queue_auto_squash = WvRunner::ClaudeCode::QueueAutoSquash.new
+        instructions = queue_auto_squash.send(:build_instructions)
+        assert_includes instructions, 'AUTO-SQUASH'
+        assert_includes instructions, 'gh pr merge --squash --delete-branch'
+        assert_includes instructions, 'automatically merged after CI passes'
+      end
+    end
+  end
+
+  def test_queue_auto_squash_instructions_mentions_queue_mode
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        queue_auto_squash = WvRunner::ClaudeCode::QueueAutoSquash.new
+        instructions = queue_auto_squash.send(:build_instructions)
+        assert_includes instructions, 'QUEUE mode'
+        assert_includes instructions, '24/7'
+        assert_includes instructions, 'without quota checks'
+      end
+    end
+  end
+
+  def test_queue_auto_squash_instructions_includes_ci_retry_logic
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        queue_auto_squash = WvRunner::ClaudeCode::QueueAutoSquash.new
+        instructions = queue_auto_squash.send(:build_instructions)
+        assert_includes instructions, 'bin/ci'
+        assert_includes instructions, 'IF CI FAILS (first attempt)'
+        assert_includes instructions, 'Retry CI'
+        assert_includes instructions, 'IF RETRY FAILS'
+        assert_includes instructions, 'ci_failed'
+      end
+    end
+  end
+
+  def test_queue_auto_squash_instructions_includes_wvrunner_result
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        queue_auto_squash = WvRunner::ClaudeCode::QueueAutoSquash.new
+        instructions = queue_auto_squash.send(:build_instructions)
+        assert_includes instructions, 'WVRUNNER_RESULT'
+        assert_includes instructions, 'status'
+        assert_includes instructions, 'hours'
+      end
+    end
+  end
+
+  def test_queue_auto_squash_instructions_includes_status_values
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        queue_auto_squash = WvRunner::ClaudeCode::QueueAutoSquash.new
+        instructions = queue_auto_squash.send(:build_instructions)
+        assert_includes instructions, 'success'
+        assert_includes instructions, 'no_more_tasks'
+        assert_includes instructions, 'ci_failed'
+        assert_includes instructions, 'failure'
+      end
+    end
+  end
+
+  def test_queue_auto_squash_instructions_includes_compile_assets_step
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        queue_auto_squash = WvRunner::ClaudeCode::QueueAutoSquash.new
+        instructions = queue_auto_squash.send(:build_instructions)
+        assert_includes instructions, 'COMPILE TEST ASSETS'
+        assert_includes instructions, 'assets:precompile'
+      end
+    end
+  end
+
+  def test_queue_auto_squash_raises_when_project_id_not_found
+    File.stub :exist?, false do
+      queue_auto_squash = WvRunner::ClaudeCode::QueueAutoSquash.new
+      assert_raises(RuntimeError) do
+        queue_auto_squash.send(:build_instructions)
+      end
+    end
+  end
+end

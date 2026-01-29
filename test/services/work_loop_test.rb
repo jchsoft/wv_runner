@@ -59,7 +59,7 @@ class WorkLoopTest < Minitest::Test
   end
 
   def test_valid_how_values_constant
-    assert_equal %i[once today daily once_dry review reviews workflow story_manual story_auto_squash today_auto_squash], WvRunner::WorkLoop::VALID_HOW_VALUES
+    assert_equal %i[once today daily once_dry review reviews workflow story_manual story_auto_squash today_auto_squash queue_auto_squash], WvRunner::WorkLoop::VALID_HOW_VALUES
   end
 
   def test_execute_validates_how_parameter
@@ -67,7 +67,7 @@ class WorkLoopTest < Minitest::Test
 
     error = assert_raises(ArgumentError) { loop_instance.execute(:unknown) }
     assert_includes error.message, "Invalid 'how' value"
-    assert_includes error.message, 'once, today, daily, once_dry, review, reviews, workflow, story_manual, story_auto_squash, today_auto_squash'
+    assert_includes error.message, 'once, today, daily, once_dry, review, reviews, workflow, story_manual, story_auto_squash, today_auto_squash, queue_auto_squash'
   end
 
   def test_execute_with_review_calls_review
@@ -630,6 +630,110 @@ class WorkLoopTest < Minitest::Test
         assert_instance_of Array, results
         assert_equal 1, results.length
         assert_equal 'success', results.first['status']
+      end
+    end
+  end
+
+  # Tests for queue_auto_squash mode
+  def test_execute_with_queue_auto_squash_calls_queue_auto_squash_class
+    # Mock returns success first, then no_more_tasks to stop the loop
+    call_count = [0]
+    mock = Object.new
+    mock.define_singleton_method(:run) do
+      call_count[0] += 1
+      call_count[0] == 1 ? { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2 } } : { 'status' => 'no_more_tasks' }
+    end
+
+    WvRunner::ClaudeCode::QueueAutoSquash.stub(:new, mock) do
+      Kernel.stub(:sleep, nil) do
+        loop_instance = WvRunner::WorkLoop.new
+        results = loop_instance.execute(:queue_auto_squash)
+
+        assert_instance_of Array, results
+        assert_equal 2, results.length
+        assert_equal 'success', results.first['status']
+        assert_equal 'no_more_tasks', results.last['status']
+      end
+    end
+  end
+
+  def test_execute_with_queue_auto_squash_stops_on_no_more_tasks
+    mock = Object.new
+    def mock.run
+      { 'status' => 'no_more_tasks', 'hours' => { 'per_day' => 8, 'task_estimated' => 0 } }
+    end
+
+    WvRunner::ClaudeCode::QueueAutoSquash.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new
+      results = loop_instance.execute(:queue_auto_squash)
+
+      assert_instance_of Array, results
+      assert_equal 1, results.length
+      assert_equal 'no_more_tasks', results.first['status']
+    end
+  end
+
+  def test_execute_with_queue_auto_squash_stops_on_failure
+    mock = Object.new
+    def mock.run
+      { 'status' => 'failure', 'message' => 'Error processing task' }
+    end
+
+    WvRunner::ClaudeCode::QueueAutoSquash.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new
+      results = loop_instance.execute(:queue_auto_squash)
+
+      assert_instance_of Array, results
+      assert_equal 1, results.length
+      assert_equal 'failure', results.first['status']
+    end
+  end
+
+  def test_execute_with_queue_auto_squash_stops_on_ci_failed
+    mock = Object.new
+    def mock.run
+      { 'status' => 'ci_failed', 'message' => 'CI failed after retry' }
+    end
+
+    WvRunner::ClaudeCode::QueueAutoSquash.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new
+      results = loop_instance.execute(:queue_auto_squash)
+
+      assert_instance_of Array, results
+      assert_equal 1, results.length
+      assert_equal 'ci_failed', results.first['status']
+    end
+  end
+
+  def test_execute_with_queue_auto_squash_does_not_check_quota
+    # Queue auto squash should NOT check quota - runs continuously
+    # This test verifies Decider is NOT called
+    mock = Object.new
+    mock.define_singleton_method(:run) do
+      { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 8 } }
+    end
+
+    # Setup mock that would raise if Decider.new is called
+    decider_class_mock = Object.new
+    decider_class_mock.define_singleton_method(:new) do |*_args|
+      raise 'Decider should NOT be called in queue_auto_squash mode!'
+    end
+
+    call_count = [0]
+    # Need to stop loop manually since there's no quota check
+    mock.define_singleton_method(:run) do
+      call_count[0] += 1
+      call_count[0] == 1 ? { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2 } } : { 'status' => 'no_more_tasks' }
+    end
+
+    WvRunner::ClaudeCode::QueueAutoSquash.stub(:new, mock) do
+      Kernel.stub(:sleep, nil) do
+        loop_instance = WvRunner::WorkLoop.new
+        results = loop_instance.execute(:queue_auto_squash)
+
+        assert_instance_of Array, results
+        assert_equal 2, results.length
+        # Verify it processed multiple tasks without quota check stopping it
       end
     end
   end

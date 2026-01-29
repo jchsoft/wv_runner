@@ -175,4 +175,28 @@ class TasksTest < Minitest::Test
     assert content.include?("run_wv_runner_auto_squash_today_task"), "Should call auto-squash today task helper"
     assert content.include?("execute(:today_auto_squash)"), "Should execute today_auto_squash mode"
   end
+
+  # Tests for auto:squash:queue task
+  def test_rake_file_defines_auto_squash_queue_task
+    rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
+    content = File.read(rake_file)
+
+    assert content.include?("task queue: :environment"), "Should define queue task inside auto:squash"
+  end
+
+  def test_rake_file_defines_auto_squash_queue_task_description
+    rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
+    content = File.read(rake_file)
+
+    assert content.include?("Process queue continuously 24/7"), "Should mention 24/7 processing"
+    assert content.include?("no quota checks"), "Should mention no quota checks"
+  end
+
+  def test_rake_file_auto_squash_queue_task_calls_helper
+    rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
+    content = File.read(rake_file)
+
+    assert content.include?("run_wv_runner_auto_squash_queue_task"), "Should call auto-squash queue task helper"
+    assert content.include?("execute(:queue_auto_squash)"), "Should execute queue_auto_squash mode"
+  end
 end
