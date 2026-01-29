@@ -1,6 +1,6 @@
 namespace :wv_runner do
   namespace :manual do
-    MODES = %i[once once_dry today daily review reviews workflow].freeze
+    MODES = %i[once once_dry today daily review reviews workflow queue].freeze
 
     MODES.each do |mode|
       desc case mode
@@ -18,6 +18,8 @@ namespace :wv_runner do
              'Find and process all PRs with unaddressed reviews (pass verbose=true for verbose output, default: normal mode)'
            when :workflow
              'Run full workflow: process reviews first, then tasks for today (pass verbose=true for verbose output, default: normal mode)'
+           when :queue
+             'Process queue continuously without quota checks or auto-merge, PRs stay open for review (pass verbose=true for verbose output, default: normal mode)'
       end
       task mode => :environment do
         run_wv_runner_task(mode)
@@ -63,7 +65,9 @@ namespace :wv_runner do
     display_version_info
     verbose = verbose_mode_enabled?
     display_output_mode(verbose)
-    WvRunner::WorkLoop.new(verbose: verbose).execute(mode)
+    # Map :queue to :queue_manual for namespace :manual
+    execute_mode = mode == :queue ? :queue_manual : mode
+    WvRunner::WorkLoop.new(verbose: verbose).execute(execute_mode)
   end
 
   def run_wv_runner_story_task(story_id)
