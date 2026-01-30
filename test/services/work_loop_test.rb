@@ -413,22 +413,6 @@ class WorkLoopTest < Minitest::Test
     end
   end
 
-  def test_execute_with_story_manual_stops_on_task_already_started
-    mock = Object.new
-    def mock.run
-      { 'status' => 'task_already_started', 'message' => 'Task already in progress' }
-    end
-
-    WvRunner::ClaudeCode::StoryManual.stub(:new, mock) do
-      loop_instance = WvRunner::WorkLoop.new(story_id: 123)
-      results = loop_instance.execute(:story_manual)
-
-      assert_instance_of Array, results
-      assert_equal 1, results.length
-      assert_equal 'task_already_started', results.first['status']
-    end
-  end
-
   def test_story_id_can_be_passed_to_constructor
     loop_instance = WvRunner::WorkLoop.new(story_id: 999)
     assert_instance_of WvRunner::WorkLoop, loop_instance
@@ -497,22 +481,6 @@ class WorkLoopTest < Minitest::Test
       assert_instance_of Array, results
       assert_equal 1, results.length
       assert_equal 'failure', results.first['status']
-    end
-  end
-
-  def test_execute_with_story_auto_squash_stops_on_task_already_started
-    mock = Object.new
-    def mock.run
-      { 'status' => 'task_already_started', 'message' => 'Task already in progress' }
-    end
-
-    WvRunner::ClaudeCode::StoryAutoSquash.stub(:new, mock) do
-      loop_instance = WvRunner::WorkLoop.new(story_id: 123)
-      results = loop_instance.execute(:story_auto_squash)
-
-      assert_instance_of Array, results
-      assert_equal 1, results.length
-      assert_equal 'task_already_started', results.first['status']
     end
   end
 

@@ -423,7 +423,6 @@ class ClaudeCodeStoryAutoSquashTest < Minitest::Test
     instructions = story_auto_squash.send(:build_instructions)
     assert_includes instructions, 'success'
     assert_includes instructions, 'no_more_tasks'
-    assert_includes instructions, 'task_already_started'
     assert_includes instructions, 'ci_failed'
     assert_includes instructions, 'failure'
   end
@@ -658,7 +657,6 @@ class ClaudeCodeStoryManualTest < Minitest::Test
     instructions = story_manual.send(:build_instructions)
     assert_includes instructions, 'success'
     assert_includes instructions, 'no_more_tasks'
-    assert_includes instructions, 'task_already_started'
     assert_includes instructions, 'failure'
   end
 

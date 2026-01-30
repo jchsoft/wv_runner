@@ -34,8 +34,10 @@ module WvRunner
 
           2. LOAD TASK DETAILS: Get full task information
              - Read: workvector://pieces/jchsoft/<task_relative_id>
-             - Verify task is NOT already started (progress should be 0)
-             - If task is already in progress: STOP and output status "task_already_started"
+             - If task is IN PROGRESS (progress > 0):
+               → This is a CONTINUATION - skip git checkout/branch creation (steps 3-4)
+               → Go directly to step 5 (IMPLEMENT TASK) and continue where it was left off
+             - If task is NEW (progress = 0): proceed normally with all steps
              - DISPLAY TASK INFO: After loading, output in this exact format:
                WVRUNNER_TASK_INFO:
                ID: <relative_id>
@@ -127,7 +129,6 @@ module WvRunner
           4. Set status:
              - "success" if task completed and PR merged successfully
              - "no_more_tasks" if no incomplete tasks in the Story
-             - "task_already_started" if the next task is already in progress
              - "ci_failed" if CI failed after retry (PR stays open)
              - "failure" for other errors
         INSTRUCTIONS
