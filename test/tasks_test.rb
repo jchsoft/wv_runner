@@ -91,7 +91,6 @@ class TasksTest < Minitest::Test
     rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
     content = File.read(rake_file)
 
-    assert content.include?("namespace :workflow do"), "Should define workflow namespace inside manual"
     assert content.include?("task :story"), "Should define story task"
     assert content.include?("[:story_id]"), "Story task should accept story_id argument"
   end

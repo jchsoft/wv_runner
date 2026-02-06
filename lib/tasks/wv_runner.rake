@@ -26,14 +26,12 @@ namespace :wv_runner do
       end
     end
 
-    namespace :workflow do
-      desc 'Process all tasks in a Story, create PRs but leave them open for review (pass story_id as argument)'
-      task :story, [:story_id] => :environment do |_t, args|
-        story_id = args[:story_id]&.to_i
-        raise ArgumentError, 'story_id is required. Usage: rake wv_runner:manual:workflow:story[123]' unless story_id&.positive?
+    desc 'Process all tasks in a Story, create PRs but leave them open for review (pass story_id as argument)'
+    task :story, [:story_id] => :environment do |_t, args|
+      story_id = args[:story_id]&.to_i
+      raise ArgumentError, 'story_id is required. Usage: rake wv_runner:manual:story[123]' unless story_id&.positive?
 
-        run_wv_runner_story_task(story_id)
-      end
+      run_wv_runner_story_task(story_id)
     end
   end
 
