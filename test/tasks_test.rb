@@ -198,4 +198,27 @@ class TasksTest < Minitest::Test
     assert content.include?("run_wv_runner_auto_squash_queue_task"), "Should call auto-squash queue task helper"
     assert content.include?("execute(:queue_auto_squash)"), "Should execute queue_auto_squash mode"
   end
+
+  # Tests for auto:once task
+  def test_rake_file_defines_auto_once_task
+    rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
+    content = File.read(rake_file)
+
+    assert content.include?("task once: :environment"), "Should define once task inside auto namespace"
+  end
+
+  def test_rake_file_defines_auto_once_task_description
+    rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
+    content = File.read(rake_file)
+
+    assert content.include?("Run a single task once with automatic PR squash-merge"), "Should have auto:once task description"
+  end
+
+  def test_rake_file_auto_once_task_calls_helper
+    rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
+    content = File.read(rake_file)
+
+    assert content.include?("run_wv_runner_auto_once_task"), "Should call auto-once task helper"
+    assert content.include?("execute(:once_auto_squash)"), "Should execute once_auto_squash mode"
+  end
 end

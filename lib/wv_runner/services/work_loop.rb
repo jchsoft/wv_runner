@@ -6,7 +6,7 @@ module WvRunner
   # WorkLoop orchestrates Claude Code execution with different modes (once, today, daily)
   # and handles task scheduling with quota management and waiting strategies
   class WorkLoop
-    VALID_HOW_VALUES = %i[once today daily once_dry review reviews workflow story_manual story_auto_squash today_auto_squash queue_auto_squash queue_manual].freeze
+    VALID_HOW_VALUES = %i[once today daily once_dry review reviews workflow story_manual story_auto_squash today_auto_squash queue_auto_squash queue_manual once_auto_squash].freeze
 
     def initialize(verbose: false, story_id: nil)
       @verbose = verbose
@@ -36,6 +36,14 @@ module WvRunner
       result = ClaudeCode::Honest.new(verbose: @verbose).run
       Logger.info_stdout("[WorkLoop] Task completed with status: #{result['status']}")
       Logger.debug("[WorkLoop] [run_once] Full result: #{result.inspect}")
+      result
+    end
+
+    def run_once_auto_squash
+      Logger.debug('[WorkLoop] [run_once_auto_squash] Starting single task execution with auto-squash...')
+      result = ClaudeCode::OnceAutoSquash.new(verbose: @verbose).run
+      Logger.info_stdout("[WorkLoop] Task completed with status: #{result['status']}")
+      Logger.debug("[WorkLoop] [run_once_auto_squash] Full result: #{result.inspect}")
       result
     end
 

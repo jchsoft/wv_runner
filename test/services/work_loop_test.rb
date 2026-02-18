@@ -59,7 +59,7 @@ class WorkLoopTest < Minitest::Test
   end
 
   def test_valid_how_values_constant
-    assert_equal %i[once today daily once_dry review reviews workflow story_manual story_auto_squash today_auto_squash queue_auto_squash queue_manual], WvRunner::WorkLoop::VALID_HOW_VALUES
+    assert_equal %i[once today daily once_dry review reviews workflow story_manual story_auto_squash today_auto_squash queue_auto_squash queue_manual once_auto_squash], WvRunner::WorkLoop::VALID_HOW_VALUES
   end
 
   def test_execute_validates_how_parameter
@@ -67,7 +67,7 @@ class WorkLoopTest < Minitest::Test
 
     error = assert_raises(ArgumentError) { loop_instance.execute(:unknown) }
     assert_includes error.message, "Invalid 'how' value"
-    assert_includes error.message, 'once, today, daily, once_dry, review, reviews, workflow, story_manual, story_auto_squash, today_auto_squash, queue_auto_squash, queue_manual'
+    assert_includes error.message, 'once, today, daily, once_dry, review, reviews, workflow, story_manual, story_auto_squash, today_auto_squash, queue_auto_squash, queue_manual, once_auto_squash'
   end
 
   def test_execute_with_review_calls_review
@@ -780,5 +780,67 @@ class WorkLoopTest < Minitest::Test
         # Verify it processed multiple tasks without quota check stopping it
       end
     end
+  end
+
+  # Tests for once_auto_squash mode
+  def test_execute_with_once_auto_squash_calls_once_auto_squash_class
+    mock = Object.new
+    def mock.run
+      { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2 } }
+    end
+
+    WvRunner::ClaudeCode::OnceAutoSquash.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new
+      result = loop_instance.execute(:once_auto_squash)
+
+      assert_equal 'success', result['status']
+      assert_equal 8, result['hours']['per_day']
+    end
+  end
+
+  def test_execute_with_once_auto_squash_handles_no_more_tasks
+    mock = Object.new
+    def mock.run
+      { 'status' => 'no_more_tasks', 'hours' => { 'per_day' => 8, 'task_estimated' => 0 } }
+    end
+
+    WvRunner::ClaudeCode::OnceAutoSquash.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new
+      result = loop_instance.execute(:once_auto_squash)
+
+      assert_equal 'no_more_tasks', result['status']
+    end
+  end
+
+  def test_execute_with_once_auto_squash_handles_ci_failed
+    mock = Object.new
+    def mock.run
+      { 'status' => 'ci_failed', 'message' => 'CI failed after retry' }
+    end
+
+    WvRunner::ClaudeCode::OnceAutoSquash.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new
+      result = loop_instance.execute(:once_auto_squash)
+
+      assert_equal 'ci_failed', result['status']
+    end
+  end
+
+  def test_execute_with_once_auto_squash_handles_failure
+    mock = Object.new
+    def mock.run
+      { 'status' => 'failure', 'message' => 'Some error' }
+    end
+
+    WvRunner::ClaudeCode::OnceAutoSquash.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new
+      result = loop_instance.execute(:once_auto_squash)
+
+      assert_equal 'failure', result['status']
+    end
+  end
+
+  def test_once_auto_squash_is_in_valid_how_values
+    assert_includes WvRunner::WorkLoop::VALID_HOW_VALUES, :once_auto_squash
   end
 end

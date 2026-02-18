@@ -36,6 +36,11 @@ namespace :wv_runner do
   end
 
   namespace :auto do
+    desc 'Run a single task once with automatic PR squash-merge after CI passes'
+    task once: :environment do
+      run_wv_runner_auto_once_task
+    end
+
     namespace :squash do
       desc 'Run tasks until quota reached with automatic PR squash-merge after CI passes'
       task today: :environment do
@@ -82,6 +87,14 @@ namespace :wv_runner do
     verbose = verbose_mode_enabled?
     display_output_mode(verbose)
     WvRunner::WorkLoop.new(verbose: verbose, story_id: story_id).execute(:story_auto_squash)
+  end
+
+  def run_wv_runner_auto_once_task
+    display_version_info
+    puts '[WvRunner] AUTO-ONCE mode - single task will be automatically merged after CI passes'
+    verbose = verbose_mode_enabled?
+    display_output_mode(verbose)
+    WvRunner::WorkLoop.new(verbose: verbose).execute(:once_auto_squash)
   end
 
   def run_wv_runner_auto_squash_today_task
