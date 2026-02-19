@@ -691,9 +691,9 @@ class ClaudeCodeQueueAutoSquashTest < Minitest::Test
     assert WvRunner::ClaudeCode::QueueAutoSquash < WvRunner::ClaudeCodeBase
   end
 
-  def test_queue_auto_squash_uses_opus_model
+  def test_queue_auto_squash_uses_opusplan_model
     queue_auto_squash = WvRunner::ClaudeCode::QueueAutoSquash.new
-    assert_equal 'opus', queue_auto_squash.send(:model_name)
+    assert_equal 'opusplan', queue_auto_squash.send(:model_name)
   end
 
   def test_queue_auto_squash_accepts_edits
@@ -837,9 +837,9 @@ class ClaudeCodeOnceAutoSquashTest < Minitest::Test
     assert WvRunner::ClaudeCode::OnceAutoSquash < WvRunner::ClaudeCodeBase
   end
 
-  def test_once_auto_squash_uses_opus_model
+  def test_once_auto_squash_uses_opusplan_model
     once_auto_squash = WvRunner::ClaudeCode::OnceAutoSquash.new
-    assert_equal 'opus', once_auto_squash.send(:model_name)
+    assert_equal 'opusplan', once_auto_squash.send(:model_name)
   end
 
   def test_once_auto_squash_accepts_edits

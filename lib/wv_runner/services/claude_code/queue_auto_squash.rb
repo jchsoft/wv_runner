@@ -7,7 +7,7 @@ module WvRunner
     # Processes tasks from @next queue with automatic PR squash-merge after CI passes
     # Runs continuously 24/7 without quota checks or time limits
     class QueueAutoSquash < ClaudeCodeBase
-      def model_name = "opus"
+      def model_name = "opusplan"
 
       private
 

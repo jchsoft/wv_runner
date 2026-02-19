@@ -7,7 +7,7 @@ module WvRunner
     # Processes a single task with automatic PR squash-merge after CI passes
     # Unlike queue_auto_squash, this runs exactly once and exits
     class OnceAutoSquash < ClaudeCodeBase
-      def model_name = "opus"
+      def model_name = "opusplan"
 
       private
 
