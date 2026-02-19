@@ -199,6 +199,16 @@ module WvRunner
           stdout_thread.join
           stderr_thread.join
 
+          # Kill Claude process if we already have the result — avoids hanging
+          if @result_received
+            Logger.info_stdout "[#{self.class.name}] Terminating Claude process (result already received)..."
+            begin
+              Process.kill('TERM', wait_thr.pid)
+            rescue Errno::ESRCH
+              # Process already exited
+            end
+          end
+
           # Check if stream was unexpectedly closed
           raise StreamClosedError, stream_error if stream_error && !@stopping
 
