@@ -105,6 +105,51 @@ class DeciderTest < Minitest::Test
     assert_equal 7.0, decider.remaining_hours
   end
 
+  def test_remaining_hours_subtracts_already_worked
+    # User already worked 5h before session, task estimated 2h → remaining = 8 - 5 - 2 = 1h
+    task_result = {
+      'status' => 'success',
+      'hours' => { 'per_day' => 8, 'task_estimated' => 2.0, 'task_worked' => 2.0, 'already_worked' => 5.0 }
+    }
+    decider = WvRunner::Decider.new(task_results: [task_result])
+
+    assert_equal 1.0, decider.remaining_hours
+  end
+
+  def test_already_worked_only_taken_from_first_result
+    # already_worked from first result (5h), second result's already_worked is ignored
+    results = [
+      { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 1.0, 'task_worked' => 1.0, 'already_worked' => 5.0 } },
+      { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 1.0, 'task_worked' => 1.0, 'already_worked' => 99.0 } }
+    ]
+    decider = WvRunner::Decider.new(task_results: results)
+
+    # 8 - 5 (already) - 1 - 1 (session tasks) = 1h
+    assert_equal 1.0, decider.remaining_hours
+  end
+
+  def test_should_stop_when_already_worked_exceeds_quota
+    # User already worked 8h, quota is 8h → remaining = 8 - 8 - 0 = 0 → should stop
+    task_result = {
+      'status' => 'success',
+      'hours' => { 'per_day' => 8, 'task_estimated' => 0, 'task_worked' => 0, 'already_worked' => 8.0 }
+    }
+    decider = WvRunner::Decider.new(task_results: [task_result])
+
+    assert decider.should_stop?
+  end
+
+  def test_already_worked_missing_defaults_to_zero
+    # Backward compatibility: old format without already_worked → treated as 0
+    task_result = {
+      'status' => 'success',
+      'hours' => { 'per_day' => 8, 'task_estimated' => 3.0, 'task_worked' => 3.0 }
+    }
+    decider = WvRunner::Decider.new(task_results: [task_result])
+
+    assert_equal 5.0, decider.remaining_hours
+  end
+
   def test_handles_string_hour_values
     results = [
       { 'status' => 'success', 'hours' => { 'per_day' => '8', 'task_estimated' => '2.5', 'task_worked' => '2.5' } }

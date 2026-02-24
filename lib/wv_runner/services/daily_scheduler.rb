@@ -66,9 +66,10 @@ module WvRunner
       return 0 if @task_results.empty?
 
       goal = daily_hour_goal
+      already = already_worked_before_session
       worked = total_hours_worked
-      remaining = (goal - worked).round(2)
-      Logger.debug("[DailyScheduler] [remaining_hours] Daily goal: #{goal}h, Worked: #{worked}h, Remaining: #{remaining}h")
+      remaining = (goal - already - worked).round(2)
+      Logger.debug("[DailyScheduler] [remaining_hours] Daily goal: #{goal}h, Already worked: #{already}h, Session worked: #{worked}h, Remaining: #{remaining}h")
       remaining
     end
 
@@ -86,6 +87,14 @@ module WvRunner
       total = @task_results.sum { |r| r.dig('hours', 'task_worked').to_f }
       Logger.debug("[DailyScheduler] [total_hours_worked] Total hours: #{total}h")
       total
+    end
+
+    def already_worked_before_session
+      # Use only from the first task result — represents hours worked
+      # before this wv_runner session started
+      already = @task_results.first.dig('hours', 'already_worked').to_f
+      Logger.debug("[DailyScheduler] [already_worked_before_session] Already worked before session: #{already}h")
+      already
     end
   end
 end

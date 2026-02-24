@@ -35,10 +35,11 @@ module WvRunner
       end
 
       daily_goal = daily_hour_goal
-      total_worked = total_hours_estimated # Using estimated because we simulate human-like behavior
-      remaining = (daily_goal - total_worked).round(2)
+      already_worked = already_worked_before_session
+      total_estimated = total_hours_estimated # Using estimated because we simulate human-like behavior
+      remaining = (daily_goal - already_worked - total_estimated).round(2)
 
-      Logger.debug("[Decider] [remaining_hours] Daily goal: #{daily_goal}h, Total worked: #{total_worked}h, Remaining: #{remaining}h")
+      Logger.debug("[Decider] [remaining_hours] Daily goal: #{daily_goal}h, Already worked: #{already_worked}h, Total estimated: #{total_estimated}h, Remaining: #{remaining}h")
       remaining
     end
 
@@ -96,6 +97,14 @@ module WvRunner
       total = @task_results.sum { |r| r.dig('hours', 'task_estimated').to_f }
       Logger.debug("[Decider] [total_hours_estimated] Total hours estimated: #{total}h")
       total
+    end
+
+    def already_worked_before_session
+      # Use only from the first task result — represents hours worked
+      # before this wv_runner session started
+      already = @task_results.first.dig('hours', 'already_worked').to_f
+      Logger.debug("[Decider] [already_worked_before_session] Already worked before session: #{already}h")
+      already
     end
 
     def tasks_completed

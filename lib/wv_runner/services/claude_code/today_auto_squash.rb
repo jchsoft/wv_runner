@@ -102,7 +102,7 @@ module WvRunner
           At the END, output JSON in this exact format - on a new line in a code block:
 
           ```json
-          WVRUNNER_RESULT: {"status": "success", "hours": {"per_day": X, "task_estimated": Y}}
+          WVRUNNER_RESULT: {"status": "success", "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}}
           ```
 
           CRITICAL FORMATTING:
@@ -111,7 +111,8 @@ module WvRunner
           3. NO other text after the closing triple backticks
 
           How to get the data:
-          1. Read workvector://user -> use "hour_goal" value for per_day
+          1. Read workvector://user -> use "hour_goal" for per_day, use "worked_out" for already_worked
+             IMPORTANT: Read workvector://user at the very BEGINNING of the task before logging any work progress
           2. From the task you're working on -> parse "duration_best" field (e.g., "1 hodina" -> 1.0) for task_estimated
           3. Set status:
              - "success" if task completed and PR merged successfully

@@ -38,7 +38,7 @@ module WvRunner
           [DEBUG] duration_best: '<original_value>' -> task_estimated: Y
 
           ```json
-          WVRUNNER_RESULT: {"status": "success", "task_info": {"name": "...", "id": ..., "description": "...", "status": "...", "priority": "...", "assigned_user": "...", "scrum_points": "..."}, "hours": {"per_day": X, "task_estimated": Y}}
+          WVRUNNER_RESULT: {"status": "success", "task_info": {"name": "...", "id": ..., "description": "...", "status": "...", "priority": "...", "assigned_user": "...", "scrum_points": "..."}, "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}}
           ```
 
           CRITICAL FORMATTING:
@@ -47,7 +47,8 @@ module WvRunner
           3. NO other text after the closing triple backticks
 
           How to get the data:
-          1. Read workvector://user -> use "hour_goal" value for per_day
+          1. Read workvector://user -> use "hour_goal" for per_day, use "worked_out" for already_worked
+             IMPORTANT: Read workvector://user at the very BEGINNING of the task before logging any work progress
           2. From the task you're working on -> extract: name, relative_id (as id), description, task_state (as status), priority, assigned_user, scrum_point (as scrum_points)
           3. For task_estimated: Extract "duration_best" field from the task data. Convert it to numeric hours:
              - If duration_best contains "hodina" or "hours" -> extract the number (e.g., "3 hodiny" -> 3.0)

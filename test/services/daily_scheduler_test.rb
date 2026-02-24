@@ -65,4 +65,43 @@ class DailySchedulerTest < Minitest::Test
     scheduler = WvRunner::DailyScheduler.new(task_results: result)
     assert_nil scheduler.wait_reason
   end
+
+  def test_should_stop_when_already_worked_before_session_exceeds_quota
+    # User already worked 8h before session → quota exceeded immediately
+    result = { 'hours' => { 'per_day' => 8, 'task_worked' => 0, 'already_worked' => 8.0 }, 'status' => 'success' }
+    scheduler = WvRunner::DailyScheduler.new(task_results: result)
+    refute scheduler.should_continue_working?
+  end
+
+  def test_already_worked_combined_with_session_tasks
+    # User already worked 5h, worked 2h in session → 5 + 2 = 7 < 8 → can still work
+    result = { 'hours' => { 'per_day' => 8, 'task_worked' => 2, 'already_worked' => 5.0 }, 'status' => 'success' }
+    scheduler = WvRunner::DailyScheduler.new(task_results: result)
+    assert scheduler.should_continue_working?
+  end
+
+  def test_already_worked_combined_with_session_tasks_exceeds_quota
+    # User already worked 5h, worked 4h in session → 5 + 4 = 9 > 8 → quota exceeded
+    result = { 'hours' => { 'per_day' => 8, 'task_worked' => 4, 'already_worked' => 5.0 }, 'status' => 'success' }
+    scheduler = WvRunner::DailyScheduler.new(task_results: result)
+    refute scheduler.should_continue_working?
+  end
+
+  def test_already_worked_missing_defaults_to_zero
+    # Backward compatibility: old format without already_worked → treated as 0
+    result = { 'hours' => { 'per_day' => 8, 'task_worked' => 3 }, 'status' => 'success' }
+    scheduler = WvRunner::DailyScheduler.new(task_results: result)
+    assert scheduler.should_continue_working?
+  end
+
+  def test_already_worked_only_from_first_result
+    # already_worked from first result only; second result's already_worked is ignored
+    results = [
+      { 'hours' => { 'per_day' => 8, 'task_worked' => 1, 'already_worked' => 5.0 }, 'status' => 'success' },
+      { 'hours' => { 'per_day' => 8, 'task_worked' => 1, 'already_worked' => 99.0 }, 'status' => 'success' }
+    ]
+    scheduler = WvRunner::DailyScheduler.new(task_results: results)
+    # 8 - 5 (already) - 1 - 1 (session) = 1 → can still work
+    assert scheduler.should_continue_working?
+  end
 end
