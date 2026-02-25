@@ -376,4 +376,77 @@ class ClaudeCodeBaseTest < Minitest::Test
 
     assert_equal %w[line1 line2], lines, 'Should stop after result_received is set'
   end
+
+  # Tests for PROCESS_KILL_TIMEOUT constant
+  def test_process_kill_timeout_constant_is_defined
+    assert_equal 5, WvRunner::ClaudeCodeBase::PROCESS_KILL_TIMEOUT
+  end
+
+  # Tests for @child_pid initialization
+  def test_initialize_sets_child_pid_to_nil
+    base = WvRunner::ClaudeCodeBase.new
+    assert_nil base.instance_variable_get(:@child_pid)
+  end
+
+  # Tests for kill_process method
+  def test_kill_process_returns_early_for_nil_pid
+    base = WvRunner::ClaudeCodeBase.new
+    # Should not raise anything
+    assert_nil base.send(:kill_process, nil)
+  end
+
+  def test_kill_process_handles_already_dead_process
+    base = WvRunner::ClaudeCodeBase.new
+    # ESRCH means no such process - kill_process should handle gracefully
+    Process.stub(:kill, ->(_sig, _pid) { raise Errno::ESRCH }) do
+      assert_nil base.send(:kill_process, 99_999)
+    end
+  end
+
+  def test_kill_process_escalates_to_sigkill_when_process_does_not_die
+    base = WvRunner::ClaudeCodeBase.new
+    signals_sent = []
+
+    # Simulate process that survives SIGTERM (kill(0, pid) never raises ESRCH)
+    kill_stub = lambda do |sig, pid|
+      if pid == 99_999
+        signals_sent << sig
+      end
+      # Simulate ESRCH only for KILL signal to end the method
+      raise Errno::ESRCH if sig == 'KILL'
+    end
+
+    Process.stub(:kill, kill_stub) do
+      base.stub(:sleep, nil) do
+        base.send(:kill_process, 99_999)
+      end
+    end
+
+    assert_includes signals_sent, 'TERM'
+    assert_includes signals_sent, 'KILL'
+  end
+
+  def test_kill_process_does_not_escalate_when_process_dies_after_sigterm
+    base = WvRunner::ClaudeCodeBase.new
+    signals_sent = []
+    check_count = 0
+
+    kill_stub = lambda do |sig, pid|
+      if pid == 99_999
+        signals_sent << sig
+        # After TERM sent, simulate process dying on first check (kill(0, pid))
+        check_count += 1
+        raise Errno::ESRCH if sig == 0 && check_count >= 1
+      end
+    end
+
+    Process.stub(:kill, kill_stub) do
+      base.stub(:sleep, nil) do
+        base.send(:kill_process, 99_999)
+      end
+    end
+
+    assert_includes signals_sent, 'TERM'
+    refute_includes signals_sent, 'KILL'
+  end
 end

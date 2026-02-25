@@ -22,6 +22,7 @@ module WvRunner
     CLAUDE_EXECUTION_TIMEOUT = 3600 # 1 hour in seconds
     MAX_RETRY_ATTEMPTS = 3
     RETRY_WAIT_SECONDS = 30
+    PROCESS_KILL_TIMEOUT = 5 # seconds to wait for SIGTERM before SIGKILL
 
     def initialize(verbose: false)
       @verbose = verbose
@@ -29,6 +30,7 @@ module WvRunner
       @retry_count = 0
       @marker_retry_mode = false
       @result_received = false
+      @child_pid = nil
       OutputFormatter.verbose_mode = verbose
     end
 
@@ -168,9 +170,11 @@ module WvRunner
       stderr_content = ''.dup
       stream_error = nil
       @result_received = false
+      @child_pid = nil
 
       Timeout.timeout(CLAUDE_EXECUTION_TIMEOUT) do
         Open3.popen3(*command) do |stdin, stdout, stderr, wait_thr|
+          @child_pid = wait_thr.pid
           stdin.close
 
           stdout_thread = Thread.new do
@@ -178,7 +182,9 @@ module WvRunner
               stdout_content << line.dup
               check_for_result_message(line)
               if OutputFormatter.should_log_to_stdout?(line)
-                puts OutputFormatter.format_line(line)
+                formatted = OutputFormatter.format_line(line)
+                puts formatted
+                Logger.info(formatted)
               else
                 Logger.debug("[#{self.class.name}] [streaming] #{line.strip}")
               end
@@ -196,28 +202,22 @@ module WvRunner
             handle_stream_error(e, 'stderr') { |err| stream_error ||= err }
           end
 
-          stdout_thread.join
-          stderr_thread.join
+          begin
+            stdout_thread.join
+            stderr_thread.join
 
-          # Kill Claude process if we already have the result — avoids hanging
-          if @result_received
-            Logger.info_stdout "[#{self.class.name}] Terminating Claude process (result already received)..."
-            begin
-              Process.kill('TERM', wait_thr.pid)
-            rescue Errno::ESRCH
-              # Process already exited
+            # Check if stream was unexpectedly closed
+            raise StreamClosedError, stream_error if stream_error && !@stopping
+
+            exit_status = wait_thr.value
+            Logger.debug "[#{self.class.name}] Process exit status: #{exit_status.exitstatus}"
+
+            if exit_status.exitstatus != 0
+              Logger.debug "[#{self.class.name}] WARNING: Claude exited with non-zero status!"
+              Logger.debug "[#{self.class.name}] stderr: #{stderr_content}" unless stderr_content.empty?
             end
-          end
-
-          # Check if stream was unexpectedly closed
-          raise StreamClosedError, stream_error if stream_error && !@stopping
-
-          exit_status = wait_thr.value
-          Logger.debug "[#{self.class.name}] Process exit status: #{exit_status.exitstatus}"
-
-          if exit_status.exitstatus != 0
-            Logger.debug "[#{self.class.name}] WARNING: Claude exited with non-zero status!"
-            Logger.debug "[#{self.class.name}] stderr: #{stderr_content}" unless stderr_content.empty?
+          ensure
+            kill_process(wait_thr.pid)
           end
         end
       end
@@ -226,7 +226,38 @@ module WvRunner
     rescue Timeout::Error
       @stopping = true
       Logger.error "[#{self.class.name}] Claude execution timed out after #{CLAUDE_EXECUTION_TIMEOUT} seconds"
+      kill_process(@child_pid) if @child_pid
       raise
+    end
+
+    def kill_process(pid)
+      return unless pid
+
+      Logger.info_stdout "[#{self.class.name}] Terminating Claude process (pid: #{pid})..."
+      begin
+        Process.kill('TERM', pid)
+      rescue Errno::ESRCH
+        return # Already dead
+      end
+
+      PROCESS_KILL_TIMEOUT.times do
+        sleep(1)
+        begin
+          Process.kill(0, pid)
+        rescue Errno::ESRCH
+          Logger.debug "[#{self.class.name}] Process #{pid} terminated after SIGTERM"
+          return
+        end
+      end
+
+      Logger.warn "[#{self.class.name}] Process #{pid} not responding to SIGTERM, sending SIGKILL..."
+      begin
+        Process.kill('KILL', pid)
+      rescue Errno::ESRCH
+        # Already dead
+      end
+    rescue StandardError => e
+      Logger.warn "[#{self.class.name}] Error during process cleanup: #{e.message}"
     end
 
     def stream_lines(io)
