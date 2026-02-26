@@ -71,6 +71,13 @@ module WvRunner
           #{step_num}. RUN LOCAL CI AND AUTO-MERGE: Run CI and merge on success
               - If "bin/ci" does NOT exist: skip to step #{next_step} with status "success"
               - Run: bin/ci (NOT in background - wait for result)
+              - IMPORTANT: bin/ci itself calls `gh` to post a "signoff" status check to GitHub
+                when all steps pass. This is what satisfies any GitHub branch protection rule
+                requiring a "signoff" check. No GitHub Actions workflow is needed for this.
+                Even if a CI workflow file appears disabled (e.g. ci.yml.disabled), the branch
+                protection "signoff" check is fulfilled by bin/ci running locally and posting
+                the result via gh. Do NOT conclude the PR is unmergeable because of a disabled
+                GitHub Actions workflow.
               - CI RESULT HANDLING:
                 a) IF CI PASSES:
                    #{pr_review_check_step}
