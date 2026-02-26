@@ -102,9 +102,14 @@ module WvRunner
       def pr_review_check_step
         "- CHECK PR REVIEWS: Before merging, quickly check if there are any PR review comments\n" \
         "           - Run: gh pr view --json reviews,comments\n" \
-        "           - If reviews exist with actionable feedback: address relevant issues, commit, push, and re-run bin/ci\n" \
-        "           - Don't overthink it - just fix obviously valid points (bugs, missing tests, style issues)\n" \
-        "           - Skip irrelevant or nitpicky comments"
+        "           - If reviews exist with actionable feedback:\n" \
+        "             * Fix obviously valid points (bugs, missing tests, style issues)\n" \
+        "             * Skip irrelevant or nitpicky comments\n" \
+        "             * Commit and push your fixes\n" \
+        "             * Re-run bin/ci — treat this EXACTLY like a fresh CI run:\n" \
+        "               → If it passes: check reviews again (loop back to CHECK PR REVIEWS)\n" \
+        "               → If it fails: fix issues, push, retry once; if still failing → ci_failed\n" \
+        "           - Only proceed to merge when CI passes AND there are no more actionable review comments"
       end
     end
   end

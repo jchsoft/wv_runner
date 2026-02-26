@@ -352,9 +352,10 @@ class ClaudeCodeAutoSquashBaseTest < Minitest::Test
     obj = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 1)
     step = obj.send(:pr_review_check_step)
     lines = step.split("\n")
-    assert_equal 5, lines.size
     assert lines[0].start_with?('- CHECK PR REVIEWS'), 'first line has no leading indent'
     assert lines[1].start_with?('           - Run:'), 'sub-items have 11-space indent'
+    assert_includes step, 'loop back to CHECK PR REVIEWS', 'loop instruction present'
+    assert_includes step, 'ci_failed', 'ci_failed outcome present'
   end
 end
 
