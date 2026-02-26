@@ -334,14 +334,38 @@ class ClaudeCodeReviewsTest < Minitest::Test
   end
 end
 
+class ClaudeCodeAutoSquashBaseTest < Minitest::Test
+  def test_auto_squash_base_inherits_from_claude_code_base
+    assert WvRunner::ClaudeCode::AutoSquashBase < WvRunner::ClaudeCodeBase
+  end
+
+  def test_pr_review_check_step_includes_command
+    # Use a concrete subclass to access the private method
+    obj = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 1)
+    step = obj.send(:pr_review_check_step)
+    assert_includes step, 'CHECK PR REVIEWS'
+    assert_includes step, 'gh pr view --json reviews,comments'
+    assert_includes step, 'actionable feedback'
+  end
+
+  def test_pr_review_check_step_sub_items_have_correct_indent
+    obj = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 1)
+    step = obj.send(:pr_review_check_step)
+    lines = step.split("\n")
+    assert_equal 5, lines.size
+    assert lines[0].start_with?('- CHECK PR REVIEWS'), 'first line has no leading indent'
+    assert lines[1].start_with?('           - Run:'), 'sub-items have 11-space indent'
+  end
+end
+
 class ClaudeCodeStoryAutoSquashTest < Minitest::Test
   def test_story_auto_squash_responds_to_run
     story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
     assert_respond_to story_auto_squash, :run
   end
 
-  def test_story_auto_squash_inherits_from_claude_code_base
-    assert WvRunner::ClaudeCode::StoryAutoSquash < WvRunner::ClaudeCodeBase
+  def test_story_auto_squash_inherits_from_auto_squash_base
+    assert WvRunner::ClaudeCode::StoryAutoSquash < WvRunner::ClaudeCode::AutoSquashBase
   end
 
   def test_story_auto_squash_uses_opusplan_model
@@ -453,8 +477,8 @@ class ClaudeCodeTodayAutoSquashTest < Minitest::Test
     end
   end
 
-  def test_today_auto_squash_inherits_from_claude_code_base
-    assert WvRunner::ClaudeCode::TodayAutoSquash < WvRunner::ClaudeCodeBase
+  def test_today_auto_squash_inherits_from_auto_squash_base
+    assert WvRunner::ClaudeCode::TodayAutoSquash < WvRunner::ClaudeCode::AutoSquashBase
   end
 
   def test_today_auto_squash_uses_opusplan_model
@@ -707,8 +731,8 @@ class ClaudeCodeQueueAutoSquashTest < Minitest::Test
     end
   end
 
-  def test_queue_auto_squash_inherits_from_claude_code_base
-    assert WvRunner::ClaudeCode::QueueAutoSquash < WvRunner::ClaudeCodeBase
+  def test_queue_auto_squash_inherits_from_auto_squash_base
+    assert WvRunner::ClaudeCode::QueueAutoSquash < WvRunner::ClaudeCode::AutoSquashBase
   end
 
   def test_queue_auto_squash_uses_opusplan_model
@@ -865,8 +889,8 @@ class ClaudeCodeOnceAutoSquashTest < Minitest::Test
     end
   end
 
-  def test_once_auto_squash_inherits_from_claude_code_base
-    assert WvRunner::ClaudeCode::OnceAutoSquash < WvRunner::ClaudeCodeBase
+  def test_once_auto_squash_inherits_from_auto_squash_base
+    assert WvRunner::ClaudeCode::OnceAutoSquash < WvRunner::ClaudeCode::AutoSquashBase
   end
 
   def test_once_auto_squash_uses_opusplan_model

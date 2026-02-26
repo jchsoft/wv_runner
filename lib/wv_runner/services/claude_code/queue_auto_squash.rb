@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-require_relative '../claude_code_base'
+require_relative 'auto_squash_base'
 
 module WvRunner
   module ClaudeCode
     # Processes tasks from @next queue with automatic PR squash-merge after CI passes
     # Runs continuously 24/7 without quota checks or time limits
-    class QueueAutoSquash < ClaudeCodeBase
+    class QueueAutoSquash < AutoSquashBase
       def model_name = "opusplan"
 
       private
@@ -38,68 +38,8 @@ module WvRunner
                DESCRIPTION: <first 200 chars of description, or full if shorter>
                END_TASK_INFO
 
-          3. CREATE BRANCH: Start work on a new feature branch
-             - Use task name as branch name (e.g., "feature/task-name" or "fix/issue-name")
-             - Run: git checkout -b <branch-name>
-
-          4. IMPLEMENT TASK: Complete the task according to requirements
-             - Follow rules in global CLAUDE.md
-             - Make incremental commits with clear messages
-
-          5. RUN UNIT TESTS: Execute all unit tests
-             - Run the test suite
-             - If failures: fix them and commit fixes
-             - Repeat until all pass
-
-          6. COMPILE TEST ASSETS: Ensure test assets are ready
-             - Run: bin/rails assets:precompile RAILS_ENV=test
-             - This prevents test failures due to missing compiled assets
-
-          7. RUN SYSTEM TESTS: Execute all system tests
-             - Run system tests (may take up to 5 minutes)
-             - If failures: fix them and commit fixes
-             - Repeat until all pass
-
-          8. REFACTOR: Read global CLAUDE.md, then refactor with FOCUS ON ROR RULES
-             - Apply Ruby/Rails best practices
-             - Commit refactoring changes
-
-          9. VERIFY TESTS AFTER REFACTOR: Re-run all tests
-             - Run unit tests - repeat until all pass
-             - Run system tests - repeat until all pass
-
-          10. PUSH: Push branch to remote repository
-              - Run: git push -u origin HEAD
-
-          11. CREATE PULL REQUEST: Open PR for CI verification
-              - Use format from .github/pull_request_template.md if exists
-              - Include clear summary of changes
-              - Link to the task in WorkVector
-              - Note: PR will be automatically merged after CI passes
-
-          12. do not add screenshots to PR review - it is autosquash
-
-          13. RUN LOCAL CI AND AUTO-MERGE: Run CI and merge on success
-              - If "bin/ci" does NOT exist: skip to step 14 with status "success"
-              - Run: bin/ci (NOT in background - wait for result)
-              - CI RESULT HANDLING:
-                a) IF CI PASSES:
-                   - CHECK PR REVIEWS: Before merging, quickly check if there are any PR review comments
-                     - Run: gh pr view --json reviews,comments
-                     - If reviews exist with actionable feedback: address relevant issues, commit, push, and re-run bin/ci
-                     - Don't overthink it - just fix obviously valid points (bugs, missing tests, style issues)
-                     - Skip irrelevant or nitpicky comments
-                   - Run: gh pr merge --squash --delete-branch
-                   - Run: git checkout main && git pull
-                   - Output status "success"
-                b) IF CI FAILS (first attempt):
-                   - Analyze the failure output
-                   - Fix the issues
-                   - Commit and push fixes
-                   - Retry CI: bin/ci
-                   - IF RETRY PASSES: merge as in (a)
-                   - IF RETRY FAILS: output status "ci_failed" (PR stays open)
-
+          #{implementation_steps(start: 3)}
+          #{ci_run_and_merge_step(step_num: 13, next_step: 14)}
           14. FINAL OUTPUT: Generate the result JSON
 
           IMPORTANT: This is QUEUE AUTO-SQUASH workflow - no quota checks, runs 24/7!

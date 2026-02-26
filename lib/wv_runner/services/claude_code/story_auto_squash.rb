@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-require_relative '../claude_code_base'
+require_relative 'auto_squash_base'
 
 module WvRunner
   module ClaudeCode
     # Processes tasks from a specific Story with automatic PR squash-merge after CI passes
     # Creates PRs for each task and automatically merges them after local CI passes
-    class StoryAutoSquash < ClaudeCodeBase
+    class StoryAutoSquash < AutoSquashBase
       def initialize(story_id:, verbose: false)
         super(verbose: verbose)
         @story_id = story_id
@@ -49,68 +49,8 @@ module WvRunner
              - Run: git checkout main && git pull
              - This ensures you start from a clean, stable state
 
-          4. CREATE BRANCH: Start work on a new feature branch
-             - Use task name as branch name (e.g., "feature/task-name" or "fix/issue-name")
-             - Run: git checkout -b <branch-name>
-
-          5. IMPLEMENT TASK: Complete the task according to requirements
-             - Follow rules in global CLAUDE.md
-             - Make incremental commits with clear messages
-
-          6. RUN UNIT TESTS: Execute all unit tests
-             - Run the test suite
-             - If failures: fix them and commit fixes
-             - Repeat until all pass
-
-          7. COMPILE TEST ASSETS: Ensure test assets are ready
-             - Run: bin/rails assets:precompile RAILS_ENV=test
-             - This prevents test failures due to missing compiled assets
-
-          8. RUN SYSTEM TESTS: Execute all system tests
-             - Run system tests (may take up to 5 minutes)
-             - If failures: fix them and commit fixes
-             - Repeat until all pass
-
-          9. REFACTOR: Read global CLAUDE.md, then refactor with FOCUS ON ROR RULES
-             - Apply Ruby/Rails best practices
-             - Commit refactoring changes
-
-          10. VERIFY TESTS AFTER REFACTOR: Re-run all tests
-              - Run unit tests - repeat until all pass
-              - Run system tests - repeat until all pass
-
-          11. PUSH: Push branch to remote repository
-              - Run: git push -u origin HEAD
-
-          12. CREATE PULL REQUEST: Open PR for CI verification
-              - Use format from .github/pull_request_template.md if exists
-              - Include clear summary of changes
-              - Link to the task in WorkVector
-              - Note: PR will be automatically merged after CI passes
-
-          13. do not add screenshots to PR review - it is autosquash
-
-          14. RUN LOCAL CI AND AUTO-MERGE: Run CI and merge on success
-              - If "bin/ci" does NOT exist: skip to step 15 with status "success"
-              - Run: bin/ci (NOT in background - wait for result)
-              - CI RESULT HANDLING:
-                a) IF CI PASSES:
-                   - CHECK PR REVIEWS: Before merging, quickly check if there are any PR review comments
-                     - Run: gh pr view --json reviews,comments
-                     - If reviews exist with actionable feedback: address relevant issues, commit, push, and re-run bin/ci
-                     - Don't overthink it - just fix obviously valid points (bugs, missing tests, style issues)
-                     - Skip irrelevant or nitpicky comments
-                   - Run: gh pr merge --squash --delete-branch
-                   - Run: git checkout main && git pull
-                   - Output status "success"
-                b) IF CI FAILS (first attempt):
-                   - Analyze the failure output
-                   - Fix the issues
-                   - Commit and push fixes
-                   - Retry CI: bin/ci
-                   - IF RETRY PASSES: merge as in (a)
-                   - IF RETRY FAILS: output status "ci_failed" (PR stays open)
-
+          #{implementation_steps(start: 4)}
+          #{ci_run_and_merge_step(step_num: 14, next_step: 15)}
           15. FINAL OUTPUT: Generate the result JSON
 
           IMPORTANT: This is an AUTO-SQUASH workflow - PR is automatically merged after CI passes!
