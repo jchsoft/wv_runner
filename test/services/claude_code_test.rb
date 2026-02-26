@@ -433,6 +433,14 @@ class ClaudeCodeStoryAutoSquashTest < Minitest::Test
     assert_includes instructions, 'COMPILE TEST ASSETS'
     assert_includes instructions, 'assets:precompile'
   end
+
+  def test_story_auto_squash_instructions_includes_pr_review_check
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+    instructions = story_auto_squash.send(:build_instructions)
+    assert_includes instructions, 'CHECK PR REVIEWS'
+    assert_includes instructions, 'gh pr view --json reviews,comments'
+    assert_includes instructions, 'actionable feedback'
+  end
 end
 
 class ClaudeCodeTodayAutoSquashTest < Minitest::Test
@@ -555,6 +563,18 @@ class ClaudeCodeTodayAutoSquashTest < Minitest::Test
         instructions = today_auto_squash.send(:build_instructions)
         assert_includes instructions, 'COMPILE TEST ASSETS'
         assert_includes instructions, 'assets:precompile'
+      end
+    end
+  end
+
+  def test_today_auto_squash_instructions_includes_pr_review_check
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        today_auto_squash = WvRunner::ClaudeCode::TodayAutoSquash.new
+        instructions = today_auto_squash.send(:build_instructions)
+        assert_includes instructions, 'CHECK PR REVIEWS'
+        assert_includes instructions, 'gh pr view --json reviews,comments'
+        assert_includes instructions, 'actionable feedback'
       end
     end
   end
@@ -813,6 +833,18 @@ class ClaudeCodeQueueAutoSquashTest < Minitest::Test
     end
   end
 
+  def test_queue_auto_squash_instructions_includes_pr_review_check
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        queue_auto_squash = WvRunner::ClaudeCode::QueueAutoSquash.new
+        instructions = queue_auto_squash.send(:build_instructions)
+        assert_includes instructions, 'CHECK PR REVIEWS'
+        assert_includes instructions, 'gh pr view --json reviews,comments'
+        assert_includes instructions, 'actionable feedback'
+      end
+    end
+  end
+
   def test_queue_auto_squash_raises_when_project_id_not_found
     File.stub :exist?, false do
       queue_auto_squash = WvRunner::ClaudeCode::QueueAutoSquash.new
@@ -954,6 +986,18 @@ class ClaudeCodeOnceAutoSquashTest < Minitest::Test
         instructions = once_auto_squash.send(:build_instructions)
         assert_includes instructions, 'COMPILE TEST ASSETS'
         assert_includes instructions, 'assets:precompile'
+      end
+    end
+  end
+
+  def test_once_auto_squash_instructions_includes_pr_review_check
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        once_auto_squash = WvRunner::ClaudeCode::OnceAutoSquash.new
+        instructions = once_auto_squash.send(:build_instructions)
+        assert_includes instructions, 'CHECK PR REVIEWS'
+        assert_includes instructions, 'gh pr view --json reviews,comments'
+        assert_includes instructions, 'actionable feedback'
       end
     end
   end

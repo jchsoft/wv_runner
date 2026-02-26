@@ -95,6 +95,11 @@ module WvRunner
               - Run: bin/ci (NOT in background - wait for result)
               - CI RESULT HANDLING:
                 a) IF CI PASSES:
+                   - CHECK PR REVIEWS: Before merging, quickly check if there are any PR review comments
+                     - Run: gh pr view --json reviews,comments
+                     - If reviews exist with actionable feedback: address relevant issues, commit, push, and re-run bin/ci
+                     - Don't overthink it - just fix obviously valid points (bugs, missing tests, style issues)
+                     - Skip irrelevant or nitpicky comments
                    - Run: gh pr merge --squash --delete-branch
                    - Run: git checkout main && git pull
                    - Output status "success"
