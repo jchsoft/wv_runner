@@ -1035,4 +1035,81 @@ class ClaudeCodeOnceAutoSquashTest < Minitest::Test
       end
     end
   end
+
+  def test_once_auto_squash_instructions_includes_time_management
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        once_auto_squash = WvRunner::ClaudeCode::OnceAutoSquash.new
+        instructions = once_auto_squash.send(:build_instructions)
+        assert_includes instructions, 'TIME MANAGEMENT'
+        assert_includes instructions, '55-MINUTE'
+      end
+    end
+  end
+end
+
+class TimeAwarenessInstructionsTest < Minitest::Test
+  def test_today_auto_squash_instructions_includes_time_management
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        obj = WvRunner::ClaudeCode::TodayAutoSquash.new
+        instructions = obj.send(:build_instructions)
+        assert_includes instructions, 'TIME MANAGEMENT'
+        assert_includes instructions, '55-MINUTE'
+      end
+    end
+  end
+
+  def test_queue_auto_squash_instructions_includes_time_management
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        obj = WvRunner::ClaudeCode::QueueAutoSquash.new
+        instructions = obj.send(:build_instructions)
+        assert_includes instructions, 'TIME MANAGEMENT'
+        assert_includes instructions, '55-MINUTE'
+      end
+    end
+  end
+
+  def test_story_auto_squash_instructions_includes_time_management
+    obj = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+    instructions = obj.send(:build_instructions)
+    assert_includes instructions, 'TIME MANAGEMENT'
+    assert_includes instructions, '55-MINUTE'
+  end
+
+  def test_honest_instructions_includes_time_management
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        obj = WvRunner::ClaudeCode::Honest.new
+        instructions = obj.send(:build_instructions)
+        assert_includes instructions, 'TIME MANAGEMENT'
+        assert_includes instructions, '55-MINUTE'
+      end
+    end
+  end
+
+  def test_review_instructions_includes_time_management
+    obj = WvRunner::ClaudeCode::Review.new
+    instructions = obj.send(:build_instructions)
+    assert_includes instructions, 'TIME MANAGEMENT'
+    assert_includes instructions, '55-MINUTE'
+  end
+
+  def test_story_manual_instructions_includes_time_management
+    obj = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)
+    instructions = obj.send(:build_instructions)
+    assert_includes instructions, 'TIME MANAGEMENT'
+    assert_includes instructions, '55-MINUTE'
+  end
+
+  def test_dry_instructions_does_not_include_time_management
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        obj = WvRunner::ClaudeCode::Dry.new
+        instructions = obj.send(:build_instructions)
+        refute_includes instructions, 'TIME MANAGEMENT'
+      end
+    end
+  end
 end

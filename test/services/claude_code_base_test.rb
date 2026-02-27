@@ -426,6 +426,35 @@ class ClaudeCodeBaseTest < Minitest::Test
     assert_includes signals_sent, 'KILL'
   end
 
+  # Tests for SOFT_TIMEOUT constant
+  def test_soft_timeout_constant_is_defined
+    assert_equal 3300, WvRunner::ClaudeCodeBase::SOFT_TIMEOUT
+  end
+
+  # Tests for @soft_timeout_fired initialization
+  def test_initialize_sets_soft_timeout_fired_to_false
+    base = WvRunner::ClaudeCodeBase.new
+    refute base.instance_variable_get(:@soft_timeout_fired)
+  end
+
+  # Tests for time_awareness_instruction method
+  def test_time_awareness_instruction_returns_string
+    base = WvRunner::ClaudeCodeBase.new
+    instruction = base.send(:time_awareness_instruction)
+    assert_includes instruction, 'TIME MANAGEMENT'
+    assert_includes instruction, '55-MINUTE'
+    assert_includes instruction, 'WVRUNNER_RESULT'
+  end
+
+  # Tests for release_test_lock method
+  def test_release_test_lock_handles_missing_script
+    base = WvRunner::ClaudeCodeBase.new
+    File.stub(:executable?, false) do
+      # Should return early without raising
+      assert_nil base.send(:release_test_lock)
+    end
+  end
+
   def test_kill_process_does_not_escalate_when_process_dies_after_sigterm
     base = WvRunner::ClaudeCodeBase.new
     signals_sent = []

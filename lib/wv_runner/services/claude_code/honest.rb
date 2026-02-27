@@ -19,6 +19,8 @@ module WvRunner
           [TASK]
           Work on next task from: workvector://pieces/jchsoft/@next?project_relative_id=#{project_id} and ultrathink! Create PullRequest and RUN LOCAL CI. DO EACH STEP OF THE WORKFLOW!
 
+          #{time_awareness_instruction}
+
           WORKFLOW:
           1. GIT STATE CHECK: Ensure you start from main branch
              - Run: git checkout main

@@ -35,6 +35,8 @@ module WvRunner
 
       def workflow_section
         <<~WORKFLOW
+          #{time_awareness_instruction}
+
           WORKFLOW:
           #{git_state_check_step}
           #{pr_existence_check_step}

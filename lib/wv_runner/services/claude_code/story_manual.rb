@@ -24,6 +24,8 @@ module WvRunner
           [TASK]
           Work on the next incomplete task from Story ##{@story_id}.
 
+          #{time_awareness_instruction}
+
           WORKFLOW:
           1. LOAD STORY: Get story details to find subtasks
              - Read: workvector://pieces/jchsoft/#{@story_id}
