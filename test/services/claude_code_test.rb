@@ -80,6 +80,30 @@ class ClaudeCodeHonestTest < Minitest::Test
       end
     end
   end
+
+  def test_instructions_uses_test_runner_skill
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        honest = WvRunner::ClaudeCode::Honest.new
+        instructions = honest.send(:build_instructions)
+        assert_includes instructions, 'test-runner'
+        assert_includes instructions, '/test-runner'
+      end
+    end
+  end
+
+  def test_instructions_ci_step_uses_ci_runner_skill
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        honest = WvRunner::ClaudeCode::Honest.new
+        instructions = honest.send(:build_instructions)
+        assert_includes instructions, 'ci-runner'
+        assert_includes instructions, '/ci-runner'
+        refute_includes instructions, 'run_in_background'
+        refute_includes instructions, 'poll every 5 minutes'
+      end
+    end
+  end
 end
 
 class ClaudeCodeDryTest < Minitest::Test
@@ -250,6 +274,21 @@ class ClaudeCodeReviewTest < Minitest::Test
     instructions = review.send(:build_instructions)
     assert_includes instructions, 'CREATE SUBTASK'
     assert_includes instructions, 'CreatePieceTool'
+  end
+
+  def test_review_instructions_uses_test_runner_skill
+    review = WvRunner::ClaudeCode::Review.new
+    instructions = review.send(:build_instructions)
+    assert_includes instructions, 'test-runner'
+    assert_includes instructions, '/test-runner'
+  end
+
+  def test_review_instructions_ci_step_uses_ci_runner_skill
+    review = WvRunner::ClaudeCode::Review.new
+    instructions = review.send(:build_instructions)
+    assert_includes instructions, 'ci-runner'
+    assert_includes instructions, '/ci-runner'
+    refute_includes instructions, 'run_in_background'
   end
 end
 
@@ -465,6 +504,20 @@ class ClaudeCodeStoryAutoSquashTest < Minitest::Test
     assert_includes instructions, 'CHECK PR REVIEWS'
     assert_includes instructions, 'gh pr view --json reviews,comments'
     assert_includes instructions, 'actionable feedback'
+  end
+
+  def test_story_auto_squash_instructions_uses_test_runner_skill
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+    instructions = story_auto_squash.send(:build_instructions)
+    assert_includes instructions, 'test-runner'
+    assert_includes instructions, '/test-runner'
+  end
+
+  def test_story_auto_squash_instructions_ci_step_uses_ci_runner_skill
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+    instructions = story_auto_squash.send(:build_instructions)
+    assert_includes instructions, 'ci-runner'
+    assert_includes instructions, '/ci-runner'
   end
 end
 
@@ -710,7 +763,16 @@ class ClaudeCodeStoryManualTest < Minitest::Test
     instructions = story_manual.send(:build_instructions)
     assert_includes instructions, 'RUN LOCAL CI'
     assert_includes instructions, 'bin/ci'
-    assert_includes instructions, 'run_in_background'
+    assert_includes instructions, 'ci-runner'
+    refute_includes instructions, 'run_in_background'
+    refute_includes instructions, 'poll every 5 minutes'
+  end
+
+  def test_story_manual_instructions_uses_test_runner_skill
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)
+    instructions = story_manual.send(:build_instructions)
+    assert_includes instructions, 'test-runner'
+    assert_includes instructions, '/test-runner'
   end
 
   def test_story_manual_instructions_includes_screenshot_steps

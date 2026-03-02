@@ -46,7 +46,7 @@ module WvRunner
              - Make incremental commits with clear messages
 
           5. RUN UNIT TESTS: Execute all unit tests
-             - Run the test suite
+             - Use the "test-runner" skill to run tests (invoke /test-runner)
              - If failures: fix them and commit fixes
              - Repeat until all pass
 
@@ -57,7 +57,7 @@ module WvRunner
              - may be there is a **special method** for this in ApplicationSystemTestCase
 
           7. RUN SYSTEM TESTS: Execute all system tests
-             - Run system tests (may take up to 5 minutes)
+             - Use the "test-runner" skill to run system tests (invoke /test-runner for system tests)
              - If failures: fix them and commit fixes
              - Repeat until all pass
 
@@ -66,6 +66,7 @@ module WvRunner
              - Commit refactoring changes
 
           9. VERIFY TESTS AFTER REFACTOR: Re-run all tests
+             - Use the "test-runner" skill for both unit and system tests
              - Run unit tests - repeat until all pass
              - Run system tests - repeat until all pass
 
@@ -81,13 +82,11 @@ module WvRunner
               - make sure the test is not due to some test failure
               - be sure that screenshots shows tested feature
 
-          13. RUN LOCAL CI: If "bin/ci" exists, run it in background to avoid timeout
+          13. RUN LOCAL CI: If "bin/ci" exists, use the "ci-runner" skill
               - This step is MANDATORY - task is INCOMPLETE without CI verification
               - If bin/ci doesn't exist: skip this step
-              - If some test in step 9. failed: skip this step
-              - IMPORTANT: Use Bash tool with run_in_background=true to start CI
-              - Then poll the output every 5 minutes using Read or Bash tail until complete
-              - This prevents API timeout during long-running CI
+              - If some test in step 9 failed: skip this step
+              - Use the "ci-runner" skill (invoke /ci-runner)
 
           ⚠️ TASK IS NOT COMPLETE UNTIL LOCAL CI PASSES (step 13)
 

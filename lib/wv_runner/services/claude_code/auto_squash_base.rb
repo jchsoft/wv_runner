@@ -31,7 +31,7 @@ module WvRunner
           #{s.(n+1)}- Make incremental commits with clear messages
 
           #{n+2}. RUN UNIT TESTS: Execute all unit tests
-          #{s.(n+2)}- Run the test suite
+          #{s.(n+2)}- Use the "test-runner" skill to run tests (invoke /test-runner)
           #{s.(n+2)}- If failures: fix them and commit fixes
           #{s.(n+2)}- Repeat until all pass
 
@@ -40,7 +40,7 @@ module WvRunner
           #{s.(n+3)}- This prevents test failures due to missing compiled assets
 
           #{n+4}. RUN SYSTEM TESTS: Execute all system tests
-          #{s.(n+4)}- Run system tests (may take up to 5 minutes)
+          #{s.(n+4)}- Use the "test-runner" skill to run system tests (invoke /test-runner for system tests)
           #{s.(n+4)}- If failures: fix them and commit fixes
           #{s.(n+4)}- Repeat until all pass
 
@@ -49,6 +49,7 @@ module WvRunner
           #{s.(n+5)}- Commit refactoring changes
 
           #{n+6}. VERIFY TESTS AFTER REFACTOR: Re-run all tests
+          #{s.(n+6)}- Use the "test-runner" skill for both unit and system tests
           #{s.(n+6)}- Run unit tests - repeat until all pass
           #{s.(n+6)}- Run system tests - repeat until all pass
 
@@ -72,7 +73,7 @@ module WvRunner
         <<~STEP
           #{step_num}. RUN LOCAL CI AND AUTO-MERGE: Run CI and merge on success
               - If "bin/ci" does NOT exist: skip to step #{next_step} with status "success"
-              - Run: bin/ci (NOT in background - wait for result)
+              - Use the "ci-runner" skill to run bin/ci (invoke /ci-runner)
               - IMPORTANT: bin/ci itself calls `gh` to post a "signoff" status check to GitHub
                 when all steps pass. This is what satisfies any GitHub branch protection rule
                 requiring a "signoff" check. No GitHub Actions workflow is needed for this.

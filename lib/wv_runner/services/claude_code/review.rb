@@ -118,7 +118,7 @@ module WvRunner
       def run_unit_tests_step
         <<~STEP.strip
           8. RUN UNIT TESTS: Execute all unit tests
-             - Run the test suite
+             - Use the "test-runner" skill to run tests (invoke /test-runner)
              - If failures: fix them and commit fixes
              - Repeat until all pass
         STEP
@@ -127,7 +127,7 @@ module WvRunner
       def run_system_tests_step
         <<~STEP.strip
           9. RUN SYSTEM TESTS: Execute all system tests
-             - Run system tests (may take up to 5 minutes)
+             - Use the "test-runner" skill to run system tests (invoke /test-runner for system tests)
              - If failures: fix them and commit fixes
              - Repeat until all pass
         STEP
@@ -148,10 +148,9 @@ module WvRunner
 
       def run_local_ci_step
         <<~STEP.strip
-          12. RUN LOCAL CI: If "bin/ci" exists, run it in background to avoid timeout
-              - IMPORTANT: Use Bash tool with run_in_background=true to start CI
-              - Then poll the output every 30 seconds using Read or Bash tail until complete
-              - This prevents API timeout during long-running CI
+          12. RUN LOCAL CI: If "bin/ci" exists, use the "ci-runner" skill
+              - If bin/ci doesn't exist: skip this step
+              - Use the "ci-runner" skill (invoke /ci-runner)
         STEP
       end
 
