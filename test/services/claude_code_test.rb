@@ -1042,7 +1042,7 @@ class ClaudeCodeOnceAutoSquashTest < Minitest::Test
         once_auto_squash = WvRunner::ClaudeCode::OnceAutoSquash.new
         instructions = once_auto_squash.send(:build_instructions)
         assert_includes instructions, 'TIME MANAGEMENT'
-        assert_includes instructions, '55-MINUTE'
+        assert_includes instructions, '85-MINUTE'
       end
     end
   end
@@ -1055,7 +1055,7 @@ class TimeAwarenessInstructionsTest < Minitest::Test
         obj = WvRunner::ClaudeCode::TodayAutoSquash.new
         instructions = obj.send(:build_instructions)
         assert_includes instructions, 'TIME MANAGEMENT'
-        assert_includes instructions, '55-MINUTE'
+        assert_includes instructions, '85-MINUTE'
       end
     end
   end
@@ -1066,7 +1066,7 @@ class TimeAwarenessInstructionsTest < Minitest::Test
         obj = WvRunner::ClaudeCode::QueueAutoSquash.new
         instructions = obj.send(:build_instructions)
         assert_includes instructions, 'TIME MANAGEMENT'
-        assert_includes instructions, '55-MINUTE'
+        assert_includes instructions, '85-MINUTE'
       end
     end
   end
@@ -1075,7 +1075,7 @@ class TimeAwarenessInstructionsTest < Minitest::Test
     obj = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
     instructions = obj.send(:build_instructions)
     assert_includes instructions, 'TIME MANAGEMENT'
-    assert_includes instructions, '55-MINUTE'
+    assert_includes instructions, '85-MINUTE'
   end
 
   def test_honest_instructions_includes_time_management
@@ -1084,7 +1084,7 @@ class TimeAwarenessInstructionsTest < Minitest::Test
         obj = WvRunner::ClaudeCode::Honest.new
         instructions = obj.send(:build_instructions)
         assert_includes instructions, 'TIME MANAGEMENT'
-        assert_includes instructions, '55-MINUTE'
+        assert_includes instructions, '85-MINUTE'
       end
     end
   end
@@ -1093,14 +1093,14 @@ class TimeAwarenessInstructionsTest < Minitest::Test
     obj = WvRunner::ClaudeCode::Review.new
     instructions = obj.send(:build_instructions)
     assert_includes instructions, 'TIME MANAGEMENT'
-    assert_includes instructions, '55-MINUTE'
+    assert_includes instructions, '85-MINUTE'
   end
 
   def test_story_manual_instructions_includes_time_management
     obj = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)
     instructions = obj.send(:build_instructions)
     assert_includes instructions, 'TIME MANAGEMENT'
-    assert_includes instructions, '55-MINUTE'
+    assert_includes instructions, '85-MINUTE'
   end
 
   def test_dry_instructions_does_not_include_time_management

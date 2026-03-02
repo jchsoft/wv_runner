@@ -19,8 +19,7 @@ module WvRunner
   # - build_instructions() -> returns instruction string
   # - model_name() -> returns the model to use (e.g., 'sonnet', 'haiku', 'opus')
   class ClaudeCodeBase
-    CLAUDE_EXECUTION_TIMEOUT = 3600 # 1 hour in seconds
-    SOFT_TIMEOUT = 3300 # 55 minutes — send SIGTERM to let Claude flush output before hard kill
+    CLAUDE_EXECUTION_TIMEOUT = 5400 # 90 minutes in seconds
     MAX_RETRY_ATTEMPTS = 3
     RETRY_WAIT_SECONDS = 30
     PROCESS_KILL_TIMEOUT = 5 # seconds to wait for SIGTERM before SIGKILL
@@ -33,7 +32,6 @@ module WvRunner
       @marker_retry_mode = false
       @result_received = false
       @child_pid = nil
-      @soft_timeout_fired = false
       @execution_start_time = nil
       @stream_line_count = 0
       OutputFormatter.verbose_mode = verbose
@@ -81,7 +79,6 @@ module WvRunner
       stdout_content = execute_with_streaming(command)
       @accumulated_output << stdout_content
 
-      Logger.info_stdout "[#{self.class.name}] Soft timeout fired but execution completed" if @soft_timeout_fired
       Logger.info_stdout '-' * 80
       Logger.info_stdout "[#{self.class.name}] Claude execution completed, parsing results..."
 
@@ -179,22 +176,11 @@ module WvRunner
       @stream_line_count = 0
       @child_pid = nil
       @execution_start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      @soft_timeout_fired = false
 
       Timeout.timeout(CLAUDE_EXECUTION_TIMEOUT) do
         Open3.popen3(*command) do |stdin, stdout, stderr, wait_thr|
           @child_pid = wait_thr.pid
           stdin.close
-
-          soft_timeout_thread = Thread.new do
-            remaining = SOFT_TIMEOUT - elapsed_execution_seconds
-            sleep(remaining) if remaining > 0
-            unless @stopping || @result_received
-              @soft_timeout_fired = true
-              Process.kill('TERM', wait_thr.pid) rescue Errno::ESRCH
-              release_test_lock
-            end
-          end
 
           stdout_thread = Thread.new do
             stream_lines(stdout) do |line|
@@ -253,7 +239,6 @@ module WvRunner
               Logger.debug "[#{self.class.name}] stderr: #{stderr_content}" unless stderr_content.empty?
             end
           ensure
-            soft_timeout_thread&.kill
             heartbeat_thread&.kill
             kill_process(wait_thr.pid)
           end
@@ -457,9 +442,9 @@ module WvRunner
     def time_awareness_instruction
       <<~INSTRUCTION.strip
         TIME MANAGEMENT (CRITICAL):
-        - You have a HARD 55-MINUTE execution limit. After 55 minutes you will be terminated.
+        - You have a HARD 85-MINUTE execution limit. After 85 minutes you will be terminated.
         - Before starting any long-running step (system tests, full CI), consider elapsed time.
-        - If more than 40 minutes have elapsed, SKIP full test suites and full CI.
+        - If more than 70 minutes have elapsed, SKIP full test suites and full CI.
           Instead: run only targeted tests for YOUR changes, then proceed to output WVRUNNER_RESULT.
         - ALWAYS prioritize outputting WVRUNNER_RESULT before the time limit.
       INSTRUCTION

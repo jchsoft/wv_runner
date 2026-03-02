@@ -67,7 +67,7 @@ class ClaudeCodeBaseTest < Minitest::Test
   end
 
   def test_timeout_constant_is_defined
-    assert_equal 3600, WvRunner::ClaudeCodeBase::CLAUDE_EXECUTION_TIMEOUT
+    assert_equal 5400, WvRunner::ClaudeCodeBase::CLAUDE_EXECUTION_TIMEOUT
   end
 
   def test_parse_result_returns_parsed_json_with_task_worked
@@ -426,23 +426,12 @@ class ClaudeCodeBaseTest < Minitest::Test
     assert_includes signals_sent, 'KILL'
   end
 
-  # Tests for SOFT_TIMEOUT constant
-  def test_soft_timeout_constant_is_defined
-    assert_equal 3300, WvRunner::ClaudeCodeBase::SOFT_TIMEOUT
-  end
-
-  # Tests for @soft_timeout_fired initialization
-  def test_initialize_sets_soft_timeout_fired_to_false
-    base = WvRunner::ClaudeCodeBase.new
-    refute base.instance_variable_get(:@soft_timeout_fired)
-  end
-
   # Tests for time_awareness_instruction method
   def test_time_awareness_instruction_returns_string
     base = WvRunner::ClaudeCodeBase.new
     instruction = base.send(:time_awareness_instruction)
     assert_includes instruction, 'TIME MANAGEMENT'
-    assert_includes instruction, '55-MINUTE'
+    assert_includes instruction, '85-MINUTE'
     assert_includes instruction, 'WVRUNNER_RESULT'
   end
 
