@@ -165,7 +165,11 @@ module WvRunner
         results << result
         Logger.info_stdout("[WorkLoop] Task ##{iteration_count} completed with status: #{result['status']}")
 
-        break if result['status'] == 'no_more_tasks'
+        if result['status'] == 'no_more_tasks'
+          break unless handle_no_tasks_in_today_auto_squash_mode
+
+          next
+        end
         break if result['status'] == 'failure'
         break if result['status'] == 'ci_failed'
 
@@ -348,6 +352,26 @@ module WvRunner
 
       Logger.debug("[WorkLoop] [run_today_tasks] Today's tasks complete, total: #{results.length} tasks")
       results
+    end
+
+    def handle_no_tasks_in_today_auto_squash_mode
+      # Check if past end of workday (18:00) - don't retry
+      if end_of_workday?
+        Logger.info_stdout('[WorkLoop] Past end of workday (18:00), stopping today auto-squash')
+        return false
+      end
+
+      Logger.debug('[WorkLoop] [handle_no_tasks_in_today_auto_squash_mode] Waiting 30 minutes before retry...')
+      WaitingStrategy.new.wait_half_hour
+
+      # After waiting, check again if we're past workday end
+      if end_of_workday?
+        Logger.info_stdout('[WorkLoop] Now past end of workday (18:00), stopping today auto-squash')
+        return false
+      end
+
+      Logger.debug('[WorkLoop] [handle_no_tasks_in_today_auto_squash_mode] Wait complete, ready to retry')
+      true
     end
 
     def handle_no_tasks_in_daily_mode

@@ -18,6 +18,14 @@ module WvRunner
       Logger.debug("[WaitingStrategy] [wait_one_hour] 1 hour wait complete, ready to retry")
     end
 
+    def wait_half_hour
+      Logger.info_stdout("[WaitingStrategy] Waiting 30 minutes before retry...")
+      Logger.debug("[WaitingStrategy] [wait_half_hour] Start time: #{Time.now.strftime('%Y-%m-%d %H:%M:%S')}")
+      Logger.debug("[WaitingStrategy] [wait_half_hour] Resume time: #{(Time.now + 30.minutes).strftime('%Y-%m-%d %H:%M:%S')}")
+      sleep(1800)
+      Logger.debug("[WaitingStrategy] [wait_half_hour] 30 minute wait complete, ready to retry")
+    end
+
     private
 
     def sleep_until(until_time)

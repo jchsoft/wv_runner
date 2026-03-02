@@ -518,13 +518,15 @@ class WorkLoopTest < Minitest::Test
     WvRunner::ClaudeCode::TodayAutoSquash.stub(:new, mock) do
       WvRunner::Decider.stub(:new, decider_mock) do
         Kernel.stub(:sleep, nil) do
-          loop_instance = WvRunner::WorkLoop.new
-          results = loop_instance.execute(:today_auto_squash)
+          Time.stub(:now, Time.new(2025, 1, 15, 19, 0)) do
+            loop_instance = WvRunner::WorkLoop.new
+            results = loop_instance.execute(:today_auto_squash)
 
-          assert_instance_of Array, results
-          assert_equal 2, results.length
-          assert_equal 'success', results.first['status']
-          assert_equal 'no_more_tasks', results.last['status']
+            assert_instance_of Array, results
+            assert_equal 2, results.length
+            assert_equal 'success', results.first['status']
+            assert_equal 'no_more_tasks', results.last['status']
+          end
         end
       end
     end
@@ -537,12 +539,47 @@ class WorkLoopTest < Minitest::Test
     end
 
     WvRunner::ClaudeCode::TodayAutoSquash.stub(:new, mock) do
-      loop_instance = WvRunner::WorkLoop.new
-      results = loop_instance.execute(:today_auto_squash)
+      Time.stub(:now, Time.new(2025, 1, 15, 19, 0)) do
+        loop_instance = WvRunner::WorkLoop.new
+        results = loop_instance.execute(:today_auto_squash)
 
-      assert_instance_of Array, results
-      assert_equal 1, results.length
-      assert_equal 'no_more_tasks', results.first['status']
+        assert_instance_of Array, results
+        assert_equal 1, results.length
+        assert_equal 'no_more_tasks', results.first['status']
+      end
+    end
+  end
+
+  def test_execute_with_today_auto_squash_stops_immediately_after_workday
+    mock = Object.new
+    def mock.run
+      { 'status' => 'no_more_tasks' }
+    end
+
+    WvRunner::ClaudeCode::TodayAutoSquash.stub(:new, mock) do
+      Time.stub(:now, Time.new(2025, 1, 15, 18, 0)) do
+        loop_instance = WvRunner::WorkLoop.new
+        results = loop_instance.execute(:today_auto_squash)
+
+        assert_equal 1, results.length
+        assert_equal 'no_more_tasks', results.first['status']
+      end
+    end
+  end
+
+  def test_handle_no_tasks_in_today_auto_squash_mode_returns_false_after_workday
+    loop_instance = WvRunner::WorkLoop.new
+
+    Time.stub(:now, Time.new(2025, 1, 15, 19, 0)) do
+      refute loop_instance.send(:handle_no_tasks_in_today_auto_squash_mode)
+    end
+  end
+
+  def test_handle_no_tasks_in_today_auto_squash_mode_returns_false_at_18
+    loop_instance = WvRunner::WorkLoop.new
+
+    Time.stub(:now, Time.new(2025, 1, 15, 18, 0)) do
+      refute loop_instance.send(:handle_no_tasks_in_today_auto_squash_mode)
     end
   end
 
