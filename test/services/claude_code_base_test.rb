@@ -455,6 +455,19 @@ class ClaudeCodeBaseTest < Minitest::Test
     end
   end
 
+  def test_heartbeat_interval_constant_is_defined
+    assert_equal 120, WvRunner::ClaudeCodeBase::HEARTBEAT_INTERVAL
+  end
+
+  def test_initialize_sets_stream_line_count_to_zero
+    base = WvRunner::ClaudeCodeBase.new
+    assert_equal 0, base.instance_variable_get(:@stream_line_count)
+  end
+
+  def test_stdout_sync_is_enabled
+    assert $stdout.sync, 'Expected $stdout.sync to be true'
+  end
+
   def test_kill_process_does_not_escalate_when_process_dies_after_sigterm
     base = WvRunner::ClaudeCodeBase.new
     signals_sent = []

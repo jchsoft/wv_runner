@@ -1,3 +1,5 @@
+$stdout.sync = true
+
 require "wv_runner/version"
 require "wv_runner/version_manager"
 require "wv_runner/logger"

@@ -24,6 +24,7 @@ module WvRunner
     MAX_RETRY_ATTEMPTS = 3
     RETRY_WAIT_SECONDS = 30
     PROCESS_KILL_TIMEOUT = 5 # seconds to wait for SIGTERM before SIGKILL
+    HEARTBEAT_INTERVAL = 120 # 2 minutes between heartbeat messages
 
     def initialize(verbose: false)
       @verbose = verbose
@@ -34,6 +35,7 @@ module WvRunner
       @child_pid = nil
       @soft_timeout_fired = false
       @execution_start_time = nil
+      @stream_line_count = 0
       OutputFormatter.verbose_mode = verbose
     end
 
@@ -174,6 +176,7 @@ module WvRunner
       stderr_content = ''.dup
       stream_error = nil
       @result_received = false
+      @stream_line_count = 0
       @child_pid = nil
       @execution_start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       @soft_timeout_fired = false
@@ -196,6 +199,7 @@ module WvRunner
           stdout_thread = Thread.new do
             stream_lines(stdout) do |line|
               stdout_content << line.dup
+              @stream_line_count += 1
               check_for_result_message(line)
               if OutputFormatter.should_log_to_stdout?(line)
                 formatted = OutputFormatter.format_line(line)
@@ -207,6 +211,9 @@ module WvRunner
             end
           rescue IOError, Errno::EBADF => e
             handle_stream_error(e, 'stdout') { |err| stream_error = err }
+          rescue StandardError => e
+            Logger.error "[#{self.class.name}] stdout thread crashed: #{e.class}: #{e.message}"
+            stream_error = "stdout thread crashed: #{e.message}" unless @stopping
           end
 
           stderr_thread = Thread.new do
@@ -216,6 +223,19 @@ module WvRunner
             end
           rescue IOError, Errno::EBADF => e
             handle_stream_error(e, 'stderr') { |err| stream_error ||= err }
+          rescue StandardError => e
+            Logger.error "[#{self.class.name}] stderr thread crashed: #{e.class}: #{e.message}"
+          end
+
+          heartbeat_thread = Thread.new do
+            loop do
+              sleep(HEARTBEAT_INTERVAL)
+              break if @result_received || @stopping
+
+              Logger.info_stdout "[#{self.class.name}] [heartbeat] Claude is working... (#{@stream_line_count} stream events received)"
+            end
+          rescue StandardError => e
+            Logger.debug "[#{self.class.name}] Heartbeat thread error: #{e.message}"
           end
 
           begin
@@ -234,6 +254,7 @@ module WvRunner
             end
           ensure
             soft_timeout_thread&.kill
+            heartbeat_thread&.kill
             kill_process(wait_thr.pid)
           end
         end
