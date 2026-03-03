@@ -485,6 +485,25 @@ module WvRunner
       STEP
     end
 
+    def coding_conventions_instruction
+      <<~INSTRUCTION.strip
+        CODING CONVENTIONS (MANDATORY):
+        - GIT COMMITS: NEVER use $() command substitution in git commit messages.
+          Always pass the message as a simple quoted string directly:
+          ✅ git commit -m "Fix login validation for empty emails"
+          ❌ git commit -m "$(echo 'Fix login')"
+          ❌ git commit -m "$(cat some_file)"
+          For multi-line messages, use heredoc:
+          git commit -m "$(cat <<'EOF'
+          Your message here.
+          EOF
+          )"
+        - RUBOCOP BEFORE CI: Before running bin/ci, always run RuboCop autofix on changed .rb files:
+          git diff --name-only main -- '*.rb' | xargs rubocop -a
+          This prevents wasting CI cycles on style violations.
+      INSTRUCTION
+    end
+
     def time_awareness_instruction
       <<~INSTRUCTION.strip
         TIME MANAGEMENT (CRITICAL):

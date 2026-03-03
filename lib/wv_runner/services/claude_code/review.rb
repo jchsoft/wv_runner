@@ -37,6 +37,8 @@ module WvRunner
         <<~WORKFLOW
           #{time_awareness_instruction}
 
+          #{coding_conventions_instruction}
+
           WORKFLOW:
           #{git_state_check_step}
           #{pr_existence_check_step}

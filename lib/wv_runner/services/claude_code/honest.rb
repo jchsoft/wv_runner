@@ -21,6 +21,8 @@ module WvRunner
 
           #{time_awareness_instruction}
 
+          #{coding_conventions_instruction}
+
           WORKFLOW:
           #{branch_resume_check_step(project_id: project_id, pull_on_main: true)}
 

@@ -22,6 +22,8 @@ module WvRunner
         <<~STEPS
           #{time_awareness_instruction}
 
+          #{coding_conventions_instruction}
+
           #{n}. CREATE BRANCH: Start work on a new feature branch
           #{s.(n)}- Use task name as branch name (e.g., "feature/task-name" or "fix/issue-name")
           #{s.(n)}- Run: git checkout -b <branch-name>

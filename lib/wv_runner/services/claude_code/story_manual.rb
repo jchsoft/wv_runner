@@ -26,6 +26,8 @@ module WvRunner
 
           #{time_awareness_instruction}
 
+          #{coding_conventions_instruction}
+
           WORKFLOW:
           1. LOAD STORY: Get story details to find subtasks
              - Read: workvector://pieces/jchsoft/#{@story_id}

@@ -20,6 +20,10 @@ module WvRunner
 
       def workflow_section
         <<~WORKFLOW
+          #{time_awareness_instruction}
+
+          #{coding_conventions_instruction}
+
           WORKFLOW:
           #{find_next_pr_with_review_step}
           #{checkout_branch_step}
