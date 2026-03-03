@@ -178,7 +178,7 @@ module WvRunner
       @execution_start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
       Timeout.timeout(CLAUDE_EXECUTION_TIMEOUT) do
-        Open3.popen3(*command) do |stdin, stdout, stderr, wait_thr|
+        Open3.popen3(*command, pgroup: true) do |stdin, stdout, stderr, wait_thr|
           @child_pid = wait_thr.pid
           stdin.close
 
@@ -254,14 +254,34 @@ module WvRunner
       raise
     end
 
+    def resolve_process_group(pid)
+      Process.getpgid(pid)
+    rescue Errno::ESRCH, Errno::EPERM
+      nil
+    end
+
+    def safe_kill(signal, pid)
+      Process.kill(signal, pid)
+      true
+    rescue Errno::ESRCH
+      false
+    end
+
     def kill_process(pid)
       return unless pid
 
-      Logger.info_stdout "[#{self.class.name}] Terminating Claude process (pid: #{pid})..."
+      pgid = resolve_process_group(pid)
+      kill_target = pgid ? -pgid : pid
+      target_label = pgid ? "process group #{pgid}" : "pid #{pid}"
+
+      Logger.info_stdout "[#{self.class.name}] Terminating Claude #{target_label}..."
       begin
-        Process.kill('TERM', pid)
+        Process.kill('TERM', kill_target)
       rescue Errno::ESRCH
-        return # Already dead
+        return
+      rescue Errno::EPERM
+        Logger.warn "[#{self.class.name}] No permission to kill #{target_label}, falling back to pid #{pid}"
+        safe_kill('TERM', pid) || return
       end
 
       PROCESS_KILL_TIMEOUT.times do
@@ -276,9 +296,9 @@ module WvRunner
 
       Logger.warn "[#{self.class.name}] Process #{pid} not responding to SIGTERM, sending SIGKILL..."
       begin
-        Process.kill('KILL', pid)
-      rescue Errno::ESRCH
-        # Already dead
+        Process.kill('KILL', kill_target)
+      rescue Errno::ESRCH, Errno::EPERM
+        safe_kill('KILL', pid)
       end
     rescue StandardError => e
       Logger.warn "[#{self.class.name}] Error during process cleanup: #{e.message}"

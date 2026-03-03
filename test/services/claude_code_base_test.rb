@@ -398,8 +398,10 @@ class ClaudeCodeBaseTest < Minitest::Test
   def test_kill_process_handles_already_dead_process
     base = WvRunner::ClaudeCodeBase.new
     # ESRCH means no such process - kill_process should handle gracefully
-    Process.stub(:kill, ->(_sig, _pid) { raise Errno::ESRCH }) do
-      assert_nil base.send(:kill_process, 99_999)
+    Process.stub(:getpgid, ->(_pid) { raise Errno::ESRCH }) do
+      Process.stub(:kill, ->(_sig, _pid) { raise Errno::ESRCH }) do
+        assert_nil base.send(:kill_process, 99_999)
+      end
     end
   end
 
@@ -408,17 +410,17 @@ class ClaudeCodeBaseTest < Minitest::Test
     signals_sent = []
 
     # Simulate process that survives SIGTERM (kill(0, pid) never raises ESRCH)
-    kill_stub = lambda do |sig, pid|
-      if pid == 99_999
-        signals_sent << sig
-      end
+    kill_stub = lambda do |sig, _pid|
+      signals_sent << sig
       # Simulate ESRCH only for KILL signal to end the method
       raise Errno::ESRCH if sig == 'KILL'
     end
 
-    Process.stub(:kill, kill_stub) do
-      base.stub(:sleep, nil) do
-        base.send(:kill_process, 99_999)
+    Process.stub(:getpgid, 99_999) do
+      Process.stub(:kill, kill_stub) do
+        base.stub(:sleep, nil) do
+          base.send(:kill_process, 99_999)
+        end
       end
     end
 
@@ -491,22 +493,101 @@ class ClaudeCodeBaseTest < Minitest::Test
     signals_sent = []
     check_count = 0
 
-    kill_stub = lambda do |sig, pid|
-      if pid == 99_999
-        signals_sent << sig
-        # After TERM sent, simulate process dying on first check (kill(0, pid))
+    kill_stub = lambda do |sig, _pid|
+      signals_sent << sig
+      # After TERM sent, simulate process dying on first existence check (kill(0, pid))
+      if sig == 0
         check_count += 1
-        raise Errno::ESRCH if sig == 0 && check_count >= 1
+        raise Errno::ESRCH if check_count >= 1
       end
     end
 
-    Process.stub(:kill, kill_stub) do
-      base.stub(:sleep, nil) do
-        base.send(:kill_process, 99_999)
+    Process.stub(:getpgid, 99_999) do
+      Process.stub(:kill, kill_stub) do
+        base.stub(:sleep, nil) do
+          base.send(:kill_process, 99_999)
+        end
       end
     end
 
     assert_includes signals_sent, 'TERM'
     refute_includes signals_sent, 'KILL'
+  end
+
+  # Tests for resolve_process_group helper method
+  def test_resolve_process_group_returns_pgid_for_current_process
+    base = WvRunner::ClaudeCodeBase.new
+    pgid = base.send(:resolve_process_group, Process.pid)
+    assert_kind_of Integer, pgid
+  end
+
+  def test_resolve_process_group_returns_nil_for_dead_process
+    base = WvRunner::ClaudeCodeBase.new
+    pgid = base.send(:resolve_process_group, 99_999_999)
+    assert_nil pgid
+  end
+
+  # Tests for safe_kill helper method
+  def test_safe_kill_returns_false_for_dead_process
+    base = WvRunner::ClaudeCodeBase.new
+    result = base.send(:safe_kill, 'TERM', 99_999_999)
+    assert_equal false, result
+  end
+
+  def test_safe_kill_returns_true_for_alive_process
+    base = WvRunner::ClaudeCodeBase.new
+    result = base.send(:safe_kill, 0, Process.pid)
+    assert_equal true, result
+  end
+
+  # Tests for process group kill behaviour in kill_process
+  def test_kill_process_sends_signal_to_negative_pgid
+    base = WvRunner::ClaudeCodeBase.new
+    kill_targets = []
+
+    Process.stub(:getpgid, 42_000) do
+      Process.stub(:kill, ->(sig, pid) { kill_targets << [sig, pid]; raise Errno::ESRCH if sig == 'TERM' }) do
+        base.send(:kill_process, 99_999)
+      end
+    end
+
+    assert_includes kill_targets, ['TERM', -42_000]
+  end
+
+  def test_kill_process_falls_back_to_pid_when_pgid_unavailable
+    base = WvRunner::ClaudeCodeBase.new
+    kill_targets = []
+
+    Process.stub(:getpgid, ->(_pid) { raise Errno::ESRCH }) do
+      Process.stub(:kill, ->(sig, pid) { kill_targets << [sig, pid]; raise Errno::ESRCH if sig == 'TERM' }) do
+        base.send(:kill_process, 99_999)
+      end
+    end
+
+    # Should use positive pid (direct), not negative pgid
+    assert_includes kill_targets, ['TERM', 99_999]
+    term_calls = kill_targets.select { |sig, _| sig == 'TERM' }
+    assert term_calls.all? { |_, pid| pid > 0 }, 'Should use positive pid when pgid unavailable'
+  end
+
+  def test_kill_process_handles_eperm_on_group_kill
+    base = WvRunner::ClaudeCodeBase.new
+    kill_targets = []
+
+    kill_stub = lambda do |sig, pid|
+      kill_targets << [sig, pid]
+      raise Errno::EPERM if pid == -42_000 && sig == 'TERM'
+      raise Errno::ESRCH if pid == 99_999 && sig == 'TERM'
+    end
+
+    Process.stub(:getpgid, 42_000) do
+      Process.stub(:kill, kill_stub) do
+        base.send(:kill_process, 99_999)
+      end
+    end
+
+    # First tried group kill (EPERM), then fell back to direct pid
+    assert_includes kill_targets, ['TERM', -42_000]
+    assert_includes kill_targets, ['TERM', 99_999]
   end
 end
