@@ -159,7 +159,7 @@ module WvRunner
       cmd = [claude_path]
       cmd << '--continue' if continue_session
       cmd.concat(['-p', instructions, '--model', model_name, '--output-format=stream-json', '--verbose'])
-      cmd << '--permission-mode=acceptEdits' if accept_edits?
+      cmd << '--permission-mode=bypassPermissions' if accept_edits?
       Logger.debug "command: #{cmd.map { |arg| Shellwords.escape(arg) }.join(' ')}"
       cmd
     end
