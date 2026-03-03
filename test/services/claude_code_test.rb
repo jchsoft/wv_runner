@@ -40,8 +40,7 @@ class ClaudeCodeHonestTest < Minitest::Test
         honest = WvRunner::ClaudeCode::Honest.new
         instructions = honest.send(:build_instructions)
         assert_includes instructions, 'git checkout main'
-        assert_includes instructions, 'GIT STATE CHECK'
-        assert_includes instructions, 'clean, stable state'
+        assert_includes instructions, 'GIT STATE AND RESUME CHECK'
       end
     end
   end
@@ -101,6 +100,16 @@ class ClaudeCodeHonestTest < Minitest::Test
         assert_includes instructions, '/ci-runner'
         refute_includes instructions, 'run_in_background'
         refute_includes instructions, 'poll every 5 minutes'
+      end
+    end
+  end
+
+  def test_instructions_includes_branch_resume_check
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        honest = WvRunner::ClaudeCode::Honest.new
+        instructions = honest.send(:build_instructions)
+        assert_includes instructions, 'GIT STATE AND RESUME CHECK'
       end
     end
   end
@@ -562,7 +571,7 @@ class ClaudeCodeTodayAutoSquashTest < Minitest::Test
         today_auto_squash = WvRunner::ClaudeCode::TodayAutoSquash.new
         instructions = today_auto_squash.send(:build_instructions)
         assert_includes instructions, 'git checkout main'
-        assert_includes instructions, 'GIT STATE CHECK'
+        assert_includes instructions, 'GIT STATE AND RESUME CHECK'
       end
     end
   end
@@ -662,6 +671,16 @@ class ClaudeCodeTodayAutoSquashTest < Minitest::Test
       today_auto_squash = WvRunner::ClaudeCode::TodayAutoSquash.new
       assert_raises(RuntimeError) do
         today_auto_squash.send(:build_instructions)
+      end
+    end
+  end
+
+  def test_instructions_includes_branch_resume_check
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        today_auto_squash = WvRunner::ClaudeCode::TodayAutoSquash.new
+        instructions = today_auto_squash.send(:build_instructions)
+        assert_includes instructions, 'GIT STATE AND RESUME CHECK'
       end
     end
   end
@@ -825,7 +844,7 @@ class ClaudeCodeQueueAutoSquashTest < Minitest::Test
         queue_auto_squash = WvRunner::ClaudeCode::QueueAutoSquash.new
         instructions = queue_auto_squash.send(:build_instructions)
         assert_includes instructions, 'git checkout main'
-        assert_includes instructions, 'GIT STATE CHECK'
+        assert_includes instructions, 'GIT STATE AND RESUME CHECK'
       end
     end
   end
@@ -940,6 +959,16 @@ class ClaudeCodeQueueAutoSquashTest < Minitest::Test
       end
     end
   end
+
+  def test_instructions_includes_branch_resume_check
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        queue_auto_squash = WvRunner::ClaudeCode::QueueAutoSquash.new
+        instructions = queue_auto_squash.send(:build_instructions)
+        assert_includes instructions, 'GIT STATE AND RESUME CHECK'
+      end
+    end
+  end
 end
 
 class ClaudeCodeOnceAutoSquashTest < Minitest::Test
@@ -983,7 +1012,7 @@ class ClaudeCodeOnceAutoSquashTest < Minitest::Test
         once_auto_squash = WvRunner::ClaudeCode::OnceAutoSquash.new
         instructions = once_auto_squash.send(:build_instructions)
         assert_includes instructions, 'git checkout main'
-        assert_includes instructions, 'GIT STATE CHECK'
+        assert_includes instructions, 'GIT STATE AND RESUME CHECK'
       end
     end
   end
@@ -1105,6 +1134,16 @@ class ClaudeCodeOnceAutoSquashTest < Minitest::Test
         instructions = once_auto_squash.send(:build_instructions)
         assert_includes instructions, 'TIME MANAGEMENT'
         assert_includes instructions, '85-MINUTE'
+      end
+    end
+  end
+
+  def test_instructions_includes_branch_resume_check
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        once_auto_squash = WvRunner::ClaudeCode::OnceAutoSquash.new
+        instructions = once_auto_squash.send(:build_instructions)
+        assert_includes instructions, 'GIT STATE AND RESUME CHECK'
       end
     end
   end

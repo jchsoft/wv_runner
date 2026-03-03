@@ -439,6 +439,32 @@ module WvRunner
       Process.clock_gettime(Process::CLOCK_MONOTONIC) - @execution_start_time
     end
 
+    def branch_resume_check_step(project_id:, pull_on_main: true)
+      pull_cmd = pull_on_main ? 'git checkout main && git pull' : 'git checkout main'
+      <<~STEP.strip
+        1. GIT STATE AND RESUME CHECK:
+           - Run: git branch --show-current
+           - IF on "main" or "master":
+             → Run: #{pull_cmd}
+             → Proceed to step 2 (TASK FETCH)
+           - IF on ANY OTHER branch (feature branch):
+             a) TRY TO IDENTIFY TASK from branch name:
+                - Branch names often contain task ID (e.g., "feature/9508-contact-page", "fix/9123-bug")
+                - Extract numeric ID from branch name
+                - If found: read workvector://pieces/jchsoft/{task_id} to load task details
+             b) If no ID in branch name, check for open PR:
+                - gh pr list --head $(git branch --show-current) --json body --jq '.[0].body'
+                - Look for mcptask.online link → extract task ID → load task
+             c) If STILL no task found:
+                → #{pull_cmd} → proceed to step 2
+             d) CHECK TASK PROGRESS (if task was found):
+                - If progress >= 100 or state "Schváleno"/"Hotovo?":
+                  → Task is done. #{pull_cmd} → proceed to step 2
+                - If progress < 100:
+                  → RESUME: display WVRUNNER_TASK_INFO, SKIP steps 2-3, go to step 4
+      STEP
+    end
+
     def time_awareness_instruction
       <<~INSTRUCTION.strip
         TIME MANAGEMENT (CRITICAL):

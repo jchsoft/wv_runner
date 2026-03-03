@@ -22,9 +22,7 @@ module WvRunner
           #{time_awareness_instruction}
 
           WORKFLOW:
-          1. GIT STATE CHECK: Ensure you start from main branch
-             - Run: git checkout main
-             - This ensures you start from a clean, stable state
+          #{branch_resume_check_step(project_id: project_id, pull_on_main: false)}
 
           2. TASK FETCH: Get the next available task
              - Read: workvector://pieces/jchsoft/@next?project_relative_id=#{project_id}

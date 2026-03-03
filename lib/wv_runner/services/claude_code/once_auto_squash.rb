@@ -23,9 +23,7 @@ module WvRunner
           This is ONCE mode - runs exactly once and exits after completing one task.
 
           WORKFLOW:
-          1. GIT STATE CHECK: Ensure you start from main branch
-             - Run: git checkout main && git pull
-             - This ensures you start from a clean, stable state
+          #{branch_resume_check_step(project_id: project_id, pull_on_main: true)}
 
           2. TASK FETCH: Get the next available task
              - Read: workvector://pieces/jchsoft/@next?project_relative_id=#{project_id}

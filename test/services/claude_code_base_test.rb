@@ -444,6 +444,35 @@ class ClaudeCodeBaseTest < Minitest::Test
     end
   end
 
+  # Tests for branch_resume_check_step method
+  def test_branch_resume_check_step_contains_branch_detection
+    base = WvRunner::ClaudeCodeBase.new
+    step = base.send(:branch_resume_check_step, project_id: 7)
+    assert_includes step, 'git branch --show-current'
+    assert_includes step, 'GIT STATE AND RESUME CHECK'
+  end
+
+  def test_branch_resume_check_step_contains_resume_logic
+    base = WvRunner::ClaudeCodeBase.new
+    step = base.send(:branch_resume_check_step, project_id: 7)
+    assert_includes step, 'RESUME'
+    assert_includes step, 'SKIP steps 2-3'
+  end
+
+  def test_branch_resume_check_step_with_pull
+    base = WvRunner::ClaudeCodeBase.new
+    step = base.send(:branch_resume_check_step, project_id: 7, pull_on_main: true)
+    assert_includes step, 'git pull'
+    assert_includes step, 'git checkout main && git pull'
+  end
+
+  def test_branch_resume_check_step_without_pull
+    base = WvRunner::ClaudeCodeBase.new
+    step = base.send(:branch_resume_check_step, project_id: 7, pull_on_main: false)
+    refute_includes step, 'git pull'
+    assert_includes step, 'git checkout main'
+  end
+
   def test_heartbeat_interval_constant_is_defined
     assert_equal 120, WvRunner::ClaudeCodeBase::HEARTBEAT_INTERVAL
   end
