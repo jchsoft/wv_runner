@@ -59,7 +59,7 @@ class WorkLoopTest < Minitest::Test
   end
 
   def test_valid_how_values_constant
-    assert_equal %i[once today daily once_dry review reviews workflow story_manual story_auto_squash today_auto_squash queue_auto_squash queue_manual once_auto_squash], WvRunner::WorkLoop::VALID_HOW_VALUES
+    assert_equal %i[once today daily once_dry review reviews workflow story_manual story_auto_squash today_auto_squash queue_auto_squash queue_manual once_auto_squash task_manual task_auto_squash], WvRunner::WorkLoop::VALID_HOW_VALUES
   end
 
   def test_execute_validates_how_parameter
@@ -67,7 +67,7 @@ class WorkLoopTest < Minitest::Test
 
     error = assert_raises(ArgumentError) { loop_instance.execute(:unknown) }
     assert_includes error.message, "Invalid 'how' value"
-    assert_includes error.message, 'once, today, daily, once_dry, review, reviews, workflow, story_manual, story_auto_squash, today_auto_squash, queue_auto_squash, queue_manual, once_auto_squash'
+    assert_includes error.message, 'once, today, daily, once_dry, review, reviews, workflow, story_manual, story_auto_squash, today_auto_squash, queue_auto_squash, queue_manual, once_auto_squash, task_manual, task_auto_squash'
   end
 
   def test_execute_with_review_calls_review
@@ -879,5 +879,109 @@ class WorkLoopTest < Minitest::Test
 
   def test_once_auto_squash_is_in_valid_how_values
     assert_includes WvRunner::WorkLoop::VALID_HOW_VALUES, :once_auto_squash
+  end
+
+  # Tests for task_manual mode
+  def test_execute_with_task_manual_requires_task_id
+    loop_instance = WvRunner::WorkLoop.new
+    error = assert_raises(ArgumentError) { loop_instance.execute(:task_manual) }
+    assert_includes error.message, 'task_id is required'
+  end
+
+  def test_execute_with_task_manual_calls_task_manual_class
+    mock = Object.new
+    def mock.run
+      { 'status' => 'success', 'task_id' => 456, 'hours' => { 'per_day' => 8, 'task_estimated' => 2 } }
+    end
+
+    WvRunner::ClaudeCode::TaskManual.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new(task_id: 456)
+      result = loop_instance.execute(:task_manual)
+
+      assert_equal 'success', result['status']
+      assert_equal 456, result['task_id']
+    end
+  end
+
+  def test_execute_with_task_manual_handles_failure
+    mock = Object.new
+    def mock.run
+      { 'status' => 'failure', 'message' => 'Error processing task' }
+    end
+
+    WvRunner::ClaudeCode::TaskManual.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new(task_id: 456)
+      result = loop_instance.execute(:task_manual)
+
+      assert_equal 'failure', result['status']
+    end
+  end
+
+  def test_task_manual_is_in_valid_how_values
+    assert_includes WvRunner::WorkLoop::VALID_HOW_VALUES, :task_manual
+  end
+
+  def test_task_id_can_be_passed_to_constructor
+    loop_instance = WvRunner::WorkLoop.new(task_id: 999)
+    assert_instance_of WvRunner::WorkLoop, loop_instance
+  end
+
+  def test_task_id_and_verbose_can_be_combined
+    loop_instance = WvRunner::WorkLoop.new(verbose: true, task_id: 888)
+    assert_instance_of WvRunner::WorkLoop, loop_instance
+  end
+
+  # Tests for task_auto_squash mode
+  def test_execute_with_task_auto_squash_requires_task_id
+    loop_instance = WvRunner::WorkLoop.new
+    error = assert_raises(ArgumentError) { loop_instance.execute(:task_auto_squash) }
+    assert_includes error.message, 'task_id is required'
+  end
+
+  def test_execute_with_task_auto_squash_calls_task_auto_squash_class
+    mock = Object.new
+    def mock.run
+      { 'status' => 'success', 'task_id' => 456, 'hours' => { 'per_day' => 8, 'task_estimated' => 2 } }
+    end
+
+    WvRunner::ClaudeCode::TaskAutoSquash.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new(task_id: 456)
+      result = loop_instance.execute(:task_auto_squash)
+
+      assert_equal 'success', result['status']
+      assert_equal 456, result['task_id']
+    end
+  end
+
+  def test_execute_with_task_auto_squash_handles_failure
+    mock = Object.new
+    def mock.run
+      { 'status' => 'failure', 'message' => 'Error processing task' }
+    end
+
+    WvRunner::ClaudeCode::TaskAutoSquash.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new(task_id: 456)
+      result = loop_instance.execute(:task_auto_squash)
+
+      assert_equal 'failure', result['status']
+    end
+  end
+
+  def test_execute_with_task_auto_squash_handles_ci_failed
+    mock = Object.new
+    def mock.run
+      { 'status' => 'ci_failed', 'message' => 'CI failed after retry' }
+    end
+
+    WvRunner::ClaudeCode::TaskAutoSquash.stub(:new, mock) do
+      loop_instance = WvRunner::WorkLoop.new(task_id: 456)
+      result = loop_instance.execute(:task_auto_squash)
+
+      assert_equal 'ci_failed', result['status']
+    end
+  end
+
+  def test_task_auto_squash_is_in_valid_how_values
+    assert_includes WvRunner::WorkLoop::VALID_HOW_VALUES, :task_auto_squash
   end
 end

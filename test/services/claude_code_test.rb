@@ -1214,3 +1214,216 @@ class TimeAwarenessInstructionsTest < Minitest::Test
     end
   end
 end
+
+class ClaudeCodeTaskManualTest < Minitest::Test
+  def test_task_manual_responds_to_run
+    task_manual = WvRunner::ClaudeCode::TaskManual.new(task_id: 123)
+    assert_respond_to task_manual, :run
+  end
+
+  def test_task_manual_inherits_from_claude_code_base
+    assert WvRunner::ClaudeCode::TaskManual < WvRunner::ClaudeCodeBase
+  end
+
+  def test_task_manual_uses_opusplan_model
+    task_manual = WvRunner::ClaudeCode::TaskManual.new(task_id: 123)
+    assert_equal 'opusplan', task_manual.send(:model_name)
+  end
+
+  def test_task_manual_accepts_edits
+    task_manual = WvRunner::ClaudeCode::TaskManual.new(task_id: 123)
+    assert task_manual.send(:accept_edits?)
+  end
+
+  def test_task_manual_requires_task_id
+    assert_raises(ArgumentError) do
+      WvRunner::ClaudeCode::TaskManual.new
+    end
+  end
+
+  def test_task_manual_instructions_includes_task_id
+    task_manual = WvRunner::ClaudeCode::TaskManual.new(task_id: 456)
+    instructions = task_manual.send(:build_instructions)
+    assert_includes instructions, 'task #456'
+    assert_includes instructions, 'workvector://pieces/jchsoft/456'
+  end
+
+  def test_task_manual_instructions_includes_load_task_step
+    task_manual = WvRunner::ClaudeCode::TaskManual.new(task_id: 123)
+    instructions = task_manual.send(:build_instructions)
+    assert_includes instructions, 'LOAD TASK'
+    assert_includes instructions, 'WVRUNNER_TASK_INFO'
+  end
+
+  def test_task_manual_instructions_includes_workflow_steps
+    task_manual = WvRunner::ClaudeCode::TaskManual.new(task_id: 123)
+    instructions = task_manual.send(:build_instructions)
+    assert_includes instructions, 'GIT STATE CHECK'
+    assert_includes instructions, 'git checkout main'
+    assert_includes instructions, 'CREATE BRANCH'
+    assert_includes instructions, 'IMPLEMENT TASK'
+    assert_includes instructions, 'RUN UNIT TESTS'
+    assert_includes instructions, 'RUN SYSTEM TESTS'
+    assert_includes instructions, 'REFACTOR'
+    assert_includes instructions, 'PUSH'
+    assert_includes instructions, 'CREATE PULL REQUEST'
+  end
+
+  def test_task_manual_instructions_emphasizes_no_merge
+    task_manual = WvRunner::ClaudeCode::TaskManual.new(task_id: 123)
+    instructions = task_manual.send(:build_instructions)
+    assert_includes instructions, 'NO MERGE'
+    assert_includes instructions, 'MANUAL workflow'
+    assert_includes instructions, 'leave it open for human review'
+    assert_includes instructions, 'Human will review and merge'
+  end
+
+  def test_task_manual_instructions_includes_wvrunner_result
+    task_manual = WvRunner::ClaudeCode::TaskManual.new(task_id: 789)
+    instructions = task_manual.send(:build_instructions)
+    assert_includes instructions, 'WVRUNNER_RESULT'
+    assert_includes instructions, 'task_id'
+    assert_includes instructions, '789'
+  end
+
+  def test_task_manual_instructions_includes_status_values
+    task_manual = WvRunner::ClaudeCode::TaskManual.new(task_id: 123)
+    instructions = task_manual.send(:build_instructions)
+    assert_includes instructions, 'success'
+    assert_includes instructions, 'failure'
+  end
+
+  def test_task_manual_instructions_includes_ci_step
+    task_manual = WvRunner::ClaudeCode::TaskManual.new(task_id: 123)
+    instructions = task_manual.send(:build_instructions)
+    assert_includes instructions, 'RUN LOCAL CI'
+    assert_includes instructions, 'bin/ci'
+    assert_includes instructions, 'ci-runner'
+  end
+
+  def test_task_manual_instructions_uses_test_runner_skill
+    task_manual = WvRunner::ClaudeCode::TaskManual.new(task_id: 123)
+    instructions = task_manual.send(:build_instructions)
+    assert_includes instructions, 'test-runner'
+    assert_includes instructions, '/test-runner'
+  end
+
+  def test_task_manual_instructions_includes_screenshot_steps
+    task_manual = WvRunner::ClaudeCode::TaskManual.new(task_id: 123)
+    instructions = task_manual.send(:build_instructions)
+    assert_includes instructions, 'PREPARE SCREENSHOTS'
+    assert_includes instructions, 'ADD SCREENSHOTS TO PR'
+    assert_includes instructions, 'pr-screenshot'
+  end
+end
+
+class ClaudeCodeTaskAutoSquashTest < Minitest::Test
+  def test_task_auto_squash_responds_to_run
+    task_auto_squash = WvRunner::ClaudeCode::TaskAutoSquash.new(task_id: 123)
+    assert_respond_to task_auto_squash, :run
+  end
+
+  def test_task_auto_squash_inherits_from_auto_squash_base
+    assert WvRunner::ClaudeCode::TaskAutoSquash < WvRunner::ClaudeCode::AutoSquashBase
+  end
+
+  def test_task_auto_squash_uses_opusplan_model
+    task_auto_squash = WvRunner::ClaudeCode::TaskAutoSquash.new(task_id: 123)
+    assert_equal 'opusplan', task_auto_squash.send(:model_name)
+  end
+
+  def test_task_auto_squash_accepts_edits
+    task_auto_squash = WvRunner::ClaudeCode::TaskAutoSquash.new(task_id: 123)
+    assert task_auto_squash.send(:accept_edits?)
+  end
+
+  def test_task_auto_squash_requires_task_id
+    assert_raises(ArgumentError) do
+      WvRunner::ClaudeCode::TaskAutoSquash.new
+    end
+  end
+
+  def test_task_auto_squash_instructions_includes_task_id
+    task_auto_squash = WvRunner::ClaudeCode::TaskAutoSquash.new(task_id: 456)
+    instructions = task_auto_squash.send(:build_instructions)
+    assert_includes instructions, 'task #456'
+    assert_includes instructions, 'workvector://pieces/jchsoft/456'
+  end
+
+  def test_task_auto_squash_instructions_includes_workflow_steps
+    task_auto_squash = WvRunner::ClaudeCode::TaskAutoSquash.new(task_id: 123)
+    instructions = task_auto_squash.send(:build_instructions)
+    assert_includes instructions, 'GIT STATE CHECK'
+    assert_includes instructions, 'git checkout main'
+    assert_includes instructions, 'CREATE BRANCH'
+    assert_includes instructions, 'IMPLEMENT TASK'
+    assert_includes instructions, 'RUN UNIT TESTS'
+    assert_includes instructions, 'RUN SYSTEM TESTS'
+    assert_includes instructions, 'REFACTOR'
+    assert_includes instructions, 'PUSH'
+    assert_includes instructions, 'CREATE PULL REQUEST'
+  end
+
+  def test_task_auto_squash_instructions_includes_auto_merge
+    task_auto_squash = WvRunner::ClaudeCode::TaskAutoSquash.new(task_id: 123)
+    instructions = task_auto_squash.send(:build_instructions)
+    assert_includes instructions, 'AUTO-SQUASH'
+    assert_includes instructions, 'gh pr merge --squash --delete-branch'
+    assert_includes instructions, 'automatically merged after CI passes'
+  end
+
+  def test_task_auto_squash_instructions_includes_ci_retry_logic
+    task_auto_squash = WvRunner::ClaudeCode::TaskAutoSquash.new(task_id: 123)
+    instructions = task_auto_squash.send(:build_instructions)
+    assert_includes instructions, 'bin/ci'
+    assert_includes instructions, 'IF CI FAILS (first attempt)'
+    assert_includes instructions, 'Retry CI'
+    assert_includes instructions, 'IF RETRY FAILS'
+    assert_includes instructions, 'ci_failed'
+  end
+
+  def test_task_auto_squash_instructions_includes_wvrunner_result
+    task_auto_squash = WvRunner::ClaudeCode::TaskAutoSquash.new(task_id: 789)
+    instructions = task_auto_squash.send(:build_instructions)
+    assert_includes instructions, 'WVRUNNER_RESULT'
+    assert_includes instructions, 'task_id'
+    assert_includes instructions, '789'
+  end
+
+  def test_task_auto_squash_instructions_includes_status_values
+    task_auto_squash = WvRunner::ClaudeCode::TaskAutoSquash.new(task_id: 123)
+    instructions = task_auto_squash.send(:build_instructions)
+    assert_includes instructions, 'success'
+    assert_includes instructions, 'ci_failed'
+    assert_includes instructions, 'failure'
+  end
+
+  def test_task_auto_squash_instructions_includes_compile_assets_step
+    task_auto_squash = WvRunner::ClaudeCode::TaskAutoSquash.new(task_id: 123)
+    instructions = task_auto_squash.send(:build_instructions)
+    assert_includes instructions, 'COMPILE TEST ASSETS'
+    assert_includes instructions, 'assets:precompile'
+  end
+
+  def test_task_auto_squash_instructions_includes_pr_review_check
+    task_auto_squash = WvRunner::ClaudeCode::TaskAutoSquash.new(task_id: 123)
+    instructions = task_auto_squash.send(:build_instructions)
+    assert_includes instructions, 'CHECK PR REVIEWS'
+    assert_includes instructions, 'gh pr view --json reviews,comments'
+    assert_includes instructions, 'actionable feedback'
+  end
+
+  def test_task_auto_squash_instructions_uses_test_runner_skill
+    task_auto_squash = WvRunner::ClaudeCode::TaskAutoSquash.new(task_id: 123)
+    instructions = task_auto_squash.send(:build_instructions)
+    assert_includes instructions, 'test-runner'
+    assert_includes instructions, '/test-runner'
+  end
+
+  def test_task_auto_squash_instructions_ci_step_uses_ci_runner_skill
+    task_auto_squash = WvRunner::ClaudeCode::TaskAutoSquash.new(task_id: 123)
+    instructions = task_auto_squash.send(:build_instructions)
+    assert_includes instructions, 'ci-runner'
+    assert_includes instructions, '/ci-runner'
+  end
+end

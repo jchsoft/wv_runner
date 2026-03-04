@@ -33,6 +33,14 @@ namespace :wv_runner do
 
       run_wv_runner_story_task(story_id)
     end
+
+    desc 'Run a specific task by ID, create PR but leave it open for review (pass task_id as argument)'
+    task :task, [:task_id] => :environment do |_t, args|
+      task_id = args[:task_id]&.to_i
+      raise ArgumentError, 'task_id is required. Usage: rake wv_runner:manual:task[123]' unless task_id&.positive?
+
+      run_wv_runner_task_manual(task_id)
+    end
   end
 
   namespace :auto do
@@ -53,6 +61,14 @@ namespace :wv_runner do
         raise ArgumentError, 'story_id is required. Usage: rake wv_runner:auto:squash:story[123]' unless story_id&.positive?
 
         run_wv_runner_auto_squash_story_task(story_id)
+      end
+
+      desc 'Run a specific task by ID with automatic PR squash-merge after CI passes (pass task_id as argument)'
+      task :task, [:task_id] => :environment do |_t, args|
+        task_id = args[:task_id]&.to_i
+        raise ArgumentError, 'task_id is required. Usage: rake wv_runner:auto:squash:task[123]' unless task_id&.positive?
+
+        run_wv_runner_auto_squash_task(task_id)
       end
 
       desc 'Process queue continuously 24/7 with automatic PR squash-merge after CI passes (no quota checks)'
@@ -87,6 +103,22 @@ namespace :wv_runner do
     verbose = verbose_mode_enabled?
     display_output_mode(verbose)
     WvRunner::WorkLoop.new(verbose: verbose, story_id: story_id).execute(:story_auto_squash)
+  end
+
+  def run_wv_runner_task_manual(task_id)
+    display_version_info
+    puts "[WvRunner] Task ID: #{task_id}"
+    verbose = verbose_mode_enabled?
+    display_output_mode(verbose)
+    WvRunner::WorkLoop.new(verbose: verbose, task_id: task_id).execute(:task_manual)
+  end
+
+  def run_wv_runner_auto_squash_task(task_id)
+    display_version_info
+    puts "[WvRunner] Task ID: #{task_id} (AUTO-SQUASH mode)"
+    verbose = verbose_mode_enabled?
+    display_output_mode(verbose)
+    WvRunner::WorkLoop.new(verbose: verbose, task_id: task_id).execute(:task_auto_squash)
   end
 
   def run_wv_runner_auto_once_task

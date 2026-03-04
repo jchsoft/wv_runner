@@ -6,11 +6,12 @@ module WvRunner
   # WorkLoop orchestrates Claude Code execution with different modes (once, today, daily)
   # and handles task scheduling with quota management and waiting strategies
   class WorkLoop
-    VALID_HOW_VALUES = %i[once today daily once_dry review reviews workflow story_manual story_auto_squash today_auto_squash queue_auto_squash queue_manual once_auto_squash].freeze
+    VALID_HOW_VALUES = %i[once today daily once_dry review reviews workflow story_manual story_auto_squash today_auto_squash queue_auto_squash queue_manual once_auto_squash task_manual task_auto_squash].freeze
 
-    def initialize(verbose: false, story_id: nil)
+    def initialize(verbose: false, story_id: nil, task_id: nil)
       @verbose = verbose
       @story_id = story_id
+      @task_id = task_id
     end
 
     def execute(how)
@@ -44,6 +45,26 @@ module WvRunner
       result = ClaudeCode::OnceAutoSquash.new(verbose: @verbose).run
       Logger.info_stdout("[WorkLoop] Task completed with status: #{result['status']}")
       Logger.debug("[WorkLoop] [run_once_auto_squash] Full result: #{result.inspect}")
+      result
+    end
+
+    def run_task_manual
+      raise ArgumentError, 'task_id is required for task_manual mode' unless @task_id
+
+      Logger.debug("[WorkLoop] [run_task_manual] Starting Task ##{@task_id} manual workflow...")
+      result = ClaudeCode::TaskManual.new(task_id: @task_id, verbose: @verbose).run
+      Logger.info_stdout("[WorkLoop] Task ##{@task_id} completed with status: #{result['status']}")
+      Logger.debug("[WorkLoop] [run_task_manual] Full result: #{result.inspect}")
+      result
+    end
+
+    def run_task_auto_squash
+      raise ArgumentError, 'task_id is required for task_auto_squash mode' unless @task_id
+
+      Logger.debug("[WorkLoop] [run_task_auto_squash] Starting Task ##{@task_id} auto-squash workflow...")
+      result = ClaudeCode::TaskAutoSquash.new(task_id: @task_id, verbose: @verbose).run
+      Logger.info_stdout("[WorkLoop] Task ##{@task_id} completed with status: #{result['status']}")
+      Logger.debug("[WorkLoop] [run_task_auto_squash] Full result: #{result.inspect}")
       result
     end
 
