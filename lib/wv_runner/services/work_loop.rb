@@ -34,38 +34,26 @@ module WvRunner
 
     def run_once
       Logger.debug('[WorkLoop] [run_once] Starting single task execution...')
-      result = ClaudeCode::Honest.new(verbose: @verbose).run
-      Logger.info_stdout("[WorkLoop] Task completed with status: #{result['status']}")
-      Logger.debug("[WorkLoop] [run_once] Full result: #{result.inspect}")
-      result
+      triage_and_execute(ClaudeCode::Honest)
     end
 
     def run_once_auto_squash
       Logger.debug('[WorkLoop] [run_once_auto_squash] Starting single task execution with auto-squash...')
-      result = ClaudeCode::OnceAutoSquash.new(verbose: @verbose).run
-      Logger.info_stdout("[WorkLoop] Task completed with status: #{result['status']}")
-      Logger.debug("[WorkLoop] [run_once_auto_squash] Full result: #{result.inspect}")
-      result
+      triage_and_execute(ClaudeCode::OnceAutoSquash)
     end
 
     def run_task_manual
       raise ArgumentError, 'task_id is required for task_manual mode' unless @task_id
 
       Logger.debug("[WorkLoop] [run_task_manual] Starting Task ##{@task_id} manual workflow...")
-      result = ClaudeCode::TaskManual.new(task_id: @task_id, verbose: @verbose).run
-      Logger.info_stdout("[WorkLoop] Task ##{@task_id} completed with status: #{result['status']}")
-      Logger.debug("[WorkLoop] [run_task_manual] Full result: #{result.inspect}")
-      result
+      triage_and_execute(ClaudeCode::TaskManual, task_id: @task_id)
     end
 
     def run_task_auto_squash
       raise ArgumentError, 'task_id is required for task_auto_squash mode' unless @task_id
 
       Logger.debug("[WorkLoop] [run_task_auto_squash] Starting Task ##{@task_id} auto-squash workflow...")
-      result = ClaudeCode::TaskAutoSquash.new(task_id: @task_id, verbose: @verbose).run
-      Logger.info_stdout("[WorkLoop] Task ##{@task_id} completed with status: #{result['status']}")
-      Logger.debug("[WorkLoop] [run_task_auto_squash] Full result: #{result.inspect}")
-      result
+      triage_and_execute(ClaudeCode::TaskAutoSquash, task_id: @task_id)
     end
 
     def run_once_dry
@@ -182,7 +170,7 @@ module WvRunner
       loop do
         iteration_count += 1
         Logger.debug("[WorkLoop] [run_today_auto_squash] Starting iteration ##{iteration_count}...")
-        result = ClaudeCode::TodayAutoSquash.new(verbose: @verbose).run
+        result = triage_and_execute(ClaudeCode::TodayAutoSquash)
         results << result
         Logger.info_stdout("[WorkLoop] Task ##{iteration_count} completed with status: #{result['status']}")
 
@@ -217,7 +205,7 @@ module WvRunner
       loop do
         iteration_count += 1
         Logger.debug("[WorkLoop] [run_queue_auto_squash] Starting iteration ##{iteration_count}...")
-        result = ClaudeCode::QueueAutoSquash.new(verbose: @verbose).run
+        result = triage_and_execute(ClaudeCode::QueueAutoSquash)
         results << result
         Logger.info_stdout("[WorkLoop] Task ##{iteration_count} completed with status: #{result['status']}")
 
@@ -243,7 +231,7 @@ module WvRunner
       loop do
         iteration_count += 1
         Logger.debug("[WorkLoop] [run_queue_manual] Starting iteration ##{iteration_count}...")
-        result = ClaudeCode::Honest.new(verbose: @verbose).run
+        result = triage_and_execute(ClaudeCode::Honest)
         results << result
         Logger.info_stdout("[WorkLoop] Task ##{iteration_count} completed with status: #{result['status']}")
 
@@ -296,7 +284,7 @@ module WvRunner
 
     def run_task_iteration(results)
       Logger.debug('[WorkLoop] [run_task_iteration] Running ClaudeCode::Honest for next task...')
-      result = ClaudeCode::Honest.new(verbose: @verbose).run
+      result = triage_and_execute(ClaudeCode::Honest)
       results << result
       Logger.debug("[WorkLoop] [run_task_iteration] Task completed with status: #{result['status']}")
       Logger.debug("[WorkLoop] [run_task_iteration] Task result: #{result.inspect}")
@@ -453,6 +441,42 @@ module WvRunner
 
       Logger.error("[WorkLoop] [validate_how] INVALID mode: #{how.inspect}")
       raise ArgumentError, "Invalid 'how' value: #{how}. Must be one of: #{VALID_HOW_VALUES.join(', ')}"
+    end
+
+    def triage_and_execute(executor_class, **kwargs)
+      task_id_for_triage = kwargs[:task_id] || @task_id
+
+      Logger.info_stdout('[WorkLoop] Running triage to select optimal model...')
+      triage_result = ClaudeCode::Triage.new(verbose: @verbose, task_id: task_id_for_triage).run
+
+      if triage_result['status'] == 'no_more_tasks'
+        Logger.info_stdout('[WorkLoop] Triage: no tasks available')
+        return triage_result
+      end
+
+      model_override = extract_triage_model(triage_result)
+      triaged_task_id = triage_result['task_id']
+
+      Logger.info_stdout("[WorkLoop] Triage recommended model: #{model_override} (task_id: #{triaged_task_id})")
+
+      executor_kwargs = kwargs.merge(verbose: @verbose, model_override: model_override)
+      executor_kwargs[:task_id] = triaged_task_id if triaged_task_id
+
+      result = executor_class.new(**executor_kwargs).run
+      Logger.info_stdout("[WorkLoop] Task completed with status: #{result['status']}")
+      Logger.debug("[WorkLoop] Full result: #{result.inspect}")
+      result
+    end
+
+    def extract_triage_model(triage_result)
+      recommended = triage_result['recommended_model']
+      case recommended
+      when 'sonnet' then 'sonnet'
+      when 'opus' then 'opusplan'
+      else
+        Logger.warn("[WorkLoop] Unknown triage model '#{recommended}', defaulting to opusplan")
+        'opusplan'
+      end
     end
   end
 end

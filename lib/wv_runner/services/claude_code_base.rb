@@ -25,8 +25,9 @@ module WvRunner
     PROCESS_KILL_TIMEOUT = 5 # seconds to wait for SIGTERM before SIGKILL
     HEARTBEAT_INTERVAL = 120 # 2 minutes between heartbeat messages
 
-    def initialize(verbose: false)
+    def initialize(verbose: false, model_override: nil)
       @verbose = verbose
+      @model_override = model_override
       @stopping = false
       @retry_count = 0
       @marker_retry_mode = false
@@ -158,7 +159,7 @@ module WvRunner
     def build_command(claude_path, instructions, continue_session: false)
       cmd = [claude_path]
       cmd << '--continue' if continue_session
-      cmd.concat(['-p', instructions, '--model', model_name, '--output-format=stream-json', '--verbose'])
+      cmd.concat(['-p', instructions, '--model', effective_model_name, '--output-format=stream-json', '--verbose'])
       cmd << '--permission-mode=bypassPermissions' if accept_edits?
       Logger.debug "command: #{cmd.map { |arg| Shellwords.escape(arg) }.join(' ')}"
       cmd
@@ -166,6 +167,10 @@ module WvRunner
 
     def accept_edits?
       true # Override in subclass if needed
+    end
+
+    def effective_model_name
+      @model_override || model_name
     end
 
     def execute_with_streaming(command)

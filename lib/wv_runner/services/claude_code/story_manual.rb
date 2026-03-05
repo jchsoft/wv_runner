@@ -7,8 +7,8 @@ module WvRunner
     # Processes tasks from a specific Story without auto-merge
     # Creates PRs for each task but leaves them open for human review
     class StoryManual < ClaudeCodeBase
-      def initialize(story_id:, verbose: false)
-        super(verbose: verbose)
+      def initialize(story_id:, verbose: false, model_override: nil)
+        super(verbose: verbose, model_override: model_override)
         @story_id = story_id
       end
 

@@ -7,8 +7,8 @@ module WvRunner
     # Processes a specific task by ID without auto-merge
     # Creates PR but leaves it open for human review
     class TaskManual < ClaudeCodeBase
-      def initialize(task_id:, verbose: false)
-        super(verbose: verbose)
+      def initialize(task_id:, verbose: false, model_override: nil)
+        super(verbose: verbose, model_override: model_override)
         @task_id = task_id
       end
 

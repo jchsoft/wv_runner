@@ -6,18 +6,33 @@ module WvRunner
   module ClaudeCode
     # Executes real work - creates branches, modifies code, creates PRs
     class Honest < ClaudeCodeBase
+      def initialize(verbose: false, model_override: nil, task_id: nil)
+        super(verbose: verbose, model_override: model_override)
+        @task_id = task_id
+      end
+
       def model_name = "opusplan"
 
       private
 
+      def task_fetch_url
+        if @task_id
+          "workvector://pieces/jchsoft/#{@task_id}"
+        else
+          project_id = project_relative_id or raise 'project_relative_id not found in CLAUDE.md'
+          "workvector://pieces/jchsoft/@next?project_relative_id=#{project_id}"
+        end
+      end
+
       def build_instructions
         project_id = project_relative_id or raise 'project_relative_id not found in CLAUDE.md'
+        fetch_url = task_fetch_url
 
         <<~INSTRUCTIONS
           [PERSONA]
           You are a senior Ruby On Rails software developer, following RubyWay principles.
           [TASK]
-          Work on next task from: workvector://pieces/jchsoft/@next?project_relative_id=#{project_id} and ultrathink! Create PullRequest and RUN LOCAL CI. DO EACH STEP OF THE WORKFLOW!
+          Work on next task from: #{fetch_url} and ultrathink! Create PullRequest and RUN LOCAL CI. DO EACH STEP OF THE WORKFLOW!
 
           #{time_awareness_instruction}
 
@@ -27,7 +42,7 @@ module WvRunner
           #{branch_resume_check_step(project_id: project_id, pull_on_main: true)}
 
           2. TASK FETCH: Get the next available task
-             - Read: workvector://pieces/jchsoft/@next?project_relative_id=#{project_id}
+             - Read: #{fetch_url}
              - If no tasks available: STOP and output status "no_more_tasks"
              - Verify task is NOT already started or completed
              - DISPLAY TASK INFO: After loading, output in this exact format:

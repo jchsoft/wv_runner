@@ -6,8 +6,8 @@ module WvRunner
   module ClaudeCode
     # Processes a specific task by ID with automatic PR squash-merge after CI passes
     class TaskAutoSquash < AutoSquashBase
-      def initialize(task_id:, verbose: false)
-        super(verbose: verbose)
+      def initialize(task_id:, verbose: false, model_override: nil)
+        super(verbose: verbose, model_override: model_override)
         @task_id = task_id
       end
 

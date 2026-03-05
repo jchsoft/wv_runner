@@ -7,8 +7,8 @@ module WvRunner
     # Processes tasks from a specific Story with automatic PR squash-merge after CI passes
     # Creates PRs for each task and automatically merges them after local CI passes
     class StoryAutoSquash < AutoSquashBase
-      def initialize(story_id:, verbose: false)
-        super(verbose: verbose)
+      def initialize(story_id:, verbose: false, model_override: nil)
+        super(verbose: verbose, model_override: model_override)
         @story_id = story_id
       end
 
