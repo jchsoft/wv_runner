@@ -35,15 +35,25 @@ module WvRunner
         <<~INSTRUCTIONS
           You are a task triage agent. Your ONLY job is to analyze a task and recommend which AI model should execute it.
 
-          1. Fetch the task from: #{fetch_url}
-          2. If no tasks available: output status "no_more_tasks" with recommended_model "opusplan"
-          3. Read the task: title, description, piece_type, and attachment FILENAMES only (do NOT download attachments)
-          4. Based on the classification rules below, decide the recommended model
-          5. Check if task is already in progress (RESUME DETECTION):
-             - Run: git branch --show-current
-             - If on a feature branch that contains the task ID (e.g., "feature/9508-contact-page" for task 9508):
-               → Set "resuming": true in the result
-             - Otherwise: set "resuming": false
+          STEP 1 - BRANCH & RESUME DETECTION (do this FIRST):
+          1. Run: git branch --show-current
+          2. If on main/master: skip to STEP 2 with resuming=false
+          3. If on a feature branch:
+             a. Try to extract a numeric task ID (4+ digits) from the branch name
+                (e.g., "feature/9508-contact-page" → task ID 9508)
+             b. If NO numeric ID found in branch name, check for an open PR:
+                Run: gh pr list --head $(git branch --show-current) --json body --jq '.[0].body'
+                Look for a mcptask.online task link (e.g., mcptask.online/jchsoft/tasks/9508) and extract the task ID
+             c. If task ID found from branch or PR: use workvector://pieces/jchsoft/{task_id} instead of the default fetch URL, set resuming=true
+             d. If no task ID found at all: skip to STEP 2 with resuming=false
+
+          STEP 2 - FETCH TASK:
+          1. Fetch the task from: #{fetch_url} (unless overridden by STEP 1c)
+          2. If no tasks available: output status "no_more_tasks" with recommended_model "opus"
+
+          STEP 3 - ANALYZE:
+          1. Read the task: title, description, piece_type, and attachment FILENAMES only (do NOT download attachments)
+          2. Based on the classification rules below, decide the recommended model
 
           MODEL SELECTION RULES:
           - "opus" if: Story (piece_type), Frontend work (views, CSS, JS, Slim, Tailwind, HTML templates),

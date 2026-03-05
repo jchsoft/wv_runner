@@ -71,6 +71,49 @@ class ClaudeCodeTriageTest < Minitest::Test
     end
   end
 
+  def test_branch_check_comes_before_task_fetch_in_instructions
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=7' do
+        triage = WvRunner::ClaudeCode::Triage.new
+        instructions = triage.send(:build_instructions)
+
+        branch_pos = instructions.index('BRANCH & RESUME DETECTION')
+        fetch_pos = instructions.index('FETCH TASK')
+        analyze_pos = instructions.index('ANALYZE')
+
+        assert branch_pos, 'Instructions must include BRANCH & RESUME DETECTION step'
+        assert fetch_pos, 'Instructions must include FETCH TASK step'
+        assert analyze_pos, 'Instructions must include ANALYZE step'
+        assert branch_pos < fetch_pos, 'Branch check must come before task fetch'
+        assert fetch_pos < analyze_pos, 'Task fetch must come before analyze'
+      end
+    end
+  end
+
+  def test_instructions_include_pr_fallback_for_branches_without_task_id
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=7' do
+        triage = WvRunner::ClaudeCode::Triage.new
+        instructions = triage.send(:build_instructions)
+
+        assert_includes instructions, 'gh pr list'
+        assert_includes instructions, 'mcptask.online'
+      end
+    end
+  end
+
+  def test_instructions_only_allow_opus_or_sonnet
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=7' do
+        triage = WvRunner::ClaudeCode::Triage.new
+        instructions = triage.send(:build_instructions)
+
+        assert_includes instructions, 'recommended_model MUST be exactly "opus" or "sonnet"'
+        refute_includes instructions, 'opusplan'
+      end
+    end
+  end
+
   def test_instructions_include_classification_criteria
     File.stub :exist?, true do
       File.stub :read, 'project_relative_id=7' do
