@@ -66,8 +66,8 @@ class ClaudeCodeBaseTest < Minitest::Test
     assert_equal 'Test error message', result['message']
   end
 
-  def test_timeout_constant_is_defined
-    assert_equal 5400, WvRunner::ClaudeCodeBase::CLAUDE_EXECUTION_TIMEOUT
+  def test_inactivity_timeout_constant_is_defined
+    assert_equal 1200, WvRunner::ClaudeCodeBase::INACTIVITY_TIMEOUT
   end
 
   def test_parse_result_returns_parsed_json_with_task_worked
@@ -433,8 +433,13 @@ class ClaudeCodeBaseTest < Minitest::Test
     base = WvRunner::ClaudeCodeBase.new
     instruction = base.send(:time_awareness_instruction)
     assert_includes instruction, 'TIME MANAGEMENT'
-    assert_includes instruction, '85-MINUTE'
+    assert_includes instruction, 'inactive for 20 minutes'
     assert_includes instruction, 'WVRUNNER_RESULT'
+  end
+
+  def test_initialize_sets_inactivity_timeout_to_false
+    base = WvRunner::ClaudeCodeBase.new
+    refute base.instance_variable_get(:@inactivity_timeout)
   end
 
   # Tests for release_test_lock method

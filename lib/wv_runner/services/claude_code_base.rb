@@ -19,7 +19,7 @@ module WvRunner
   # - build_instructions() -> returns instruction string
   # - model_name() -> returns the model to use (e.g., 'sonnet', 'haiku', 'opus')
   class ClaudeCodeBase
-    CLAUDE_EXECUTION_TIMEOUT = 5400 # 90 minutes in seconds
+    INACTIVITY_TIMEOUT = 1200 # 20 minutes - kill only if stream_line_count stops changing
     MAX_RETRY_ATTEMPTS = 3
     RETRY_WAIT_SECONDS = 30
     PROCESS_KILL_TIMEOUT = 5 # seconds to wait for SIGTERM before SIGKILL
@@ -33,6 +33,7 @@ module WvRunner
       @retry_count = 0
       @marker_retry_mode = false
       @result_received = false
+      @inactivity_timeout = false
       @child_pid = nil
       @execution_start_time = nil
       @stream_line_count = 0
@@ -108,7 +109,7 @@ module WvRunner
 
       if @retry_count >= MAX_RETRY_ATTEMPTS - 1
         Logger.error "[#{self.class.name}] #{error_type} - max retries reached"
-        return error_result("#{error_type} after #{CLAUDE_EXECUTION_TIMEOUT}s (#{elapsed_hours}h), retries exhausted")
+        return error_result("#{error_type} after #{INACTIVITY_TIMEOUT}s inactivity (#{elapsed_hours}h), retries exhausted")
       end
 
       Logger.warn "[#{self.class.name}] #{error_type} after #{elapsed_hours}h - will retry with --continue"
@@ -179,85 +180,105 @@ module WvRunner
       stderr_content = ''.dup
       stream_error = nil
       @result_received = false
+      @inactivity_timeout = false
       @stream_line_count = 0
       @child_pid = nil
       @execution_start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
-      Timeout.timeout(CLAUDE_EXECUTION_TIMEOUT) do
-        Open3.popen3(*command, pgroup: true) do |stdin, stdout, stderr, wait_thr|
-          @child_pid = wait_thr.pid
-          stdin.close
+      Open3.popen3(*command, pgroup: true) do |stdin, stdout, stderr, wait_thr|
+        @child_pid = wait_thr.pid
+        stdin.close
 
-          stdout_thread = Thread.new do
-            stream_lines(stdout) do |line|
-              stdout_content << line.dup
-              @stream_line_count += 1
-              check_for_result_message(line)
-              if OutputFormatter.should_log_to_stdout?(line)
-                formatted = OutputFormatter.format_line(line)
-                puts formatted
-                Logger.info(formatted)
-              else
-                Logger.debug("[#{self.class.name}] [streaming] #{line.strip}")
-              end
+        stdout_thread = Thread.new do
+          stream_lines(stdout) do |line|
+            stdout_content << line.dup
+            @stream_line_count += 1
+            check_for_result_message(line)
+            if OutputFormatter.should_log_to_stdout?(line)
+              formatted = OutputFormatter.format_line(line)
+              puts formatted
+              Logger.info(formatted)
+            else
+              Logger.debug("[#{self.class.name}] [streaming] #{line.strip}")
             end
-          rescue IOError, Errno::EBADF => e
-            handle_stream_error(e, 'stdout') { |err| stream_error = err }
-          rescue StandardError => e
-            Logger.error "[#{self.class.name}] stdout thread crashed: #{e.class}: #{e.message}"
-            stream_error = "stdout thread crashed: #{e.message}" unless @stopping
           end
+        rescue IOError, Errno::EBADF => e
+          handle_stream_error(e, 'stdout') { |err| stream_error = err }
+        rescue StandardError => e
+          Logger.error "[#{self.class.name}] stdout thread crashed: #{e.class}: #{e.message}"
+          stream_error = "stdout thread crashed: #{e.message}" unless @stopping
+        end
 
-          stderr_thread = Thread.new do
-            stream_lines(stderr) do |line|
-              Logger.warn "\n[Claude STDERR] #{line}"
-              stderr_content << line.dup
-            end
-          rescue IOError, Errno::EBADF => e
-            handle_stream_error(e, 'stderr') { |err| stream_error ||= err }
-          rescue StandardError => e
-            Logger.error "[#{self.class.name}] stderr thread crashed: #{e.class}: #{e.message}"
+        stderr_thread = Thread.new do
+          stream_lines(stderr) do |line|
+            Logger.warn "\n[Claude STDERR] #{line}"
+            stderr_content << line.dup
           end
+        rescue IOError, Errno::EBADF => e
+          handle_stream_error(e, 'stderr') { |err| stream_error ||= err }
+        rescue StandardError => e
+          Logger.error "[#{self.class.name}] stderr thread crashed: #{e.class}: #{e.message}"
+        end
 
-          heartbeat_thread = Thread.new do
-            loop do
-              sleep(HEARTBEAT_INTERVAL)
-              break if @result_received || @stopping
+        heartbeat_thread = Thread.new do
+          last_known_count = @stream_line_count
+          last_activity_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
-              Logger.info_stdout "[#{self.class.name}] [heartbeat] Claude is working... (#{@stream_line_count} stream events received)"
+          loop do
+            sleep(HEARTBEAT_INTERVAL)
+            break if @result_received || @stopping
+
+            current_count = @stream_line_count
+            now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+            if current_count != last_known_count
+              last_known_count = current_count
+              last_activity_time = now
             end
-          rescue StandardError => e
-            Logger.debug "[#{self.class.name}] Heartbeat thread error: #{e.message}"
-          end
 
-          begin
-            stdout_thread.join
-            stderr_thread.join
+            inactive_seconds = (now - last_activity_time).to_i
 
-            # Check if stream was unexpectedly closed
-            raise StreamClosedError, stream_error if stream_error && !@stopping
+            Logger.info_stdout "[#{self.class.name}] [heartbeat] Claude is working... " \
+                               "(#{current_count} stream events, inactive: #{inactive_seconds}s)"
 
-            exit_status = wait_thr.value
-            Logger.debug "[#{self.class.name}] Process exit status: #{exit_status.exitstatus}"
+            next unless inactive_seconds >= INACTIVITY_TIMEOUT
 
-            if exit_status.exitstatus != 0
-              Logger.debug "[#{self.class.name}] WARNING: Claude exited with non-zero status!"
-              Logger.debug "[#{self.class.name}] stderr: #{stderr_content}" unless stderr_content.empty?
-            end
-          ensure
-            heartbeat_thread&.kill
+            Logger.error "[#{self.class.name}] Claude inactive for #{inactive_seconds}s " \
+                         "(stream count stuck at #{current_count}), terminating..."
+            @stopping = true
+            @inactivity_timeout = true
             kill_process(wait_thr.pid)
+            release_test_lock
+            break
           end
+        rescue StandardError => e
+          Logger.debug "[#{self.class.name}] Heartbeat thread error: #{e.message}"
+        end
+
+        begin
+          stdout_thread.join
+          stderr_thread.join
+
+          # Check if stream was unexpectedly closed
+          raise StreamClosedError, stream_error if stream_error && !@stopping
+
+          # Check if heartbeat detected inactivity
+          raise Timeout::Error, "Claude inactive for #{INACTIVITY_TIMEOUT}s" if @inactivity_timeout
+
+          exit_status = wait_thr.value
+          Logger.debug "[#{self.class.name}] Process exit status: #{exit_status.exitstatus}"
+
+          if exit_status.exitstatus != 0
+            Logger.debug "[#{self.class.name}] WARNING: Claude exited with non-zero status!"
+            Logger.debug "[#{self.class.name}] stderr: #{stderr_content}" unless stderr_content.empty?
+          end
+        ensure
+          heartbeat_thread&.kill
+          kill_process(wait_thr.pid)
         end
       end
 
       stdout_content
-    rescue Timeout::Error
-      @stopping = true
-      Logger.error "[#{self.class.name}] Claude execution timed out after #{CLAUDE_EXECUTION_TIMEOUT} seconds"
-      kill_process(@child_pid) if @child_pid
-      release_test_lock
-      raise
     end
 
     def resolve_process_group(pid)
@@ -531,11 +552,12 @@ module WvRunner
     def time_awareness_instruction
       <<~INSTRUCTION.strip
         TIME MANAGEMENT (CRITICAL):
-        - You have a HARD 85-MINUTE execution limit. After 85 minutes you will be terminated.
+        - You should aim to complete within 90 minutes, but you will only be terminated if inactive for 20 minutes.
+        - "Inactive" means no new stream output for 20 minutes straight - as long as you're producing output, you're safe.
         - Before starting any long-running step (system tests, full CI), consider elapsed time.
         - If more than 70 minutes have elapsed, SKIP full test suites and full CI.
           Instead: run only targeted tests for YOUR changes, then proceed to output WVRUNNER_RESULT.
-        - ALWAYS prioritize outputting WVRUNNER_RESULT before the time limit.
+        - ALWAYS prioritize outputting WVRUNNER_RESULT when your work is complete.
       INSTRUCTION
     end
 
