@@ -1258,7 +1258,7 @@ class ClaudeCodeTaskManualTest < Minitest::Test
   def test_task_manual_instructions_includes_workflow_steps
     task_manual = WvRunner::ClaudeCode::TaskManual.new(task_id: 123)
     instructions = task_manual.send(:build_instructions)
-    assert_includes instructions, 'GIT STATE CHECK'
+    assert_includes instructions, 'GIT SETUP'
     assert_includes instructions, 'git checkout main'
     assert_includes instructions, 'CREATE BRANCH'
     assert_includes instructions, 'IMPLEMENT TASK'
@@ -1267,6 +1267,14 @@ class ClaudeCodeTaskManualTest < Minitest::Test
     assert_includes instructions, 'REFACTOR'
     assert_includes instructions, 'PUSH'
     assert_includes instructions, 'CREATE PULL REQUEST'
+  end
+
+  def test_task_manual_instructions_uses_resume_step_when_resuming
+    task_manual = WvRunner::ClaudeCode::TaskManual.new(task_id: 123, resuming: true)
+    instructions = task_manual.send(:build_instructions)
+    assert_includes instructions, 'RESUME IN-PROGRESS TASK'
+    assert_includes instructions, 'SKIP steps 2-3'
+    refute_includes instructions, 'GIT SETUP'
   end
 
   def test_task_manual_instructions_emphasizes_no_merge
@@ -1353,7 +1361,7 @@ class ClaudeCodeTaskAutoSquashTest < Minitest::Test
   def test_task_auto_squash_instructions_includes_workflow_steps
     task_auto_squash = WvRunner::ClaudeCode::TaskAutoSquash.new(task_id: 123)
     instructions = task_auto_squash.send(:build_instructions)
-    assert_includes instructions, 'GIT STATE CHECK'
+    assert_includes instructions, 'GIT SETUP'
     assert_includes instructions, 'git checkout main'
     assert_includes instructions, 'CREATE BRANCH'
     assert_includes instructions, 'IMPLEMENT TASK'
@@ -1362,6 +1370,14 @@ class ClaudeCodeTaskAutoSquashTest < Minitest::Test
     assert_includes instructions, 'REFACTOR'
     assert_includes instructions, 'PUSH'
     assert_includes instructions, 'CREATE PULL REQUEST'
+  end
+
+  def test_task_auto_squash_instructions_uses_resume_step_when_resuming
+    task_auto_squash = WvRunner::ClaudeCode::TaskAutoSquash.new(task_id: 123, resuming: true)
+    instructions = task_auto_squash.send(:build_instructions)
+    assert_includes instructions, 'RESUME IN-PROGRESS TASK'
+    assert_includes instructions, 'SKIP steps 2-3'
+    refute_includes instructions, 'GIT SETUP'
   end
 
   def test_task_auto_squash_instructions_includes_auto_merge

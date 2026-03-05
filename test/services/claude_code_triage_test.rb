@@ -59,6 +59,18 @@ class ClaudeCodeTriageTest < Minitest::Test
     end
   end
 
+  def test_instructions_include_resuming_field
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=7' do
+        triage = WvRunner::ClaudeCode::Triage.new
+        instructions = triage.send(:build_instructions)
+
+        assert_includes instructions, 'resuming'
+        assert_includes instructions, 'git branch --show-current'
+      end
+    end
+  end
+
   def test_instructions_include_classification_criteria
     File.stub :exist?, true do
       File.stub :read, 'project_relative_id=7' do

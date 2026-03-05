@@ -2,11 +2,11 @@
 
 # Shared helper for WorkLoop tests that need triage mocking
 module TriageTestHelper
-  def triage_mock(task_id: 123, recommended_model: 'opus')
+  def triage_mock(task_id: 123, recommended_model: 'opus', resuming: false)
     mock = Object.new
     mock.define_singleton_method(:run) do
       { 'status' => 'success', 'recommended_model' => recommended_model, 'task_id' => task_id,
-        'hours' => { 'per_day' => 8, 'task_estimated' => 2, 'already_worked' => 0 } }
+        'resuming' => resuming, 'hours' => { 'per_day' => 8, 'task_estimated' => 2, 'already_worked' => 0 } }
     end
     mock
   end

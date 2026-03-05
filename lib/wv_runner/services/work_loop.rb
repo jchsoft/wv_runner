@@ -444,7 +444,7 @@ module WvRunner
     end
 
     def triage_and_execute(executor_class, **kwargs)
-      task_id_for_triage = kwargs[:task_id] || @task_id
+      task_id_for_triage = kwargs[:task_id] || @task_id || detect_task_id_from_branch
 
       Logger.info_stdout('[WorkLoop] Running triage to select optimal model...')
       triage_result = ClaudeCode::Triage.new(verbose: @verbose, task_id: task_id_for_triage).run
@@ -456,16 +456,29 @@ module WvRunner
 
       model_override = extract_triage_model(triage_result)
       triaged_task_id = triage_result['task_id']
+      resuming = triage_result['resuming'] == true
 
-      Logger.info_stdout("[WorkLoop] Triage recommended model: #{model_override} (task_id: #{triaged_task_id})")
+      Logger.info_stdout("[WorkLoop] Triage recommended model: #{model_override} (task_id: #{triaged_task_id}, resuming: #{resuming})")
 
-      executor_kwargs = kwargs.merge(verbose: @verbose, model_override: model_override)
+      executor_kwargs = kwargs.merge(verbose: @verbose, model_override: model_override, resuming: resuming)
       executor_kwargs[:task_id] = triaged_task_id if triaged_task_id
 
       result = executor_class.new(**executor_kwargs).run
       Logger.info_stdout("[WorkLoop] Task completed with status: #{result['status']}")
       Logger.debug("[WorkLoop] Full result: #{result.inspect}")
       result
+    end
+
+    def detect_task_id_from_branch
+      branch = `git branch --show-current 2>/dev/null`.strip
+      return nil if branch.empty? || branch == 'main' || branch == 'master'
+
+      match = branch.match(/(\d{4,})/)
+      return nil unless match
+
+      task_id = match[1].to_i
+      Logger.info_stdout("[WorkLoop] Detected task ID #{task_id} from branch '#{branch}'")
+      task_id
     end
 
     def extract_triage_model(triage_result)

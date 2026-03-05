@@ -475,6 +475,22 @@ class ClaudeCodeBaseTest < Minitest::Test
     assert_includes step, 'git checkout main'
   end
 
+  # Tests for triaged_git_step method
+  def test_triaged_git_step_resuming_skips_checkout
+    base = WvRunner::ClaudeCodeBase.new
+    step = base.send(:triaged_git_step, resuming: true)
+    assert_includes step, 'RESUME'
+    refute_includes step, 'git checkout main'
+    assert_includes step, 'SKIP steps 2-3'
+  end
+
+  def test_triaged_git_step_not_resuming_checks_out_main
+    base = WvRunner::ClaudeCodeBase.new
+    step = base.send(:triaged_git_step, resuming: false)
+    assert_includes step, 'git checkout main && git pull'
+    refute_includes step, 'RESUME'
+  end
+
   def test_heartbeat_interval_constant_is_defined
     assert_equal 120, WvRunner::ClaudeCodeBase::HEARTBEAT_INTERVAL
   end

@@ -7,8 +7,8 @@ module WvRunner
     # Processes tasks from @next queue with automatic PR squash-merge after CI passes
     # Runs continuously 24/7 without quota checks or time limits
     class QueueAutoSquash < AutoSquashBase
-      def initialize(verbose: false, model_override: nil, task_id: nil)
-        super(verbose: verbose, model_override: model_override)
+      def initialize(verbose: false, model_override: nil, task_id: nil, resuming: false)
+        super(verbose: verbose, model_override: model_override, resuming: resuming)
         @task_id = task_id
       end
 
@@ -38,7 +38,7 @@ module WvRunner
           This is QUEUE mode - runs continuously 24/7 without quota checks.
 
           WORKFLOW:
-          #{branch_resume_check_step(project_id: project_id, pull_on_main: true)}
+          #{@task_id ? triaged_git_step(resuming: @resuming) : branch_resume_check_step(project_id: project_id, pull_on_main: true)}
 
           2. TASK FETCH: Get the next available task
              - Read: #{fetch_url}

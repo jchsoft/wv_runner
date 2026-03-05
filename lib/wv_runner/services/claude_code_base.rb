@@ -25,9 +25,10 @@ module WvRunner
     PROCESS_KILL_TIMEOUT = 5 # seconds to wait for SIGTERM before SIGKILL
     HEARTBEAT_INTERVAL = 120 # 2 minutes between heartbeat messages
 
-    def initialize(verbose: false, model_override: nil)
+    def initialize(verbose: false, model_override: nil, resuming: false)
       @verbose = verbose
       @model_override = model_override
+      @resuming = resuming
       @stopping = false
       @retry_count = 0
       @marker_retry_mode = false
@@ -462,6 +463,24 @@ module WvRunner
 
     def elapsed_execution_seconds
       Process.clock_gettime(Process::CLOCK_MONOTONIC) - @execution_start_time
+    end
+
+    def triaged_git_step(resuming:)
+      if resuming
+        <<~STEP.strip
+          1. RESUME IN-PROGRESS TASK:
+             - You are resuming a task that is already in progress on the current feature branch.
+             - Do NOT checkout main. Do NOT create a new branch.
+             - Review git log and current code state to understand what was already done.
+             - SKIP steps 2-3 (task fetch, branch creation) and go directly to step 4 (IMPLEMENT).
+        STEP
+      else
+        <<~STEP.strip
+          1. GIT SETUP:
+             - Run: git checkout main && git pull
+             - Proceed to step 2 (TASK FETCH)
+        STEP
+      end
     end
 
     def branch_resume_check_step(project_id:, pull_on_main: true)

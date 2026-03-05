@@ -7,8 +7,8 @@ module WvRunner
     # Processes a single task with automatic PR squash-merge after CI passes
     # Unlike queue_auto_squash, this runs exactly once and exits
     class OnceAutoSquash < AutoSquashBase
-      def initialize(verbose: false, model_override: nil, task_id: nil)
-        super(verbose: verbose, model_override: model_override)
+      def initialize(verbose: false, model_override: nil, task_id: nil, resuming: false)
+        super(verbose: verbose, model_override: model_override, resuming: resuming)
         @task_id = task_id
       end
 
@@ -38,7 +38,7 @@ module WvRunner
           This is ONCE mode - runs exactly once and exits after completing one task.
 
           WORKFLOW:
-          #{branch_resume_check_step(project_id: project_id, pull_on_main: true)}
+          #{@task_id ? triaged_git_step(resuming: @resuming) : branch_resume_check_step(project_id: project_id, pull_on_main: true)}
 
           2. TASK FETCH: Get the next available task
              - Read: #{fetch_url}

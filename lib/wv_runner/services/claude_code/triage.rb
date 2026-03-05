@@ -39,6 +39,11 @@ module WvRunner
           2. If no tasks available: output status "no_more_tasks" with recommended_model "opusplan"
           3. Read the task: title, description, piece_type, and attachment FILENAMES only (do NOT download attachments)
           4. Based on the classification rules below, decide the recommended model
+          5. Check if task is already in progress (RESUME DETECTION):
+             - Run: git branch --show-current
+             - If on a feature branch that contains the task ID (e.g., "feature/9508-contact-page" for task 9508):
+               → Set "resuming": true in the result
+             - Otherwise: set "resuming": false
 
           MODEL SELECTION RULES:
           - "opus" if: Story (piece_type), Frontend work (views, CSS, JS, Slim, Tailwind, HTML templates),
@@ -52,7 +57,7 @@ module WvRunner
           At the END, output JSON in this exact format - on a new line in a code block:
 
           ```json
-          WVRUNNER_RESULT: {"status": "success", "recommended_model": "opus", "task_id": 123, "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}}
+          WVRUNNER_RESULT: {"status": "success", "recommended_model": "opus", "task_id": 123, "resuming": false, "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}}
           ```
 
           CRITICAL FORMATTING:
@@ -61,6 +66,7 @@ module WvRunner
           3. NO other text after the closing triple backticks
           4. recommended_model MUST be exactly "opus" or "sonnet" (lowercase, no other values)
           5. task_id MUST be the numeric relative_id of the task
+          6. resuming MUST be true or false (boolean, not string)
 
           How to get the data:
           1. Read workvector://user -> use "hour_goal" for per_day, use "worked_out" for already_worked

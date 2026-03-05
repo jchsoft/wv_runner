@@ -7,8 +7,8 @@ module WvRunner
     # Processes a specific task by ID without auto-merge
     # Creates PR but leaves it open for human review
     class TaskManual < ClaudeCodeBase
-      def initialize(task_id:, verbose: false, model_override: nil)
-        super(verbose: verbose, model_override: model_override)
+      def initialize(task_id:, verbose: false, model_override: nil, resuming: false)
+        super(verbose: verbose, model_override: model_override, resuming: resuming)
         @task_id = task_id
       end
 
@@ -29,22 +29,16 @@ module WvRunner
           #{coding_conventions_instruction}
 
           WORKFLOW:
-          1. LOAD TASK: Get task details
+          #{triaged_git_step(resuming: @resuming)}
+
+          2. LOAD TASK: Get task details
              - Read: workvector://pieces/jchsoft/#{@task_id}
-             - If task is IN PROGRESS (progress > 0):
-               → This is a CONTINUATION - skip git checkout/branch creation (steps 2-3)
-               → Go directly to step 4 (IMPLEMENT TASK) and continue where it was left off
-             - If task is NEW (progress = 0): proceed normally with all steps
              - DISPLAY TASK INFO: After loading, output in this exact format:
                WVRUNNER_TASK_INFO:
                ID: <relative_id>
                TITLE: <task name>
                DESCRIPTION: <first 200 chars of description, or full if shorter>
                END_TASK_INFO
-
-          2. GIT STATE CHECK: Ensure you start from main branch
-             - Run: git checkout main && git pull
-             - This ensures you start from a clean, stable state
 
           3. CREATE BRANCH: Start work on a new feature branch
              - Use task name as branch name (e.g., "feature/task-name" or "fix/issue-name")
