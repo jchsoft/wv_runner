@@ -11,7 +11,7 @@ module WvRunner
     end
 
     def wait_one_hour
-      Logger.info_stdout("[WaitingStrategy] Waiting 1 hour before retry...")
+      Logger.info_stdout("[WaitingStrategy] Waiting 1 hour before retry... (since #{Time.now.strftime('%H:%M')})")
       Logger.debug("[WaitingStrategy] [wait_one_hour] Start time: #{Time.now.strftime('%Y-%m-%d %H:%M:%S')}")
       Logger.debug("[WaitingStrategy] [wait_one_hour] Resume time: #{(Time.now + 1.hour).strftime('%Y-%m-%d %H:%M:%S')}")
       sleep(3600)
@@ -19,7 +19,7 @@ module WvRunner
     end
 
     def wait_half_hour
-      Logger.info_stdout("[WaitingStrategy] Waiting 30 minutes before retry...")
+      Logger.info_stdout("[WaitingStrategy] Waiting 30 minutes before retry... (since #{Time.now.strftime('%H:%M')})")
       Logger.debug("[WaitingStrategy] [wait_half_hour] Start time: #{Time.now.strftime('%Y-%m-%d %H:%M:%S')}")
       Logger.debug("[WaitingStrategy] [wait_half_hour] Resume time: #{(Time.now + 30.minutes).strftime('%Y-%m-%d %H:%M:%S')}")
       sleep(1800)
