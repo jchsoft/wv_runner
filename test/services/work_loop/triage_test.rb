@@ -6,10 +6,10 @@ require_relative 'triage_test_helper'
 class WorkLoopTriageTest < Minitest::Test
   include TriageTestHelper
 
-  def test_extract_triage_model_maps_opus_to_opusplan
+  def test_extract_triage_model_passes_opus_through
     loop_instance = WvRunner::WorkLoop.new
     result = loop_instance.send(:extract_triage_model, { 'recommended_model' => 'opus' })
-    assert_equal 'opusplan', result
+    assert_equal 'opus', result
   end
 
   def test_extract_triage_model_maps_sonnet_to_sonnet
@@ -18,16 +18,16 @@ class WorkLoopTriageTest < Minitest::Test
     assert_equal 'sonnet', result
   end
 
-  def test_extract_triage_model_defaults_to_opusplan_for_unknown
+  def test_extract_triage_model_defaults_to_opus_for_unknown
     loop_instance = WvRunner::WorkLoop.new
     result = loop_instance.send(:extract_triage_model, { 'recommended_model' => 'haiku' })
-    assert_equal 'opusplan', result
+    assert_equal 'opus', result
   end
 
-  def test_extract_triage_model_defaults_to_opusplan_for_nil
+  def test_extract_triage_model_defaults_to_opus_for_nil
     loop_instance = WvRunner::WorkLoop.new
     result = loop_instance.send(:extract_triage_model, { 'recommended_model' => nil })
-    assert_equal 'opusplan', result
+    assert_equal 'opus', result
   end
 
   def test_triage_no_more_tasks_short_circuits

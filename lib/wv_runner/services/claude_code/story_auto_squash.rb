@@ -12,7 +12,7 @@ module WvRunner
         @story_id = story_id
       end
 
-      def model_name = "opusplan"
+      def model_name = "opus"
 
       private
 
