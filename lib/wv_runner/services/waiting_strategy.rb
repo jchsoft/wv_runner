@@ -11,18 +11,20 @@ module WvRunner
     end
 
     def wait_one_hour
-      Logger.info_stdout("[WaitingStrategy] Waiting 1 hour before retry... (since #{Time.now.strftime('%H:%M')})")
+      target_time = Time.now + 1.hour
+      Logger.info_stdout("[WaitingStrategy] Waiting 1 hour before retry... (since #{Time.now.strftime('%H:%M')}, until #{target_time.strftime('%H:%M')})")
       Logger.debug("[WaitingStrategy] [wait_one_hour] Start time: #{Time.now.strftime('%Y-%m-%d %H:%M:%S')}")
-      Logger.debug("[WaitingStrategy] [wait_one_hour] Resume time: #{(Time.now + 1.hour).strftime('%Y-%m-%d %H:%M:%S')}")
-      sleep(3600)
+      Logger.debug("[WaitingStrategy] [wait_one_hour] Resume time: #{target_time.strftime('%Y-%m-%d %H:%M:%S')}")
+      sleep_until(target_time)
       Logger.debug("[WaitingStrategy] [wait_one_hour] 1 hour wait complete, ready to retry")
     end
 
     def wait_half_hour
-      Logger.info_stdout("[WaitingStrategy] Waiting 30 minutes before retry... (since #{Time.now.strftime('%H:%M')})")
+      target_time = Time.now + 30.minutes
+      Logger.info_stdout("[WaitingStrategy] Waiting 30 minutes before retry... (since #{Time.now.strftime('%H:%M')}, until #{target_time.strftime('%H:%M')})")
       Logger.debug("[WaitingStrategy] [wait_half_hour] Start time: #{Time.now.strftime('%Y-%m-%d %H:%M:%S')}")
-      Logger.debug("[WaitingStrategy] [wait_half_hour] Resume time: #{(Time.now + 30.minutes).strftime('%Y-%m-%d %H:%M:%S')}")
-      sleep(1800)
+      Logger.debug("[WaitingStrategy] [wait_half_hour] Resume time: #{target_time.strftime('%Y-%m-%d %H:%M:%S')}")
+      sleep_until(target_time)
       Logger.debug("[WaitingStrategy] [wait_half_hour] 30 minute wait complete, ready to retry")
     end
 
@@ -38,11 +40,15 @@ module WvRunner
       end
 
       hours = (duration_seconds / 3600).round(2)
-      minutes = ((duration_seconds % 3600) / 60).round(0)
       Logger.info_stdout("[WaitingStrategy] Sleeping #{hours}h until #{until_time.strftime('%A, %Y-%m-%d at %H:%M:%S')}")
       Logger.debug("[WaitingStrategy] [sleep_until] Start time: #{Time.now.strftime('%Y-%m-%d %H:%M:%S')}")
 
-      sleep(duration_seconds.to_i)
+      # Sleep in chunks and check wall-clock time to handle macOS sleep/suspend
+      # correctly. A single long sleep() counts uptime, not wall-clock time.
+      while Time.now < until_time
+        remaining = until_time - Time.now
+        sleep([remaining, 60].min)
+      end
 
       Logger.debug("[WaitingStrategy] [sleep_until] Sleep complete, woke up at #{Time.now.strftime('%Y-%m-%d %H:%M:%S')}")
     end
