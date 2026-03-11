@@ -66,7 +66,14 @@ module WvRunner
       def task_discovery_steps
         if @task_id
           <<~STEPS.chomp
-            1. LOAD TASK DETAILS: Get full task information (task pre-selected by triage)
+            1. LOAD STORY CONTEXT: Read the story to understand the bigger picture
+                     - Read: workvector://pieces/jchsoft/#{@story_id}
+                     - Review the story name, description, and subtasks list
+                     - Understand the overall goal and how subtasks relate to each other
+                     - Note which subtasks are already completed for context
+                     - You will work on task ##{@task_id} (pre-selected by triage)
+
+                  2. LOAD TASK DETAILS: Get full task information
                      - Read: workvector://pieces/jchsoft/#{@task_id}
                      - If task is IN PROGRESS (progress > 0):
                        → This is a CONTINUATION - skip git checkout/branch creation (steps 3-4)
@@ -78,8 +85,6 @@ module WvRunner
                        TITLE: <task name>
                        DESCRIPTION: <first 200 chars of description, or full if shorter>
                        END_TASK_INFO
-
-                  2. (SKIPPED - task already selected by triage)
           STEPS
         else
           <<~STEPS.chomp
