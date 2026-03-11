@@ -389,7 +389,7 @@ class ClaudeCodeAutoSquashBaseTest < Minitest::Test
 
   def test_pr_review_check_step_includes_command
     # Use a concrete subclass to access the private method
-    obj = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 1)
+    obj = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 1, task_id: 456)
     step = obj.send(:pr_review_check_step)
     assert_includes step, 'CHECK PR REVIEWS'
     assert_includes step, 'gh pr view --json reviews,comments'
@@ -397,7 +397,7 @@ class ClaudeCodeAutoSquashBaseTest < Minitest::Test
   end
 
   def test_pr_review_check_step_sub_items_have_correct_indent
-    obj = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 1)
+    obj = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 1, task_id: 456)
     step = obj.send(:pr_review_check_step)
     lines = step.split("\n")
     assert lines[0].start_with?('- CHECK PR REVIEWS'), 'first line has no leading indent'
@@ -409,7 +409,7 @@ end
 
 class ClaudeCodeStoryAutoSquashTest < Minitest::Test
   def test_story_auto_squash_responds_to_run
-    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123, task_id: 456)
     assert_respond_to story_auto_squash, :run
   end
 
@@ -418,12 +418,12 @@ class ClaudeCodeStoryAutoSquashTest < Minitest::Test
   end
 
   def test_story_auto_squash_uses_opus_model
-    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123, task_id: 456)
     assert_equal 'opus', story_auto_squash.send(:model_name)
   end
 
   def test_story_auto_squash_accepts_edits
-    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123, task_id: 456)
     assert story_auto_squash.send(:accept_edits?)
   end
 
@@ -434,24 +434,23 @@ class ClaudeCodeStoryAutoSquashTest < Minitest::Test
   end
 
   def test_story_auto_squash_instructions_includes_story_id
-    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 456)
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 456, task_id: 789)
     instructions = story_auto_squash.send(:build_instructions)
     assert_includes instructions, 'Story #456'
     assert_includes instructions, 'workvector://pieces/jchsoft/456'
   end
 
-  def test_story_auto_squash_instructions_includes_load_story_step
-    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+  def test_story_auto_squash_instructions_includes_load_story_context_step
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123, task_id: 456)
     instructions = story_auto_squash.send(:build_instructions)
-    assert_includes instructions, 'LOAD STORY'
-    assert_includes instructions, 'subtasks array'
-    assert_includes instructions, 'NOT "Schváleno"'
-    assert_includes instructions, 'NOT "Hotovo?"'
-    assert_includes instructions, 'progress < 100'
+    assert_includes instructions, 'LOAD STORY CONTEXT'
+    assert_includes instructions, 'subtasks list'
+    assert_includes instructions, 'pre-selected by triage'
+    assert_includes instructions, 'workvector://pieces/jchsoft/123'
   end
 
   def test_story_auto_squash_instructions_includes_workflow_steps
-    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123, task_id: 456)
     instructions = story_auto_squash.send(:build_instructions)
     assert_includes instructions, 'GIT STATE CHECK'
     assert_includes instructions, 'git checkout main'
@@ -465,7 +464,7 @@ class ClaudeCodeStoryAutoSquashTest < Minitest::Test
   end
 
   def test_story_auto_squash_instructions_includes_auto_merge
-    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123, task_id: 456)
     instructions = story_auto_squash.send(:build_instructions)
     assert_includes instructions, 'AUTO-SQUASH'
     assert_includes instructions, 'gh pr merge --squash --delete-branch'
@@ -473,7 +472,7 @@ class ClaudeCodeStoryAutoSquashTest < Minitest::Test
   end
 
   def test_story_auto_squash_instructions_includes_ci_retry_logic
-    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123, task_id: 456)
     instructions = story_auto_squash.send(:build_instructions)
     assert_includes instructions, 'bin/ci'
     assert_includes instructions, 'IF CI FAILS (first attempt)'
@@ -483,7 +482,7 @@ class ClaudeCodeStoryAutoSquashTest < Minitest::Test
   end
 
   def test_story_auto_squash_instructions_includes_wvrunner_result
-    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 789)
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 789, task_id: 101)
     instructions = story_auto_squash.send(:build_instructions)
     assert_includes instructions, 'WVRUNNER_RESULT'
     assert_includes instructions, 'story_id'
@@ -492,7 +491,7 @@ class ClaudeCodeStoryAutoSquashTest < Minitest::Test
   end
 
   def test_story_auto_squash_instructions_includes_status_values
-    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123, task_id: 456)
     instructions = story_auto_squash.send(:build_instructions)
     assert_includes instructions, 'success'
     assert_includes instructions, 'no_more_tasks'
@@ -501,14 +500,14 @@ class ClaudeCodeStoryAutoSquashTest < Minitest::Test
   end
 
   def test_story_auto_squash_instructions_includes_compile_assets_step
-    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123, task_id: 456)
     instructions = story_auto_squash.send(:build_instructions)
     assert_includes instructions, 'COMPILE TEST ASSETS'
     assert_includes instructions, 'assets:precompile'
   end
 
   def test_story_auto_squash_instructions_includes_pr_review_check
-    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123, task_id: 456)
     instructions = story_auto_squash.send(:build_instructions)
     assert_includes instructions, 'CHECK PR REVIEWS'
     assert_includes instructions, 'gh pr view --json reviews,comments'
@@ -516,14 +515,14 @@ class ClaudeCodeStoryAutoSquashTest < Minitest::Test
   end
 
   def test_story_auto_squash_instructions_uses_test_runner_skill
-    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123, task_id: 456)
     instructions = story_auto_squash.send(:build_instructions)
     assert_includes instructions, 'test-runner'
     assert_includes instructions, '/test-runner'
   end
 
   def test_story_auto_squash_instructions_ci_step_uses_ci_runner_skill
-    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+    story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123, task_id: 456)
     instructions = story_auto_squash.send(:build_instructions)
     assert_includes instructions, 'ci-runner'
     assert_includes instructions, '/ci-runner'
@@ -688,7 +687,7 @@ end
 
 class ClaudeCodeStoryManualTest < Minitest::Test
   def test_story_manual_responds_to_run
-    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123, task_id: 456)
     assert_respond_to story_manual, :run
   end
 
@@ -697,12 +696,12 @@ class ClaudeCodeStoryManualTest < Minitest::Test
   end
 
   def test_story_manual_uses_opus_model
-    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123, task_id: 456)
     assert_equal 'opus', story_manual.send(:model_name)
   end
 
   def test_story_manual_accepts_edits
-    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123, task_id: 456)
     assert story_manual.send(:accept_edits?)
   end
 
@@ -713,32 +712,31 @@ class ClaudeCodeStoryManualTest < Minitest::Test
   end
 
   def test_story_manual_instructions_includes_story_id
-    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 456)
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 456, task_id: 789)
     instructions = story_manual.send(:build_instructions)
     assert_includes instructions, 'Story #456'
     assert_includes instructions, 'workvector://pieces/jchsoft/456'
   end
 
-  def test_story_manual_instructions_includes_load_story_step
-    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)
+  def test_story_manual_instructions_includes_load_story_context_step
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123, task_id: 456)
     instructions = story_manual.send(:build_instructions)
-    assert_includes instructions, 'LOAD STORY'
-    assert_includes instructions, 'subtasks array'
-    assert_includes instructions, 'NOT "Schváleno"'
-    assert_includes instructions, 'NOT "Hotovo?"'
-    assert_includes instructions, 'progress < 100'
+    assert_includes instructions, 'LOAD STORY CONTEXT'
+    assert_includes instructions, 'subtasks list'
+    assert_includes instructions, 'pre-selected by triage'
+    assert_includes instructions, 'workvector://pieces/jchsoft/123'
   end
 
   def test_story_manual_instructions_includes_load_task_details_step
-    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123, task_id: 456)
     instructions = story_manual.send(:build_instructions)
     assert_includes instructions, 'LOAD TASK DETAILS'
-    assert_includes instructions, 'task_relative_id'
+    assert_includes instructions, 'workvector://pieces/jchsoft/456'
     assert_includes instructions, 'WVRUNNER_TASK_INFO'
   end
 
   def test_story_manual_instructions_includes_workflow_steps
-    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123, task_id: 456)
     instructions = story_manual.send(:build_instructions)
     assert_includes instructions, 'GIT STATE CHECK'
     assert_includes instructions, 'git checkout main'
@@ -752,7 +750,7 @@ class ClaudeCodeStoryManualTest < Minitest::Test
   end
 
   def test_story_manual_instructions_emphasizes_no_merge
-    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123, task_id: 456)
     instructions = story_manual.send(:build_instructions)
     assert_includes instructions, 'NO MERGE'
     assert_includes instructions, 'MANUAL workflow'
@@ -761,7 +759,7 @@ class ClaudeCodeStoryManualTest < Minitest::Test
   end
 
   def test_story_manual_instructions_includes_wvrunner_result
-    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 789)
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 789, task_id: 101)
     instructions = story_manual.send(:build_instructions)
     assert_includes instructions, 'WVRUNNER_RESULT'
     assert_includes instructions, 'story_id'
@@ -770,7 +768,7 @@ class ClaudeCodeStoryManualTest < Minitest::Test
   end
 
   def test_story_manual_instructions_includes_status_values
-    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123, task_id: 456)
     instructions = story_manual.send(:build_instructions)
     assert_includes instructions, 'success'
     assert_includes instructions, 'no_more_tasks'
@@ -778,7 +776,7 @@ class ClaudeCodeStoryManualTest < Minitest::Test
   end
 
   def test_story_manual_instructions_includes_ci_step
-    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123, task_id: 456)
     instructions = story_manual.send(:build_instructions)
     assert_includes instructions, 'RUN LOCAL CI'
     assert_includes instructions, 'bin/ci'
@@ -788,14 +786,14 @@ class ClaudeCodeStoryManualTest < Minitest::Test
   end
 
   def test_story_manual_instructions_uses_test_runner_skill
-    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123, task_id: 456)
     instructions = story_manual.send(:build_instructions)
     assert_includes instructions, 'test-runner'
     assert_includes instructions, '/test-runner'
   end
 
   def test_story_manual_instructions_includes_screenshot_steps
-    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)
+    story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123, task_id: 456)
     instructions = story_manual.send(:build_instructions)
     assert_includes instructions, 'PREPARE SCREENSHOTS'
     assert_includes instructions, 'ADD SCREENSHOTS TO PR'
@@ -1173,7 +1171,7 @@ class TimeAwarenessInstructionsTest < Minitest::Test
   end
 
   def test_story_auto_squash_instructions_includes_time_management
-    obj = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123)
+    obj = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123, task_id: 456)
     instructions = obj.send(:build_instructions)
     assert_includes instructions, 'TIME MANAGEMENT'
     assert_includes instructions, 'inactive for 20 minutes'
@@ -1198,7 +1196,7 @@ class TimeAwarenessInstructionsTest < Minitest::Test
   end
 
   def test_story_manual_instructions_includes_time_management
-    obj = WvRunner::ClaudeCode::StoryManual.new(story_id: 123)
+    obj = WvRunner::ClaudeCode::StoryManual.new(story_id: 123, task_id: 456)
     instructions = obj.send(:build_instructions)
     assert_includes instructions, 'TIME MANAGEMENT'
     assert_includes instructions, 'inactive for 20 minutes'
