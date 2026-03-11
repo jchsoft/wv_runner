@@ -416,7 +416,10 @@ module WvRunner
       Logger.debug "[#{self.class.name}] [parse_result] Final JSON content to parse: #{json_content}"
 
       begin
-        result = JSON.parse(json_content).tap { |obj| obj['hours']['task_worked'] = elapsed_hours }
+        result = JSON.parse(json_content).tap do |obj|
+          obj['hours'] ||= {}
+          obj['hours']['task_worked'] = elapsed_hours
+        end
         Logger.debug "[#{self.class.name}] [parse_result] Successfully parsed result: #{result.inspect}"
         log_task_info(result)
         result
