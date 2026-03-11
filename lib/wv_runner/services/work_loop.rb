@@ -119,7 +119,7 @@ module WvRunner
       loop do
         iteration_count += 1
         Logger.debug("[WorkLoop] [run_story_manual] Starting iteration ##{iteration_count}...")
-        result = ClaudeCode::StoryManual.new(story_id: @story_id, verbose: @verbose).run
+        result = triage_and_execute(ClaudeCode::StoryManual, story_id: @story_id)
         results << result
         Logger.info_stdout("[WorkLoop] Task ##{iteration_count} completed with status: #{result['status']}")
 
@@ -145,7 +145,7 @@ module WvRunner
       loop do
         iteration_count += 1
         Logger.debug("[WorkLoop] [run_story_auto_squash] Starting iteration ##{iteration_count}...")
-        result = ClaudeCode::StoryAutoSquash.new(story_id: @story_id, verbose: @verbose).run
+        result = triage_and_execute(ClaudeCode::StoryAutoSquash, story_id: @story_id)
         results << result
         Logger.info_stdout("[WorkLoop] Task ##{iteration_count} completed with status: #{result['status']}")
 
@@ -445,9 +445,10 @@ module WvRunner
 
     def triage_and_execute(executor_class, **kwargs)
       task_id_for_triage = kwargs[:task_id] || @task_id || detect_task_id_from_branch
+      story_id_for_triage = kwargs[:story_id]
 
       Logger.info_stdout('[WorkLoop] Running triage to select optimal model...')
-      triage_result = ClaudeCode::Triage.new(verbose: @verbose, task_id: task_id_for_triage).run
+      triage_result = ClaudeCode::Triage.new(verbose: @verbose, task_id: task_id_for_triage, story_id: story_id_for_triage).run
 
       if triage_result['status'] == 'no_more_tasks'
         Logger.info_stdout('[WorkLoop] Triage: no tasks available')

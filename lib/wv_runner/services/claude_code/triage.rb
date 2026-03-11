@@ -7,9 +7,10 @@ module WvRunner
     # Triage step - cheap Haiku call that analyzes task complexity
     # and recommends the optimal model for execution
     class Triage < ClaudeCodeBase
-      def initialize(verbose: false, task_id: nil)
+      def initialize(verbose: false, task_id: nil, story_id: nil)
         super(verbose: verbose)
         @task_id = task_id
+        @story_id = story_id
       end
 
       def model_name = "haiku"
@@ -30,6 +31,61 @@ module WvRunner
       end
 
       def build_instructions
+        @story_id ? build_story_triage_instructions : build_standard_triage_instructions
+      end
+
+      def build_story_triage_instructions
+        <<~INSTRUCTIONS
+          You are a task triage agent. Your ONLY job is to find the next incomplete subtask from a Story and recommend which AI model should execute it.
+
+          STEP 1 - LOAD STORY:
+          1. Read: workvector://pieces/jchsoft/#{@story_id}
+          2. Find subtasks array in the response
+          3. Look for first task where state is NOT "Schváleno" and NOT "Hotovo?" and progress < 100
+          4. If no incomplete tasks found: output status "no_more_tasks" with recommended_model "opus"
+          5. Remember the task's relative_id for the next step
+
+          STEP 2 - FETCH TASK:
+          1. Read: workvector://pieces/jchsoft/<task_relative_id> (the task found in STEP 1)
+
+          STEP 3 - ANALYZE:
+          1. Read the task: title, description, piece_type, and attachment FILENAMES only (do NOT download attachments)
+          2. Based on the classification rules below, decide the recommended model
+
+          MODEL SELECTION RULES:
+          - "opus" if: Frontend work (views, CSS, JS, Slim, Tailwind, HTML templates),
+            Complex backend (new models, architecture, multi-file changes, migrations),
+            Ambiguous or unclear requirements, OR when in doubt
+          - "sonnet" if: Simple backend (single file, minor logic change, simple CRUD, config update),
+            Simple fix (CSS color change, JS tweak, typo fix, minor text change, simple validation)
+
+          DEFAULT: "opus" (when in doubt, always choose opus)
+
+          At the END, output JSON in this exact format - on a new line in a code block:
+
+          ```json
+          WVRUNNER_RESULT: {"status": "success", "recommended_model": "opus", "task_id": 123, "resuming": false, "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}}
+          ```
+
+          CRITICAL FORMATTING:
+          1. The JSON MUST be inside triple backticks (```json ... ```) on a separate line
+          2. Output VALID JSON with proper string escaping. Any quotes in string values must be escaped as \\"
+          3. NO other text after the closing triple backticks
+          4. recommended_model MUST be exactly "opus" or "sonnet" (lowercase, no other values)
+          5. task_id MUST be the numeric relative_id of the subtask (NOT the story)
+          6. resuming MUST be false (story triage always starts fresh tasks)
+
+          How to get the data:
+          1. Read workvector://user -> use "hour_goal" for per_day, use "worked_out" for already_worked
+             IMPORTANT: Read workvector://user at the very BEGINNING of the task before logging any work progress
+          2. From the subtask -> extract relative_id (as task_id) and parse "duration_best" field for task_estimated
+          3. Set status:
+             - "success" if subtask analyzed successfully
+             - "no_more_tasks" if no incomplete subtasks in the Story
+        INSTRUCTIONS
+      end
+
+      def build_standard_triage_instructions
         fetch_url = task_fetch_url
 
         <<~INSTRUCTIONS

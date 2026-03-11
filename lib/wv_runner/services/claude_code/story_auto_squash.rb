@@ -7,9 +7,10 @@ module WvRunner
     # Processes tasks from a specific Story with automatic PR squash-merge after CI passes
     # Creates PRs for each task and automatically merges them after local CI passes
     class StoryAutoSquash < AutoSquashBase
-      def initialize(story_id:, verbose: false, model_override: nil)
-        super(verbose: verbose, model_override: model_override)
+      def initialize(story_id:, verbose: false, model_override: nil, resuming: false, task_id: nil)
+        super(verbose: verbose, model_override: model_override, resuming: resuming)
         @story_id = story_id
+        @task_id = task_id
       end
 
       def model_name = "opus"
@@ -22,28 +23,10 @@ module WvRunner
           You are a senior Ruby On Rails software developer, following RubyWay principles.
 
           [TASK]
-          Work on the next incomplete task from Story ##{@story_id} with AUTOMATIC PR merge after CI passes.
+          Work on #{@task_id ? "task ##{@task_id} from" : 'the next incomplete task from'} Story ##{@story_id} with AUTOMATIC PR merge after CI passes.
 
           WORKFLOW:
-          1. LOAD STORY: Get story details to find subtasks
-             - Read: workvector://pieces/jchsoft/#{@story_id}
-             - Find subtasks array in the response
-             - Look for first task where state is NOT "Schváleno" and NOT "Hotovo?" and progress < 100
-             - If no incomplete tasks found: STOP and output status "no_more_tasks"
-             - Remember the task's relative_id for the next step
-
-          2. LOAD TASK DETAILS: Get full task information
-             - Read: workvector://pieces/jchsoft/<task_relative_id>
-             - If task is IN PROGRESS (progress > 0):
-               → This is a CONTINUATION - skip git checkout/branch creation (steps 3-4)
-               → Go directly to step 5 (IMPLEMENT TASK) and continue where it was left off
-             - If task is NEW (progress = 0): proceed normally with all steps
-             - DISPLAY TASK INFO: After loading, output in this exact format:
-               WVRUNNER_TASK_INFO:
-               ID: <relative_id>
-               TITLE: <task name>
-               DESCRIPTION: <first 200 chars of description, or full if shorter>
-               END_TASK_INFO
+          #{task_discovery_steps}
 
           3. GIT STATE CHECK: Ensure you start from main branch
              - Run: git checkout main && git pull
@@ -78,6 +61,49 @@ module WvRunner
              - "ci_failed" if CI failed after retry (PR stays open)
              - "failure" for other errors
         INSTRUCTIONS
+      end
+
+      def task_discovery_steps
+        if @task_id
+          <<~STEPS.chomp
+            1. LOAD TASK DETAILS: Get full task information (task pre-selected by triage)
+                     - Read: workvector://pieces/jchsoft/#{@task_id}
+                     - If task is IN PROGRESS (progress > 0):
+                       → This is a CONTINUATION - skip git checkout/branch creation (steps 3-4)
+                       → Go directly to step 5 (IMPLEMENT TASK) and continue where it was left off
+                     - If task is NEW (progress = 0): proceed normally with all steps
+                     - DISPLAY TASK INFO: After loading, output in this exact format:
+                       WVRUNNER_TASK_INFO:
+                       ID: <relative_id>
+                       TITLE: <task name>
+                       DESCRIPTION: <first 200 chars of description, or full if shorter>
+                       END_TASK_INFO
+
+                  2. (SKIPPED - task already selected by triage)
+          STEPS
+        else
+          <<~STEPS.chomp
+            1. LOAD STORY: Get story details to find subtasks
+                     - Read: workvector://pieces/jchsoft/#{@story_id}
+                     - Find subtasks array in the response
+                     - Look for first task where state is NOT "Schváleno" and NOT "Hotovo?" and progress < 100
+                     - If no incomplete tasks found: STOP and output status "no_more_tasks"
+                     - Remember the task's relative_id for the next step
+
+                  2. LOAD TASK DETAILS: Get full task information
+                     - Read: workvector://pieces/jchsoft/<task_relative_id>
+                     - If task is IN PROGRESS (progress > 0):
+                       → This is a CONTINUATION - skip git checkout/branch creation (steps 3-4)
+                       → Go directly to step 5 (IMPLEMENT TASK) and continue where it was left off
+                     - If task is NEW (progress = 0): proceed normally with all steps
+                     - DISPLAY TASK INFO: After loading, output in this exact format:
+                       WVRUNNER_TASK_INFO:
+                       ID: <relative_id>
+                       TITLE: <task name>
+                       DESCRIPTION: <first 200 chars of description, or full if shorter>
+                       END_TASK_INFO
+          STEPS
+        end
       end
     end
   end

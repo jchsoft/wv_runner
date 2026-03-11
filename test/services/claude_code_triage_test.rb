@@ -127,4 +127,55 @@ class ClaudeCodeTriageTest < Minitest::Test
       end
     end
   end
+
+  # Story triage tests
+
+  def test_story_triage_uses_story_instructions
+    triage = WvRunner::ClaudeCode::Triage.new(story_id: 8965)
+    instructions = triage.send(:build_instructions)
+
+    assert_includes instructions, 'LOAD STORY'
+    assert_includes instructions, 'workvector://pieces/jchsoft/8965'
+    assert_includes instructions, 'subtask'
+    refute_includes instructions, 'BRANCH & RESUME DETECTION'
+  end
+
+  def test_story_triage_includes_model_selection_rules
+    triage = WvRunner::ClaudeCode::Triage.new(story_id: 8965)
+    instructions = triage.send(:build_instructions)
+
+    assert_includes instructions, 'recommended_model'
+    assert_includes instructions, 'opus'
+    assert_includes instructions, 'sonnet'
+    assert_includes instructions, 'WVRUNNER_RESULT'
+  end
+
+  def test_story_triage_does_not_include_branch_detection
+    triage = WvRunner::ClaudeCode::Triage.new(story_id: 8965)
+    instructions = triage.send(:build_instructions)
+
+    refute_includes instructions, 'git branch --show-current'
+    refute_includes instructions, 'BRANCH & RESUME DETECTION'
+  end
+
+  def test_story_triage_finds_incomplete_subtasks
+    triage = WvRunner::ClaudeCode::Triage.new(story_id: 8965)
+    instructions = triage.send(:build_instructions)
+
+    assert_includes instructions, 'Schváleno'
+    assert_includes instructions, 'Hotovo?'
+    assert_includes instructions, 'progress < 100'
+  end
+
+  def test_standard_triage_without_story_id
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=7' do
+        triage = WvRunner::ClaudeCode::Triage.new
+        instructions = triage.send(:build_instructions)
+
+        assert_includes instructions, 'BRANCH & RESUME DETECTION'
+        refute_includes instructions, 'LOAD STORY'
+      end
+    end
+  end
 end
