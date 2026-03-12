@@ -65,7 +65,7 @@ class WorkLoopWorkflowTest < Minitest::Test
     call_count = [0]
     reviews_mock.define_singleton_method(:run) do
       call_count[0] += 1
-      call_count[0] == 1 ? { 'status' => 'success', 'pr' => 'PR #1' } : { 'status' => 'no_reviews' }
+      call_count[0] == 1 ? { 'status' => 'success', 'pr' => 'PR #1', 'hours' => { 'per_day' => 8, 'task_estimated' => 1 } } : { 'status' => 'no_reviews' }
     end
 
     honest_mock = Object.new

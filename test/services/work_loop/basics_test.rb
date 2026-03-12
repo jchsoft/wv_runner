@@ -50,6 +50,16 @@ class WorkLoopBasicsTest < Minitest::Test
     assert_instance_of WvRunner::WorkLoop, loop_instance
   end
 
+  def test_ignore_quota_can_be_passed_to_constructor
+    loop_instance = WvRunner::WorkLoop.new(ignore_quota: true)
+    assert_instance_of WvRunner::WorkLoop, loop_instance
+  end
+
+  def test_ignore_quota_defaults_to_false
+    loop_instance = WvRunner::WorkLoop.new
+    refute loop_instance.send(:quota_exceeded?, [])
+  end
+
   # Tests for no_more_tasks handling
   def test_no_tasks_available_detects_no_more_tasks_status
     loop_instance = WvRunner::WorkLoop.new

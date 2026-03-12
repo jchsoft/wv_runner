@@ -19,7 +19,7 @@ namespace :wv_runner do
            when :workflow
              'Run full workflow: process reviews first, then tasks for today (pass verbose=true for verbose output, default: normal mode)'
            when :queue
-             'Process queue continuously without quota checks or auto-merge, PRs stay open for review (pass verbose=true for verbose output, default: normal mode)'
+             'Process queue continuously, PRs stay open for review (pass verbose=true for verbose output, ignore_quota=true to skip quota checks)'
       end
       task mode => :environment do
         run_wv_runner_task(mode)
@@ -71,7 +71,7 @@ namespace :wv_runner do
         run_wv_runner_auto_squash_task(task_id)
       end
 
-      desc 'Process queue continuously 24/7 with automatic PR squash-merge after CI passes (no quota checks)'
+      desc 'Process queue continuously with automatic PR squash-merge after CI passes (pass ignore_quota=true to skip quota checks)'
       task queue: :environment do
         run_wv_runner_auto_squash_queue_task
       end
@@ -83,71 +83,91 @@ namespace :wv_runner do
   def run_wv_runner_task(mode)
     display_version_info
     verbose = verbose_mode_enabled?
+    ignore_quota = ignore_quota_enabled?
     display_output_mode(verbose)
+    display_quota_mode(ignore_quota)
     # Map :queue to :queue_manual for namespace :manual
     execute_mode = mode == :queue ? :queue_manual : mode
-    WvRunner::WorkLoop.new(verbose: verbose).execute(execute_mode)
+    WvRunner::WorkLoop.new(verbose: verbose, ignore_quota: ignore_quota).execute(execute_mode)
   end
 
   def run_wv_runner_story_task(story_id)
     display_version_info
     puts "[WvRunner] Story ID: #{story_id}"
     verbose = verbose_mode_enabled?
+    ignore_quota = ignore_quota_enabled?
     display_output_mode(verbose)
-    WvRunner::WorkLoop.new(verbose: verbose, story_id: story_id).execute(:story_manual)
+    display_quota_mode(ignore_quota)
+    WvRunner::WorkLoop.new(verbose: verbose, story_id: story_id, ignore_quota: ignore_quota).execute(:story_manual)
   end
 
   def run_wv_runner_auto_squash_story_task(story_id)
     display_version_info
     puts "[WvRunner] Story ID: #{story_id} (AUTO-SQUASH mode)"
     verbose = verbose_mode_enabled?
+    ignore_quota = ignore_quota_enabled?
     display_output_mode(verbose)
-    WvRunner::WorkLoop.new(verbose: verbose, story_id: story_id).execute(:story_auto_squash)
+    display_quota_mode(ignore_quota)
+    WvRunner::WorkLoop.new(verbose: verbose, story_id: story_id, ignore_quota: ignore_quota).execute(:story_auto_squash)
   end
 
   def run_wv_runner_task_manual(task_id)
     display_version_info
     puts "[WvRunner] Task ID: #{task_id}"
     verbose = verbose_mode_enabled?
+    ignore_quota = ignore_quota_enabled?
     display_output_mode(verbose)
-    WvRunner::WorkLoop.new(verbose: verbose, task_id: task_id).execute(:task_manual)
+    display_quota_mode(ignore_quota)
+    WvRunner::WorkLoop.new(verbose: verbose, task_id: task_id, ignore_quota: ignore_quota).execute(:task_manual)
   end
 
   def run_wv_runner_auto_squash_task(task_id)
     display_version_info
     puts "[WvRunner] Task ID: #{task_id} (AUTO-SQUASH mode)"
     verbose = verbose_mode_enabled?
+    ignore_quota = ignore_quota_enabled?
     display_output_mode(verbose)
-    WvRunner::WorkLoop.new(verbose: verbose, task_id: task_id).execute(:task_auto_squash)
+    display_quota_mode(ignore_quota)
+    WvRunner::WorkLoop.new(verbose: verbose, task_id: task_id, ignore_quota: ignore_quota).execute(:task_auto_squash)
   end
 
   def run_wv_runner_auto_once_task
     display_version_info
     puts '[WvRunner] AUTO-ONCE mode - single task will be automatically merged after CI passes'
     verbose = verbose_mode_enabled?
+    ignore_quota = ignore_quota_enabled?
     display_output_mode(verbose)
-    WvRunner::WorkLoop.new(verbose: verbose).execute(:once_auto_squash)
+    display_quota_mode(ignore_quota)
+    WvRunner::WorkLoop.new(verbose: verbose, ignore_quota: ignore_quota).execute(:once_auto_squash)
   end
 
   def run_wv_runner_auto_squash_today_task
     display_version_info
     puts '[WvRunner] AUTO-SQUASH TODAY mode - PRs will be automatically merged after CI passes'
     verbose = verbose_mode_enabled?
+    ignore_quota = ignore_quota_enabled?
     display_output_mode(verbose)
-    WvRunner::WorkLoop.new(verbose: verbose).execute(:today_auto_squash)
+    display_quota_mode(ignore_quota)
+    WvRunner::WorkLoop.new(verbose: verbose, ignore_quota: ignore_quota).execute(:today_auto_squash)
   end
 
   def run_wv_runner_auto_squash_queue_task
     display_version_info
-    puts '[WvRunner] AUTO-SQUASH QUEUE mode - 24/7 processing without quota checks'
+    puts '[WvRunner] AUTO-SQUASH QUEUE mode - processing queue'
     puts '[WvRunner] PRs will be automatically merged after CI passes'
     verbose = verbose_mode_enabled?
+    ignore_quota = ignore_quota_enabled?
     display_output_mode(verbose)
-    WvRunner::WorkLoop.new(verbose: verbose).execute(:queue_auto_squash)
+    display_quota_mode(ignore_quota)
+    WvRunner::WorkLoop.new(verbose: verbose, ignore_quota: ignore_quota).execute(:queue_auto_squash)
   end
 
   def verbose_mode_enabled?
     ENV['verbose']&.downcase == 'true'
+  end
+
+  def ignore_quota_enabled?
+    ENV['ignore_quota']&.downcase == 'true'
   end
 
   def display_version_info
@@ -159,5 +179,11 @@ namespace :wv_runner do
   def display_output_mode(verbose)
     mode = verbose ? 'VERBOSE' : 'NORMAL'
     puts "[WvRunner] Output mode: #{mode}"
+  end
+
+  def display_quota_mode(ignore_quota)
+    return unless ignore_quota
+
+    puts '[WvRunner] Quota checking: DISABLED (ignore_quota=true)'
   end
 end

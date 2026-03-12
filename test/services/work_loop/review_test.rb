@@ -97,6 +97,48 @@ class WorkLoopReviewTest < Minitest::Test
     end
   end
 
+  def test_execute_with_reviews_stops_on_quota_exceeded
+    mock = Object.new
+    def mock.run
+      { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 8 } }
+    end
+
+    decider_mock = Object.new
+    def decider_mock.should_stop?
+      true
+    end
+
+    WvRunner::ClaudeCode::Reviews.stub(:new, mock) do
+      WvRunner::Decider.stub(:new, decider_mock) do
+        loop_instance = WvRunner::WorkLoop.new
+        results = loop_instance.execute(:reviews)
+
+        assert_instance_of Array, results
+        assert_equal 1, results.length
+        assert_equal 'success', results.first['status']
+      end
+    end
+  end
+
+  def test_execute_with_reviews_ignore_quota_skips_check
+    call_count = [0]
+    mock = Object.new
+    mock.define_singleton_method(:run) do
+      call_count[0] += 1
+      call_count[0] == 1 ? { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 8 } } : { 'status' => 'no_reviews' }
+    end
+
+    WvRunner::ClaudeCode::Reviews.stub(:new, mock) do
+      Kernel.stub(:sleep, nil) do
+        loop_instance = WvRunner::WorkLoop.new(ignore_quota: true)
+        results = loop_instance.execute(:reviews)
+
+        assert_instance_of Array, results
+        assert_equal 2, results.length
+      end
+    end
+  end
+
   def test_execute_with_reviews_stops_on_failure
     mock = Object.new
     def mock.run

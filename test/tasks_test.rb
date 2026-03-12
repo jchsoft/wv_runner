@@ -187,8 +187,8 @@ class TasksTest < Minitest::Test
     rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
     content = File.read(rake_file)
 
-    assert content.include?("Process queue continuously 24/7"), "Should mention 24/7 processing"
-    assert content.include?("no quota checks"), "Should mention no quota checks"
+    assert content.include?("Process queue continuously"), "Should mention continuous processing"
+    assert content.include?("ignore_quota"), "Should mention ignore_quota option"
   end
 
   def test_rake_file_auto_squash_queue_task_calls_helper
@@ -220,5 +220,13 @@ class TasksTest < Minitest::Test
 
     assert content.include?("run_wv_runner_auto_once_task"), "Should call auto-once task helper"
     assert content.include?("execute(:once_auto_squash)"), "Should execute once_auto_squash mode"
+  end
+
+  def test_rake_file_supports_ignore_quota_env
+    rake_file = File.join(File.dirname(__FILE__), "..", "lib", "tasks", "wv_runner.rake")
+    content = File.read(rake_file)
+
+    assert content.include?("ignore_quota_enabled?"), "Should have ignore_quota helper method"
+    assert content.include?("ignore_quota:"), "Should pass ignore_quota to WorkLoop"
   end
 end

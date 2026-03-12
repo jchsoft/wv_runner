@@ -84,18 +84,43 @@ class WorkLoopQueueTest < Minitest::Test
     end
   end
 
-  def test_execute_with_queue_auto_squash_does_not_check_quota
+  def test_execute_with_queue_auto_squash_checks_quota
+    mock = Object.new
+    def mock.run
+      { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 8 } }
+    end
+
+    decider_mock = Object.new
+    def decider_mock.should_stop?
+      true
+    end
+
+    with_triage_stub do
+      WvRunner::ClaudeCode::QueueAutoSquash.stub(:new, mock) do
+        WvRunner::Decider.stub(:new, decider_mock) do
+          loop_instance = WvRunner::WorkLoop.new
+          results = loop_instance.execute(:queue_auto_squash)
+
+          assert_instance_of Array, results
+          assert_equal 1, results.length
+          assert_equal 'success', results.first['status']
+        end
+      end
+    end
+  end
+
+  def test_execute_with_queue_auto_squash_ignore_quota_skips_check
     call_count = [0]
     mock = Object.new
     mock.define_singleton_method(:run) do
       call_count[0] += 1
-      call_count[0] == 1 ? { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2 } } : { 'status' => 'no_more_tasks' }
+      call_count[0] == 1 ? { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 8 } } : { 'status' => 'no_more_tasks' }
     end
 
     with_triage_stub do
       WvRunner::ClaudeCode::QueueAutoSquash.stub(:new, mock) do
         Kernel.stub(:sleep, nil) do
-          loop_instance = WvRunner::WorkLoop.new
+          loop_instance = WvRunner::WorkLoop.new(ignore_quota: true)
           results = loop_instance.execute(:queue_auto_squash)
 
           assert_instance_of Array, results
@@ -165,18 +190,43 @@ class WorkLoopQueueTest < Minitest::Test
     end
   end
 
-  def test_execute_with_queue_manual_does_not_check_quota
+  def test_execute_with_queue_manual_checks_quota
+    mock = Object.new
+    def mock.run
+      { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 8 } }
+    end
+
+    decider_mock = Object.new
+    def decider_mock.should_stop?
+      true
+    end
+
+    with_triage_stub do
+      WvRunner::ClaudeCode::Honest.stub(:new, mock) do
+        WvRunner::Decider.stub(:new, decider_mock) do
+          loop_instance = WvRunner::WorkLoop.new
+          results = loop_instance.execute(:queue_manual)
+
+          assert_instance_of Array, results
+          assert_equal 1, results.length
+          assert_equal 'success', results.first['status']
+        end
+      end
+    end
+  end
+
+  def test_execute_with_queue_manual_ignore_quota_skips_check
     call_count = [0]
     mock = Object.new
     mock.define_singleton_method(:run) do
       call_count[0] += 1
-      call_count[0] == 1 ? { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2 } } : { 'status' => 'no_more_tasks' }
+      call_count[0] == 1 ? { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 8 } } : { 'status' => 'no_more_tasks' }
     end
 
     with_triage_stub do
       WvRunner::ClaudeCode::Honest.stub(:new, mock) do
         Kernel.stub(:sleep, nil) do
-          loop_instance = WvRunner::WorkLoop.new
+          loop_instance = WvRunner::WorkLoop.new(ignore_quota: true)
           results = loop_instance.execute(:queue_manual)
 
           assert_instance_of Array, results

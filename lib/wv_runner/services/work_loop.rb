@@ -8,10 +8,11 @@ module WvRunner
   class WorkLoop
     VALID_HOW_VALUES = %i[once today daily once_dry review reviews workflow story_manual story_auto_squash today_auto_squash queue_auto_squash queue_manual once_auto_squash task_manual task_auto_squash].freeze
 
-    def initialize(verbose: false, story_id: nil, task_id: nil)
+    def initialize(verbose: false, story_id: nil, task_id: nil, ignore_quota: false)
       @verbose = verbose
       @story_id = story_id
       @task_id = task_id
+      @ignore_quota = ignore_quota
     end
 
     def execute(how)
@@ -86,6 +87,7 @@ module WvRunner
 
         break if result['status'] == 'no_reviews'
         break if result['status'] == 'failure'
+        break if quota_exceeded?(results)
 
         Logger.debug('[WorkLoop] [run_reviews] Continuing to next review, sleeping 2 seconds...')
         sleep(2)
@@ -126,6 +128,7 @@ module WvRunner
         break if result['status'] == 'no_more_tasks'
         break if result['status'] == 'failure'
         break if result['status'] == 'task_already_started'
+        break if quota_exceeded?(results)
 
         Logger.debug('[WorkLoop] [run_story_manual] Continuing to next task, sleeping 2 seconds...')
         sleep(2)
@@ -153,6 +156,7 @@ module WvRunner
         break if result['status'] == 'failure'
         break if result['status'] == 'task_already_started'
         break if result['status'] == 'ci_failed'
+        break if quota_exceeded?(results)
 
         Logger.debug('[WorkLoop] [run_story_auto_squash] Continuing to next task, sleeping 2 seconds...')
         sleep(2)
@@ -181,13 +185,7 @@ module WvRunner
         end
         break if result['status'] == 'failure'
         break if result['status'] == 'ci_failed'
-
-        # Check quota using Decider
-        decider = Decider.new(task_results: results)
-        if decider.should_stop?
-          Logger.info_stdout('[WorkLoop] Quota reached, stopping auto-squash workflow')
-          break
-        end
+        break if quota_exceeded?(results)
 
         Logger.debug('[WorkLoop] [run_today_auto_squash] Continuing to next task, sleeping 2 seconds...')
         sleep(2)
@@ -198,7 +196,7 @@ module WvRunner
     end
 
     def run_queue_auto_squash
-      Logger.debug('[WorkLoop] [run_queue_auto_squash] Starting queue auto-squash workflow (24/7 mode, no quota checks)...')
+      Logger.debug('[WorkLoop] [run_queue_auto_squash] Starting queue auto-squash workflow...')
       results = []
       iteration_count = 0
 
@@ -212,8 +210,7 @@ module WvRunner
         break if result['status'] == 'no_more_tasks'
         break if result['status'] == 'failure'
         break if result['status'] == 'ci_failed'
-
-        # NO quota check - runs continuously 24/7 until queue is empty
+        break if quota_exceeded?(results)
 
         Logger.debug('[WorkLoop] [run_queue_auto_squash] Continuing to next task, sleeping 2 seconds...')
         sleep(2)
@@ -224,7 +221,7 @@ module WvRunner
     end
 
     def run_queue_manual
-      Logger.debug('[WorkLoop] [run_queue_manual] Starting queue manual workflow (no quota checks, no auto-merge)...')
+      Logger.debug('[WorkLoop] [run_queue_manual] Starting queue manual workflow...')
       results = []
       iteration_count = 0
 
@@ -237,9 +234,7 @@ module WvRunner
 
         break if result['status'] == 'no_more_tasks'
         break if result['status'] == 'failure'
-
-        # NO quota check, NO time check - runs continuously until queue is empty
-        # PRs stay open for manual review
+        break if quota_exceeded?(results)
 
         Logger.debug('[WorkLoop] [run_queue_manual] Continuing to next task, sleeping 2 seconds...')
         sleep(2)
@@ -295,13 +290,26 @@ module WvRunner
       is_end_of_day = end_of_day?
       Logger.debug("[WorkLoop] [should_stop_running_today?] End of day check: #{is_end_of_day} (current hour: #{Time.now.hour})")
 
-      decider = Decider.new(task_results: results)
-      should_stop_by_decider = decider.should_stop?
-      Logger.debug("[WorkLoop] [should_stop_running_today?] Decider says stop: #{should_stop_by_decider}")
-
-      should_stop = is_end_of_day || should_stop_by_decider
+      should_stop = is_end_of_day || quota_exceeded?(results)
       Logger.debug("[WorkLoop] [should_stop_running_today?] Final decision: stop = #{should_stop}")
       should_stop
+    end
+
+    def quota_exceeded?(results)
+      if @ignore_quota
+        Logger.debug('[WorkLoop] [quota_exceeded?] Quota check skipped (ignore_quota: true)')
+        return false
+      end
+
+      decider = Decider.new(task_results: results)
+      exceeded = decider.should_stop?
+      Logger.debug("[WorkLoop] [quota_exceeded?] Decider says stop: #{exceeded}")
+
+      if exceeded
+        Logger.info_stdout('[WorkLoop] Quota exceeded, stopping')
+      end
+
+      exceeded
     end
 
     def run_daily

@@ -199,6 +199,89 @@ class WorkLoopStoryTest < Minitest::Test
     end
   end
 
+  def test_execute_with_story_manual_stops_on_quota_exceeded
+    executor_mock = Object.new
+    def executor_mock.run
+      { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 8 } }
+    end
+
+    decider_mock = Object.new
+    def decider_mock.should_stop?
+      true
+    end
+
+    WvRunner::ClaudeCode::Triage.stub(:new, triage_mock) do
+      WvRunner::ClaudeCode::StoryManual.stub(:new, executor_mock) do
+        WvRunner::Decider.stub(:new, decider_mock) do
+          loop_instance = WvRunner::WorkLoop.new(story_id: 123)
+          results = loop_instance.execute(:story_manual)
+
+          assert_instance_of Array, results
+          assert_equal 1, results.length
+          assert_equal 'success', results.first['status']
+        end
+      end
+    end
+  end
+
+  def test_execute_with_story_manual_ignore_quota_skips_check
+    call_count = [0]
+    executor_mock = Object.new
+    executor_mock.define_singleton_method(:run) do
+      call_count[0] += 1
+      call_count[0] == 1 ? { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 8 } } : { 'status' => 'no_more_tasks' }
+    end
+
+    triage_call_count = [0]
+    triage_mock_obj = Object.new
+    triage_mock_obj.define_singleton_method(:run) do
+      triage_call_count[0] += 1
+      if triage_call_count[0] <= 2
+        { 'status' => 'success', 'recommended_model' => 'opus', 'task_id' => 456,
+          'resuming' => false, 'hours' => { 'per_day' => 8, 'task_estimated' => 8, 'already_worked' => 0 } }
+      else
+        { 'status' => 'no_more_tasks', 'recommended_model' => 'opus' }
+      end
+    end
+
+    WvRunner::ClaudeCode::Triage.stub(:new, triage_mock_obj) do
+      WvRunner::ClaudeCode::StoryManual.stub(:new, executor_mock) do
+        Kernel.stub(:sleep, nil) do
+          loop_instance = WvRunner::WorkLoop.new(story_id: 123, ignore_quota: true)
+          results = loop_instance.execute(:story_manual)
+
+          assert_instance_of Array, results
+          assert_equal 2, results.length
+        end
+      end
+    end
+  end
+
+  def test_execute_with_story_auto_squash_stops_on_quota_exceeded
+    executor_mock = Object.new
+    def executor_mock.run
+      { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 8 } }
+    end
+
+    decider_mock = Object.new
+    def decider_mock.should_stop?
+      true
+    end
+
+    WvRunner::ClaudeCode::Triage.stub(:new, triage_mock) do
+      WvRunner::ClaudeCode::StoryAutoSquash.stub(:new, executor_mock) do
+        WvRunner::Decider.stub(:new, decider_mock) do
+          loop_instance = WvRunner::WorkLoop.new(story_id: 123)
+          results = loop_instance.execute(:story_auto_squash)
+
+          assert_instance_of Array, results
+          assert_equal 1, results.length
+          assert_equal 'success', results.first['status']
+        end
+      end
+    end
+  end
+
   def test_story_manual_triage_passes_model_and_task_id_to_executor
     triage_mock_obj = Object.new
     def triage_mock_obj.run
