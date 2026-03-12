@@ -19,4 +19,8 @@ Gem::Specification.new do |spec|
 
   spec.add_development_dependency "minitest", "~> 5.0"
   spec.add_development_dependency "minitest-mock", "~> 1.0"
+  spec.add_development_dependency "rubocop", "~> 1.0"
+  spec.add_development_dependency "rubocop-rails-omakase", "~> 1.0"
+  spec.add_development_dependency "reek", "~> 6.0"
+  spec.add_development_dependency "flay", "~> 2.0"
 end

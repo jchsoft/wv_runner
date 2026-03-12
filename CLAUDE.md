@@ -6,10 +6,11 @@
 - Project name is: WorkVector
 - project_relative_id=7
 
-## Testing
-- Test runner: `ruby test_runner.rb` runs all 128 tests across 14 test files
-- Individual tests: `ruby -I lib -I test test/services/<test_file>.rb`
-- All tests must pass before committing changes
+## CI & Quality Checks
+- **Full CI**: `ruby bin/ci` runs all checks (tests, RuboCop, Reek, Flay)
+- **Tests only**: `ruby test_runner.rb` runs all tests
+- **Individual tests**: `ruby -I lib -I test test/services/<test_file>.rb`
+- **All checks must pass before committing changes**
 
 ## Version Management
 **Important**: After successfully completing this wv_runner task (when code is committed and ready):

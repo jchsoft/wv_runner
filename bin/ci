@@ -1,0 +1,41 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+puts "CI Runner - wv_runner"
+puts "=" * 80
+puts
+
+STEPS = [
+  { name: "Tests", command: "ruby test_runner.rb" },
+  { name: "RuboCop", command: "rubocop lib/" },
+  { name: "Reek", command: "reek lib/" },
+  { name: "Flay", command: "flay --mass 25 --liberal lib/**/*.rb" }
+].freeze
+
+results = []
+
+STEPS.each do |step|
+  puts "-" * 80
+  puts ">> #{step[:name]}"
+  puts "-" * 80
+  start_time = Time.now
+  success = system(step[:command])
+  elapsed = (Time.now - start_time).round(1)
+  puts
+  puts "#{success ? 'PASS' : 'FAIL'} (#{elapsed}s)"
+  puts
+  results << { name: step[:name], passed: success, elapsed: elapsed }
+end
+
+puts "=" * 80
+puts "CI SUMMARY"
+puts "-" * 80
+results.each do |r|
+  icon = r[:passed] ? "OK" : "FAIL"
+  puts "  #{icon.ljust(6)} #{r[:name]} (#{r[:elapsed]}s)"
+end
+puts "=" * 80
+
+all_passed = results.all? { |r| r[:passed] }
+puts all_passed ? "All checks passed!" : "Some checks FAILED"
+exit(all_passed ? 0 : 1)

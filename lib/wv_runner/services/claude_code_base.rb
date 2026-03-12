@@ -37,12 +37,13 @@ module WvRunner
       @child_pid = nil
       @execution_start_time = nil
       @stream_line_count = 0
+      @log_tag = @log_tag
       OutputFormatter.verbose_mode = verbose
     end
 
     def run
-      Logger.info_stdout "[#{self.class.name}] Starting execution..."
-      Logger.info_stdout "[#{self.class.name}] Output mode: #{@verbose ? 'VERBOSE' : 'NORMAL'}"
+      Logger.info_stdout "[#{@log_tag}] Starting execution..."
+      Logger.info_stdout "[#{@log_tag}] Output mode: #{@verbose ? 'VERBOSE' : 'NORMAL'}"
       start_time = Time.now
       @accumulated_output = ''.dup
 
@@ -59,7 +60,7 @@ module WvRunner
         @retry_count += 1
         break if @retry_count >= MAX_RETRY_ATTEMPTS
 
-        Logger.info_stdout "[#{self.class.name}] Waiting #{RETRY_WAIT_SECONDS}s before retry #{@retry_count}/#{MAX_RETRY_ATTEMPTS}..."
+        Logger.info_stdout "[#{@log_tag}] Waiting #{RETRY_WAIT_SECONDS}s before retry #{@retry_count}/#{MAX_RETRY_ATTEMPTS}..."
         sleep(RETRY_WAIT_SECONDS)
       end
 
@@ -72,10 +73,10 @@ module WvRunner
       instructions = @marker_retry_mode ? build_marker_retry_instructions : build_instructions
       command = build_command(claude_path, instructions, continue_session: @retry_count.positive? || @marker_retry_mode)
 
-      Logger.debug "[#{self.class.name}] Executing Claude with instructions (length: #{instructions.length} chars)"
-      Logger.info_stdout "[#{self.class.name}] Starting real-time stream of Claude output:"
-      Logger.info_stdout "[#{self.class.name}] Retry attempt: #{@retry_count + 1}/#{MAX_RETRY_ATTEMPTS}" if @retry_count.positive?
-      Logger.info_stdout "[#{self.class.name}] Marker retry mode: ON" if @marker_retry_mode
+      Logger.debug "[#{@log_tag}] Executing Claude with instructions (length: #{instructions.length} chars)"
+      Logger.info_stdout "[#{@log_tag}] Starting real-time stream of Claude output:"
+      Logger.info_stdout "[#{@log_tag}] Retry attempt: #{@retry_count + 1}/#{MAX_RETRY_ATTEMPTS}" if @retry_count.positive?
+      Logger.info_stdout "[#{@log_tag}] Marker retry mode: ON" if @marker_retry_mode
       Logger.info_stdout '-' * 80
 
       @stopping = false
@@ -83,10 +84,10 @@ module WvRunner
       @accumulated_output << stdout_content
 
       Logger.info_stdout '-' * 80
-      Logger.info_stdout "[#{self.class.name}] Claude execution completed, parsing results..."
+      Logger.info_stdout "[#{@log_tag}] Claude execution completed, parsing results..."
 
       elapsed_hours = ((Time.now - start_time) / 3600.0).round(2)
-      Logger.info_stdout "[#{self.class.name}] Elapsed time: #{elapsed_hours} hours"
+      Logger.info_stdout "[#{@log_tag}] Elapsed time: #{elapsed_hours} hours"
 
       result = parse_result(@accumulated_output, elapsed_hours)
 
@@ -108,11 +109,11 @@ module WvRunner
       elapsed_hours = ((Time.now - start_time) / 3600.0).round(2)
 
       if @retry_count >= MAX_RETRY_ATTEMPTS - 1
-        Logger.error "[#{self.class.name}] #{error_type} - max retries reached"
+        Logger.error "[#{@log_tag}] #{error_type} - max retries reached"
         return error_result("#{error_type} after #{INACTIVITY_TIMEOUT}s inactivity (#{elapsed_hours}h), retries exhausted")
       end
 
-      Logger.warn "[#{self.class.name}] #{error_type} after #{elapsed_hours}h - will retry with --continue"
+      Logger.warn "[#{@log_tag}] #{error_type} after #{elapsed_hours}h - will retry with --continue"
       nil # Signal to retry
     end
 
@@ -120,11 +121,11 @@ module WvRunner
       elapsed_hours = ((Time.now - start_time) / 3600.0).round(2)
 
       if @retry_count >= MAX_RETRY_ATTEMPTS - 1
-        Logger.error "[#{self.class.name}] Missing marker - max retries reached"
+        Logger.error "[#{@log_tag}] Missing marker - max retries reached"
         return error_result("Missing WVRUNNER_RESULT after retries exhausted (#{elapsed_hours}h)")
       end
 
-      Logger.warn "[#{self.class.name}] Missing WVRUNNER_RESULT marker - will retry with marker-only instruction"
+      Logger.warn "[#{@log_tag}] Missing WVRUNNER_RESULT marker - will retry with marker-only instruction"
       @marker_retry_mode = true
       nil # Signal to retry
     end
@@ -150,11 +151,11 @@ module WvRunner
     end
 
     def resolve_claude_path
-      Logger.debug "[#{self.class.name}] Resolving Claude executable path..."
+      Logger.debug "[#{@log_tag}] Resolving Claude executable path..."
       claude_path = ENV['CLAUDE_PATH'] || find_claude_executable
       raise 'Claude executable not found. Set CLAUDE_PATH environment variable.' unless claude_path
 
-      Logger.info_stdout "[#{self.class.name}] Found Claude at: #{claude_path}"
+      Logger.info_stdout "[#{@log_tag}] Found Claude at: #{claude_path}"
       claude_path
     end
 
@@ -199,13 +200,13 @@ module WvRunner
               puts formatted
               Logger.info(formatted)
             else
-              Logger.debug("[#{self.class.name}] [streaming] #{line.strip}")
+              Logger.debug("[#{@log_tag}] [streaming] #{line.strip}")
             end
           end
         rescue IOError, Errno::EBADF => e
           handle_stream_error(e, 'stdout') { |err| stream_error = err }
         rescue StandardError => e
-          Logger.error "[#{self.class.name}] stdout thread crashed: #{e.class}: #{e.message}"
+          Logger.error "[#{@log_tag}] stdout thread crashed: #{e.class}: #{e.message}"
           stream_error = "stdout thread crashed: #{e.message}" unless @stopping
         end
 
@@ -217,7 +218,7 @@ module WvRunner
         rescue IOError, Errno::EBADF => e
           handle_stream_error(e, 'stderr') { |err| stream_error ||= err }
         rescue StandardError => e
-          Logger.error "[#{self.class.name}] stderr thread crashed: #{e.class}: #{e.message}"
+          Logger.error "[#{@log_tag}] stderr thread crashed: #{e.class}: #{e.message}"
         end
 
         heartbeat_thread = Thread.new do
@@ -238,12 +239,12 @@ module WvRunner
 
             inactive_seconds = (now - last_activity_time).to_i
 
-            Logger.info_stdout "[#{self.class.name}] [heartbeat] Claude is working... " \
+            Logger.info_stdout "[#{@log_tag}] [heartbeat] Claude is working... " \
                                "(#{current_count} stream events, inactive: #{inactive_seconds}s)"
 
             next unless inactive_seconds >= INACTIVITY_TIMEOUT
 
-            Logger.error "[#{self.class.name}] Claude inactive for #{inactive_seconds}s " \
+            Logger.error "[#{@log_tag}] Claude inactive for #{inactive_seconds}s " \
                          "(stream count stuck at #{current_count}), terminating..."
             @stopping = true
             @inactivity_timeout = true
@@ -252,7 +253,7 @@ module WvRunner
             break
           end
         rescue StandardError => e
-          Logger.debug "[#{self.class.name}] Heartbeat thread error: #{e.message}"
+          Logger.debug "[#{@log_tag}] Heartbeat thread error: #{e.message}"
         end
 
         begin
@@ -266,11 +267,11 @@ module WvRunner
           raise Timeout::Error, "Claude inactive for #{INACTIVITY_TIMEOUT}s" if @inactivity_timeout
 
           exit_status = wait_thr.value
-          Logger.debug "[#{self.class.name}] Process exit status: #{exit_status.exitstatus}"
+          Logger.debug "[#{@log_tag}] Process exit status: #{exit_status.exitstatus}"
 
           if exit_status.exitstatus != 0
-            Logger.debug "[#{self.class.name}] WARNING: Claude exited with non-zero status!"
-            Logger.debug "[#{self.class.name}] stderr: #{stderr_content}" unless stderr_content.empty?
+            Logger.debug "[#{@log_tag}] WARNING: Claude exited with non-zero status!"
+            Logger.debug "[#{@log_tag}] stderr: #{stderr_content}" unless stderr_content.empty?
           end
         ensure
           heartbeat_thread&.kill
@@ -301,13 +302,13 @@ module WvRunner
       kill_target = pgid ? -pgid : pid
       target_label = pgid ? "process group #{pgid}" : "pid #{pid}"
 
-      Logger.info_stdout "[#{self.class.name}] Terminating Claude #{target_label}..."
+      Logger.info_stdout "[#{@log_tag}] Terminating Claude #{target_label}..."
       begin
         Process.kill('TERM', kill_target)
       rescue Errno::ESRCH
         return
       rescue Errno::EPERM
-        Logger.warn "[#{self.class.name}] No permission to kill #{target_label}, falling back to pid #{pid}"
+        Logger.warn "[#{@log_tag}] No permission to kill #{target_label}, falling back to pid #{pid}"
         safe_kill('TERM', pid) || return
       end
 
@@ -316,19 +317,19 @@ module WvRunner
         begin
           Process.kill(0, pid)
         rescue Errno::ESRCH
-          Logger.debug "[#{self.class.name}] Process #{pid} terminated after SIGTERM"
+          Logger.debug "[#{@log_tag}] Process #{pid} terminated after SIGTERM"
           return
         end
       end
 
-      Logger.warn "[#{self.class.name}] Process #{pid} not responding to SIGTERM, sending SIGKILL..."
+      Logger.warn "[#{@log_tag}] Process #{pid} not responding to SIGTERM, sending SIGKILL..."
       begin
         Process.kill('KILL', kill_target)
       rescue Errno::ESRCH, Errno::EPERM
         safe_kill('KILL', pid)
       end
     rescue StandardError => e
-      Logger.warn "[#{self.class.name}] Error during process cleanup: #{e.message}"
+      Logger.warn "[#{@log_tag}] Error during process cleanup: #{e.message}"
     end
 
     def stream_lines(io)
@@ -342,7 +343,7 @@ module WvRunner
       return if @stopping # Expected closure during timeout/shutdown
 
       error_msg = "#{stream_name} stream closed unexpectedly: #{error.message}"
-      Logger.warn "[#{self.class.name}] #{error_msg}"
+      Logger.warn "[#{@log_tag}] #{error_msg}"
       yield error_msg
     end
 
@@ -354,7 +355,7 @@ module WvRunner
 
       @result_received = true
       @stopping = true # Mark as expected shutdown
-      Logger.info_stdout "[#{self.class.name}] Result received, stopping streams..."
+      Logger.info_stdout "[#{@log_tag}] Result received, stopping streams..."
     rescue JSON::ParserError
       # Not JSON or invalid, ignore
     end
@@ -368,64 +369,64 @@ module WvRunner
     end
 
     def parse_result(stdout, elapsed_hours)
-      Logger.debug "[#{self.class.name}] [parse_result] Starting to parse Claude output..."
-      Logger.debug "[#{self.class.name}] [parse_result] Total output length: #{stdout.length} chars"
+      Logger.debug "[#{@log_tag}] [parse_result] Starting to parse Claude output..."
+      Logger.debug "[#{@log_tag}] [parse_result] Total output length: #{stdout.length} chars"
 
       marker = 'WVRUNNER_RESULT: '
-      Logger.debug "[#{self.class.name}] [parse_result] Searching for marker: '#{marker}'"
+      Logger.debug "[#{@log_tag}] [parse_result] Searching for marker: '#{marker}'"
 
       index = stdout.index(marker)
       unless index
-        Logger.debug "[#{self.class.name}] [parse_result] ERROR: Marker not found in output!"
-        Logger.debug "[#{self.class.name}] [parse_result] First 500 chars: #{stdout.first(500)}"
-        Logger.debug "[#{self.class.name}] [parse_result] Last 500 chars: #{stdout.last(500)}"
+        Logger.debug "[#{@log_tag}] [parse_result] ERROR: Marker not found in output!"
+        Logger.debug "[#{@log_tag}] [parse_result] First 500 chars: #{stdout.first(500)}"
+        Logger.debug "[#{@log_tag}] [parse_result] Last 500 chars: #{stdout.last(500)}"
         # Check if there are any code blocks that might contain partial marker
         code_blocks = stdout.scan(/```[\s\S]{0,100}/).first(3)
-        Logger.debug "[#{self.class.name}] [parse_result] Code block starts found: #{code_blocks.inspect}" if code_blocks.any?
+        Logger.debug "[#{@log_tag}] [parse_result] Code block starts found: #{code_blocks.inspect}" if code_blocks.any?
         return error_result('No WVRUNNER_RESULT found in output')
       end
 
-      Logger.debug "[#{self.class.name}] [parse_result] Marker found at index #{index}"
+      Logger.debug "[#{@log_tag}] [parse_result] Marker found at index #{index}"
 
       after_marker = stdout[(index + marker.length)..]
-      Logger.debug "[#{self.class.name}] [parse_result] Content after marker (first 300 chars): #{after_marker[0...300]}"
+      Logger.debug "[#{@log_tag}] [parse_result] Content after marker (first 300 chars): #{after_marker[0...300]}"
 
       brace_index = after_marker.index('{')
       unless brace_index
-        Logger.debug "[#{self.class.name}] [parse_result] ERROR: No opening brace found after marker!"
+        Logger.debug "[#{@log_tag}] [parse_result] ERROR: No opening brace found after marker!"
         return error_result('Could not find JSON object after WVRUNNER_RESULT marker')
       end
 
-      Logger.debug "[#{self.class.name}] [parse_result] Opening brace found at index #{brace_index}"
+      Logger.debug "[#{@log_tag}] [parse_result] Opening brace found at index #{brace_index}"
 
       json_str = after_marker[brace_index..]
-      Logger.debug "[#{self.class.name}] [parse_result] Extracted JSON string (first 200 chars): #{json_str[0...200]}"
+      Logger.debug "[#{@log_tag}] [parse_result] Extracted JSON string (first 200 chars): #{json_str[0...200]}"
 
       json_end = find_json_end(json_str)
       unless json_end
-        Logger.debug "[#{self.class.name}] [parse_result] ERROR: Could not find JSON object boundaries!"
-        Logger.debug "[#{self.class.name}] [parse_result] JSON string: #{json_str[0...300]}"
+        Logger.debug "[#{@log_tag}] [parse_result] ERROR: Could not find JSON object boundaries!"
+        Logger.debug "[#{@log_tag}] [parse_result] JSON string: #{json_str[0...300]}"
         return error_result('Could not find complete JSON object')
       end
 
-      Logger.debug "[#{self.class.name}] [parse_result] JSON object ends at position #{json_end}"
+      Logger.debug "[#{@log_tag}] [parse_result] JSON object ends at position #{json_end}"
 
       json_content = json_str[0...json_end].strip
       json_content = json_content.gsub('\"', '"')
       json_content = json_content.gsub('\\\"', '\"')
-      Logger.debug "[#{self.class.name}] [parse_result] Final JSON content to parse: #{json_content}"
+      Logger.debug "[#{@log_tag}] [parse_result] Final JSON content to parse: #{json_content}"
 
       begin
         result = JSON.parse(json_content).tap do |obj|
           obj['hours'] ||= {}
           obj['hours']['task_worked'] = elapsed_hours
         end
-        Logger.debug "[#{self.class.name}] [parse_result] Successfully parsed result: #{result.inspect}"
+        Logger.debug "[#{@log_tag}] [parse_result] Successfully parsed result: #{result.inspect}"
         log_task_info(result)
         result
       rescue JSON::ParserError => e
-        Logger.debug "[#{self.class.name}] [parse_result] ERROR: JSON parsing failed: #{e.message}"
-        Logger.debug "[#{self.class.name}] [parse_result] Attempted to parse: #{json_content.inspect}"
+        Logger.debug "[#{@log_tag}] [parse_result] ERROR: JSON parsing failed: #{e.message}"
+        Logger.debug "[#{@log_tag}] [parse_result] Attempted to parse: #{json_content.inspect}"
         error_result("Failed to parse JSON: #{e.message}")
       end
     end
@@ -476,12 +477,12 @@ module WvRunner
         i += 1
       end
 
-      Logger.debug "[#{self.class.name}] [find_json_end] ERROR: JSON object not properly closed, final brace_count: #{brace_count}"
+      Logger.debug "[#{@log_tag}] [find_json_end] ERROR: JSON object not properly closed, final brace_count: #{brace_count}"
       nil
     end
 
     def error_result(message)
-      Logger.debug "[#{self.class.name}] [error_result] Creating error result: #{message}"
+      Logger.debug "[#{@log_tag}] [error_result] Creating error result: #{message}"
       { 'status' => 'error', 'message' => message }
     end
 
@@ -570,32 +571,32 @@ module WvRunner
 
       system(test_lock, 'release')
     rescue StandardError => e
-      Logger.warn "[#{self.class.name}] Failed to release test lock: #{e.message}"
+      Logger.warn "[#{@log_tag}] Failed to release test lock: #{e.message}"
     end
 
     def find_claude_executable
-      Logger.debug "[#{self.class.name}] [find_claude_executable] Searching for Claude executable..."
+      Logger.debug "[#{@log_tag}] [find_claude_executable] Searching for Claude executable..."
       paths = %w[~/.claude/local/claude ~/.local/bin/claude /usr/local/bin/claude /opt/homebrew/bin/claude]
 
       paths.each do |path|
         expanded_path = File.expand_path(path)
-        Logger.debug "[#{self.class.name}] [find_claude_executable] Checking: #{expanded_path}"
+        Logger.debug "[#{@log_tag}] [find_claude_executable] Checking: #{expanded_path}"
         if File.executable?(expanded_path)
-          Logger.debug "[#{self.class.name}] [find_claude_executable] Found executable Claude at: #{expanded_path}"
+          Logger.debug "[#{@log_tag}] [find_claude_executable] Found executable Claude at: #{expanded_path}"
           return expanded_path
         else
-          Logger.debug "[#{self.class.name}] [find_claude_executable] Not found or not executable: #{expanded_path}"
+          Logger.debug "[#{@log_tag}] [find_claude_executable] Not found or not executable: #{expanded_path}"
         end
       end
 
-      Logger.debug "[#{self.class.name}] [find_claude_executable] Trying 'which claude' fallback..."
+      Logger.debug "[#{@log_tag}] [find_claude_executable] Trying 'which claude' fallback..."
       which_path = find_claude_via_which
       if which_path
-        Logger.debug "[#{self.class.name}] [find_claude_executable] Found executable Claude via 'which': #{which_path}"
+        Logger.debug "[#{@log_tag}] [find_claude_executable] Found executable Claude via 'which': #{which_path}"
         return which_path
       end
 
-      Logger.debug "[#{self.class.name}] [find_claude_executable] ERROR: Claude executable not found in any standard locations"
+      Logger.debug "[#{@log_tag}] [find_claude_executable] ERROR: Claude executable not found in any standard locations"
       nil
     end
 
@@ -605,7 +606,7 @@ module WvRunner
 
       nil
     rescue StandardError => e
-      Logger.debug "[#{self.class.name}] [find_claude_via_which] Error running 'which claude': #{e.message}"
+      Logger.debug "[#{@log_tag}] [find_claude_via_which] Error running 'which claude': #{e.message}"
       nil
     end
 
