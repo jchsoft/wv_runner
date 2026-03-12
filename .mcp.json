@@ -5,7 +5,7 @@
       "name": "mcptask.online Production",
       "url": "https://mcptask.online/mcp/sse",
       "headers": {
-        "Authorization": "Bearer ${WORKVECTOR_KAMR_TOKEN}"
+        "Authorization": "Bearer ${WORKVECTOR_TOKEN}"
       }
     },
     "llmmn-production": {
