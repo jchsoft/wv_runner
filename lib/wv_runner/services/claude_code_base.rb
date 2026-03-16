@@ -46,6 +46,7 @@ module WvRunner
       Logger.info_stdout "[#{@log_tag}] Output mode: #{@verbose ? 'VERBOSE' : 'NORMAL'}"
       start_time = Time.now
       @accumulated_output = ''.dup
+      @text_content = ''.dup
 
       run_with_retry(start_time)
     end
@@ -194,6 +195,7 @@ module WvRunner
           stream_lines(stdout) do |line|
             stdout_content << line.dup
             @stream_line_count += 1
+            @text_content << extract_text_from_line(line)
             check_for_result_message(line)
             if OutputFormatter.should_log_to_stdout?(line)
               formatted = OutputFormatter.format_line(line)
@@ -371,40 +373,59 @@ module WvRunner
       raise NotImplementedError, "#{self.class} must implement model_name"
     end
 
+    def extract_text_from_line(line)
+      parsed = JSON.parse(line)
+      if (content = parsed.dig('message', 'content'))
+        content.select { |item| item['type'] == 'text' }
+               .map { |item| item['text'] }
+               .join
+      elsif parsed.dig('delta', 'type') == 'text_delta'
+        parsed.dig('delta', 'text') || ''
+      else
+        ''
+      end
+    rescue JSON::ParserError
+      ''
+    end
+
     def parse_result(stdout, elapsed_hours)
       Logger.debug "[#{@log_tag}] [parse_result] Starting to parse Claude output..."
-      Logger.debug "[#{@log_tag}] [parse_result] Total output length: #{stdout.length} chars"
+
+      # Prefer clean extracted text over raw stream-json
+      source = @text_content && !@text_content.empty? ? @text_content : stdout
+      from_text_content = source.equal?(@text_content)
+      Logger.debug "[#{@log_tag}] [parse_result] Using #{from_text_content ? 'extracted text' : 'raw stream-json'} (#{source.length} chars)"
 
       marker = 'WVRUNNER_RESULT: '
-      Logger.debug "[#{@log_tag}] [parse_result] Searching for marker: '#{marker}'"
+      index = source.index(marker)
 
-      index = stdout.index(marker)
+      # Fall back to raw stdout if text content didn't contain the marker
+      if !index && from_text_content
+        Logger.debug "[#{@log_tag}] [parse_result] Marker not found in text content, falling back to raw output"
+        source = stdout
+        from_text_content = false
+        index = source.index(marker)
+      end
+
       unless index
         Logger.debug "[#{@log_tag}] [parse_result] ERROR: Marker not found in output!"
-        Logger.debug "[#{@log_tag}] [parse_result] First 500 chars: #{stdout.first(500)}"
-        Logger.debug "[#{@log_tag}] [parse_result] Last 500 chars: #{stdout.last(500)}"
-        # Check if there are any code blocks that might contain partial marker
-        code_blocks = stdout.scan(/```[\s\S]{0,100}/).first(3)
+        Logger.debug "[#{@log_tag}] [parse_result] First 500 chars: #{source.first(500)}"
+        Logger.debug "[#{@log_tag}] [parse_result] Last 500 chars: #{source.last(500)}"
+        code_blocks = source.scan(/```[\s\S]{0,100}/).first(3)
         Logger.debug "[#{@log_tag}] [parse_result] Code block starts found: #{code_blocks.inspect}" if code_blocks.any?
         return error_result('No WVRUNNER_RESULT found in output')
       end
 
       Logger.debug "[#{@log_tag}] [parse_result] Marker found at index #{index}"
 
-      after_marker = stdout[(index + marker.length)..]
-      Logger.debug "[#{@log_tag}] [parse_result] Content after marker (first 300 chars): #{after_marker[0...300]}"
-
+      after_marker = source[(index + marker.length)..]
       brace_index = after_marker.index('{')
       unless brace_index
         Logger.debug "[#{@log_tag}] [parse_result] ERROR: No opening brace found after marker!"
         return error_result('Could not find JSON object after WVRUNNER_RESULT marker')
       end
 
-      Logger.debug "[#{@log_tag}] [parse_result] Opening brace found at index #{brace_index}"
-
       json_str = after_marker[brace_index..]
-      Logger.debug "[#{@log_tag}] [parse_result] Extracted JSON string (first 200 chars): #{json_str[0...200]}"
-
       json_end = find_json_end(json_str)
       unless json_end
         Logger.debug "[#{@log_tag}] [parse_result] ERROR: Could not find JSON object boundaries!"
@@ -412,11 +433,14 @@ module WvRunner
         return error_result('Could not find complete JSON object')
       end
 
-      Logger.debug "[#{@log_tag}] [parse_result] JSON object ends at position #{json_end}"
-
       json_content = json_str[0...json_end].strip
-      json_content = json_content.gsub('\"', '"')
-      json_content = json_content.gsub('\\\"', '\"')
+
+      # Only unescape when parsing raw stream-json (text content is already clean)
+      unless from_text_content
+        json_content = json_content.gsub('\"', '"')
+        json_content = json_content.gsub('\\\"', '\"')
+      end
+
       Logger.debug "[#{@log_tag}] [parse_result] Final JSON content to parse: #{json_content}"
 
       begin

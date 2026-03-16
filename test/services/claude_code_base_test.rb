@@ -591,6 +591,73 @@ class ClaudeCodeBaseTest < Minitest::Test
     assert term_calls.all? { |_, pid| pid > 0 }, 'Should use positive pid when pgid unavailable'
   end
 
+  # Tests for extract_text_from_line method
+  def test_extract_text_from_line_with_text_delta_event
+    base = WvRunner::ClaudeCodeBase.new
+    line = '{"type":"content_block_delta","delta":{"type":"text_delta","text":"Hello world"}}'
+    assert_equal 'Hello world', base.send(:extract_text_from_line, line)
+  end
+
+  def test_extract_text_from_line_with_assistant_message_event
+    base = WvRunner::ClaudeCodeBase.new
+    line = '{"type":"assistant","message":{"content":[{"type":"text","text":"Full message here"}]}}'
+    assert_equal 'Full message here', base.send(:extract_text_from_line, line)
+  end
+
+  def test_extract_text_from_line_with_non_text_event
+    base = WvRunner::ClaudeCodeBase.new
+    line = '{"type":"result","cost_usd":0.05}'
+    assert_equal '', base.send(:extract_text_from_line, line)
+  end
+
+  def test_extract_text_from_line_with_invalid_json
+    base = WvRunner::ClaudeCodeBase.new
+    assert_equal '', base.send(:extract_text_from_line, 'not json')
+  end
+
+  def test_extract_text_from_line_with_multiple_content_blocks
+    base = WvRunner::ClaudeCodeBase.new
+    line = '{"type":"assistant","message":{"content":[{"type":"text","text":"Part 1"},{"type":"tool_use","id":"123"},{"type":"text","text":"Part 2"}]}}'
+    assert_equal 'Part 1Part 2', base.send(:extract_text_from_line, line)
+  end
+
+  # Tests for parse_result with stream-json wrapped output (the actual bug scenario)
+  def test_parse_result_with_stream_json_wrapped_result
+    base = WvRunner::ClaudeCodeBase.new
+    # Simulate @text_content accumulated from stream-json extraction
+    base.instance_variable_set(:@text_content,
+                               'I analyzed the task.\nWVRUNNER_RESULT: {"status": "success", "task_id": 9508, "recommended_model": "sonnet", "hours": {"per_day": 8}}')
+
+    result = base.send(:parse_result, 'raw stream json that does not contain marker', 1.0)
+
+    assert_equal 'success', result['status']
+    assert_equal 9508, result['task_id']
+    assert_equal 'sonnet', result['recommended_model']
+    assert_equal 1.0, result['hours']['task_worked']
+  end
+
+  def test_parse_result_falls_back_to_raw_output_when_text_content_empty
+    base = WvRunner::ClaudeCodeBase.new
+    base.instance_variable_set(:@text_content, '')
+
+    raw = 'WVRUNNER_RESULT: {"status": "success", "hours": {"per_day": 4}}'
+    result = base.send(:parse_result, raw, 0.5)
+
+    assert_equal 'success', result['status']
+    assert_equal 4, result['hours']['per_day']
+  end
+
+  def test_parse_result_falls_back_to_raw_when_text_content_lacks_marker
+    base = WvRunner::ClaudeCodeBase.new
+    base.instance_variable_set(:@text_content, 'Some text without the marker')
+
+    raw = 'WVRUNNER_RESULT: {"status": "success", "hours": {"per_day": 6}}'
+    result = base.send(:parse_result, raw, 0.3)
+
+    assert_equal 'success', result['status']
+    assert_equal 6, result['hours']['per_day']
+  end
+
   def test_kill_process_handles_eperm_on_group_kill
     base = WvRunner::ClaudeCodeBase.new
     kill_targets = []

@@ -479,6 +479,11 @@ module WvRunner
       triaged_task_id = triage_result['task_id']
       resuming = triage_result['resuming'] == true
 
+      unless triaged_task_id
+        Logger.error('[WorkLoop] Triage did not return a task_id')
+        return { 'status' => 'error', 'message' => 'Triage completed but no task_id returned' }
+      end
+
       Logger.info_stdout("[WorkLoop] Triage recommended model: #{model_override} (task_id: #{triaged_task_id}, resuming: #{resuming})")
 
       executor_kwargs = kwargs.merge(verbose: @verbose, model_override: model_override, resuming: resuming)
