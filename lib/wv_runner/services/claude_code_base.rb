@@ -35,7 +35,6 @@ module WvRunner
       @result_received = false
       @inactivity_timeout = false
       @child_pid = nil
-      @execution_start_time = nil
       @stream_line_count = 0
       @log_tag = @log_tag
       OutputFormatter.verbose_mode = verbose
@@ -185,7 +184,7 @@ module WvRunner
       @inactivity_timeout = false
       @stream_line_count = 0
       @child_pid = nil
-      @execution_start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      execution_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
       Open3.popen3(*command, pgroup: true) do |stdin, stdout, stderr, wait_thr|
         @child_pid = wait_thr.pid
@@ -283,6 +282,9 @@ module WvRunner
           kill_process(wait_thr.pid) unless @result_received
         end
       end
+
+      elapsed = (Process.clock_gettime(Process::CLOCK_MONOTONIC) - execution_start).round(1)
+      Logger.info_stdout "[#{@log_tag}] Execution finished in #{elapsed}s (#{@stream_line_count} stream events)"
 
       stdout_content
     end
@@ -511,10 +513,6 @@ module WvRunner
     def error_result(message)
       Logger.debug "[#{@log_tag}] [error_result] Creating error result: #{message}"
       { 'status' => 'error', 'message' => message }
-    end
-
-    def elapsed_execution_seconds
-      Process.clock_gettime(Process::CLOCK_MONOTONIC) - @execution_start_time
     end
 
     def triaged_git_step(resuming:)
