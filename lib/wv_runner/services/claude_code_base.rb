@@ -257,8 +257,11 @@ module WvRunner
         end
 
         begin
-          stdout_thread.join
-          stderr_thread.join
+          # Kill process first if result received, so streams close and threads unblock
+          kill_process(wait_thr.pid) if @result_received
+
+          stdout_thread.join(30)
+          stderr_thread.join(10)
 
           # Check if stream was unexpectedly closed
           raise StreamClosedError, stream_error if stream_error && !@stopping
@@ -269,13 +272,13 @@ module WvRunner
           exit_status = wait_thr.value
           Logger.debug "[#{@log_tag}] Process exit status: #{exit_status.exitstatus}"
 
-          if exit_status.exitstatus != 0
+          if exit_status.exitstatus != 0 && !@result_received
             Logger.debug "[#{@log_tag}] WARNING: Claude exited with non-zero status!"
             Logger.debug "[#{@log_tag}] stderr: #{stderr_content}" unless stderr_content.empty?
           end
         ensure
           heartbeat_thread&.kill
-          kill_process(wait_thr.pid)
+          kill_process(wait_thr.pid) unless @result_received
         end
       end
 
