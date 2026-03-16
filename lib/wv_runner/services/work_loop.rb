@@ -128,6 +128,7 @@ module WvRunner
         break if result['status'] == 'no_more_tasks'
         break if result['status'] == 'failure'
         break if result['status'] == 'task_already_started'
+        break if result['status'] == 'quota_exceeded'
         break if quota_exceeded?(results)
 
         Logger.debug('[WorkLoop] [run_story_manual] Continuing to next task, sleeping 2 seconds...')
@@ -150,12 +151,10 @@ module WvRunner
         Logger.debug("[WorkLoop] [run_story_auto_squash] Starting iteration ##{iteration_count}...")
         result = triage_and_execute(ClaudeCode::StoryAutoSquash, story_id: @story_id)
         results << result
-        Logger.info_stdout("[WorkLoop] Task ##{iteration_count} completed with status: #{result['status']}")
+        status = result['status']
+        Logger.info_stdout("[WorkLoop] Task ##{iteration_count} completed with status: #{status}")
 
-        break if result['status'] == 'no_more_tasks'
-        break if result['status'] == 'failure'
-        break if result['status'] == 'task_already_started'
-        break if result['status'] == 'ci_failed'
+        break if %w[no_more_tasks failure task_already_started ci_failed quota_exceeded].include?(status)
         break if quota_exceeded?(results)
 
         Logger.debug('[WorkLoop] [run_story_auto_squash] Continuing to next task, sleeping 2 seconds...')
@@ -185,6 +184,7 @@ module WvRunner
         end
         break if result['status'] == 'failure'
         break if result['status'] == 'ci_failed'
+        break if result['status'] == 'quota_exceeded'
         break if quota_exceeded?(results)
 
         Logger.debug('[WorkLoop] [run_today_auto_squash] Continuing to next task, sleeping 2 seconds...')
@@ -210,6 +210,7 @@ module WvRunner
         break if result['status'] == 'no_more_tasks'
         break if result['status'] == 'failure'
         break if result['status'] == 'ci_failed'
+        break if result['status'] == 'quota_exceeded'
         break if quota_exceeded?(results)
 
         Logger.debug('[WorkLoop] [run_queue_auto_squash] Continuing to next task, sleeping 2 seconds...')
@@ -234,6 +235,7 @@ module WvRunner
 
         break if result['status'] == 'no_more_tasks'
         break if result['status'] == 'failure'
+        break if result['status'] == 'quota_exceeded'
         break if quota_exceeded?(results)
 
         Logger.debug('[WorkLoop] [run_queue_manual] Continuing to next task, sleeping 2 seconds...')
@@ -254,9 +256,9 @@ module WvRunner
         Logger.debug("[WorkLoop] [run_today] Starting iteration ##{iteration_count}...")
         run_task_iteration(results)
 
-        # Exit immediately when no more tasks available
-        if no_tasks_available?(results.last)
-          Logger.info_stdout('[WorkLoop] No more tasks available, ending today mode')
+        # Exit immediately when no more tasks available or quota exceeded before execution
+        if no_tasks_available?(results.last) || results.last['status'] == 'quota_exceeded'
+          Logger.info_stdout("[WorkLoop] #{results.last['status'] == 'quota_exceeded' ? 'Quota exceeded' : 'No more tasks available'}, ending today mode")
           break
         end
 
@@ -349,6 +351,11 @@ module WvRunner
         iteration_count += 1
         Logger.debug("[WorkLoop] [run_today_tasks] Iteration ##{iteration_count}...")
         run_task_iteration(results)
+
+        if results.last['status'] == 'quota_exceeded'
+          Logger.info_stdout('[WorkLoop] Quota exceeded before execution, stopping')
+          break
+        end
 
         if no_tasks_available?(results.last)
           Logger.info_stdout('[WorkLoop] No tasks available, will wait 1 hour before retry...')
@@ -463,6 +470,11 @@ module WvRunner
         return triage_result
       end
 
+      if !@ignore_quota && triage_quota_exceeded?(triage_result)
+        Logger.info_stdout('[WorkLoop] Quota already exceeded before execution, skipping task')
+        return { 'status' => 'quota_exceeded' }
+      end
+
       model_override = extract_triage_model(triage_result)
       triaged_task_id = triage_result['task_id']
       resuming = triage_result['resuming'] == true
@@ -488,6 +500,17 @@ module WvRunner
       task_id = match[1].to_i
       Logger.info_stdout("[WorkLoop] Detected task ID #{task_id} from branch '#{branch}'")
       task_id
+    end
+
+    def triage_quota_exceeded?(triage_result)
+      hours = triage_result['hours']
+      return false unless hours
+
+      per_day = hours['per_day'].to_f
+      already_worked = hours['already_worked'].to_f
+      exceeded = already_worked >= per_day
+      Logger.debug("[WorkLoop] [triage_quota_exceeded?] per_day: #{per_day}h, already_worked: #{already_worked}h, exceeded: #{exceeded}")
+      exceeded
     end
 
     def extract_triage_model(triage_result)
