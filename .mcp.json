@@ -15,6 +15,12 @@
       "headers": {
         "Authorization": "Bearer ${LLMMN_TOKEN}"
       }
+    },
+    "codegraph": {
+      "type": "stdio",
+      "name": "CodeGraph",
+      "command": "npx",
+      "args": ["-y", "@colbymchenry/codegraph", "serve", "--mcp"]
     }
   }
 }
