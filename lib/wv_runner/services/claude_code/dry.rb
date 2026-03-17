@@ -49,6 +49,7 @@ module WvRunner
           How to get the data:
           1. Read workvector://user -> use "hour_goal" for per_day, use "worked_out" for already_worked
              IMPORTANT: Read workvector://user at the very BEGINNING of the task before logging any work progress
+             WARNING: "already_worked" is the DAILY worked hours from "worked_out" field (e.g. 3.0). Do NOT calculate it from task effort minutes or effort history!
           2. From the task you're working on -> extract: name, relative_id (as id), description, task_state (as status), priority, assigned_user, scrum_point (as scrum_points)
           3. For task_estimated: Extract "duration_best" field from the task data. Convert it to numeric hours:
              - If duration_best contains "hodina" or "hours" -> extract the number (e.g., "3 hodiny" -> 3.0)

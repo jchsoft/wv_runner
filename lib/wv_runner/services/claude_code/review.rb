@@ -190,6 +190,7 @@ module WvRunner
           How to get hours data:
           1. Read workvector://user -> use "hour_goal" for per_day, use "worked_out" for already_worked
              IMPORTANT: Read workvector://user at the very BEGINNING of the task before logging any work progress
+             WARNING: "already_worked" is the DAILY worked hours from "worked_out" field (e.g. 3.0). Do NOT calculate it from task effort minutes or effort history!
           2. Set task_estimated to 0.5 (review tasks are typically short)
         HOURS
       end
