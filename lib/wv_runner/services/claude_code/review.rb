@@ -158,16 +158,9 @@ module WvRunner
 
       def output_format_section
         <<~OUTPUT
-          At the END, output JSON in this exact format - on a new line in a code block:
-
-          ```json
-          WVRUNNER_RESULT: {"status": "success", "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}}
-          ```
-
-          CRITICAL FORMATTING:
-          1. The JSON MUST be inside triple backticks (```json ... ```) on a separate line
-          2. Output VALID JSON with proper string escaping. Any quotes in string values must be escaped as \\"
-          3. NO other text after the closing triple backticks
+          #{result_format_instruction(
+            '"status": "success", "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}'
+          )}
 
           #{status_values_section}
           #{hours_data_section}

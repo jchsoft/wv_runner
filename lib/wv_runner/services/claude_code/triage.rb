@@ -61,19 +61,14 @@ module WvRunner
 
           DEFAULT: "opus" (when in doubt, always choose opus)
 
-          At the END, output JSON in this exact format - on a new line in a code block:
-
-          ```json
-          WVRUNNER_RESULT: {"status": "success", "recommended_model": "opus", "task_id": 123, "resuming": false, "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}}
-          ```
-
-          CRITICAL FORMATTING:
-          1. The JSON MUST be inside triple backticks (```json ... ```) on a separate line
-          2. Output VALID JSON with proper string escaping. Any quotes in string values must be escaped as \\"
-          3. NO other text after the closing triple backticks
-          4. recommended_model MUST be exactly "opus" or "sonnet" (lowercase, no other values)
-          5. task_id MUST be the numeric relative_id of the subtask (NOT the story)
-          6. resuming MUST be false (story triage always starts fresh tasks)
+          #{result_format_instruction(
+            '"status": "success", "recommended_model": "opus", "task_id": 123, "resuming": false, "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}',
+            extra_rules: [
+              'recommended_model MUST be exactly "opus" or "sonnet" (lowercase)',
+              'task_id MUST be the numeric relative_id of the subtask (NOT the story)',
+              'resuming MUST be false (story triage always starts fresh tasks)'
+            ]
+          )}
 
           How to get the data:
           1. Read workvector://user -> use "hour_goal" for per_day, use "worked_out" for already_worked
@@ -120,19 +115,14 @@ module WvRunner
 
           DEFAULT: "opus" (when in doubt, always choose opus)
 
-          At the END, output JSON in this exact format - on a new line in a code block:
-
-          ```json
-          WVRUNNER_RESULT: {"status": "success", "recommended_model": "opus", "task_id": 123, "resuming": false, "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}}
-          ```
-
-          CRITICAL FORMATTING:
-          1. The JSON MUST be inside triple backticks (```json ... ```) on a separate line
-          2. Output VALID JSON with proper string escaping. Any quotes in string values must be escaped as \\"
-          3. NO other text after the closing triple backticks
-          4. recommended_model MUST be exactly "opus" or "sonnet" (lowercase, no other values)
-          5. task_id MUST be the numeric relative_id of the task
-          6. resuming MUST be true or false (boolean, not string)
+          #{result_format_instruction(
+            '"status": "success", "recommended_model": "opus", "task_id": 123, "resuming": false, "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}',
+            extra_rules: [
+              'recommended_model MUST be exactly "opus" or "sonnet" (lowercase)',
+              'task_id MUST be the numeric relative_id of the task',
+              'resuming MUST be true or false (boolean, not string)'
+            ]
+          )}
 
           How to get the data:
           1. Read workvector://user -> use "hour_goal" for per_day, use "worked_out" for already_worked

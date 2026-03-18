@@ -398,44 +398,14 @@ module WvRunner
       from_text_content = source.equal?(@text_content)
       Logger.debug "[#{@log_tag}] [parse_result] Using #{from_text_content ? 'extracted text' : 'raw stream-json'} (#{source.length} chars)"
 
-      marker = 'WVRUNNER_RESULT: '
-      index = source.index(marker)
+      # Find WVRUNNER_RESULT marker - either as JSON key or legacy prefix
+      json_content, from_text_content = find_result_marker(source, stdout, from_text_content)
 
-      # Fall back to raw stdout if text content didn't contain the marker
-      if !index && from_text_content
-        Logger.debug "[#{@log_tag}] [parse_result] Marker not found in text content, falling back to raw output"
-        source = stdout
-        from_text_content = false
-        index = source.index(marker)
-      end
-
-      unless index
+      unless json_content
         Logger.debug "[#{@log_tag}] [parse_result] ERROR: Marker not found in output!"
-        Logger.debug "[#{@log_tag}] [parse_result] First 500 chars: #{source.first(500)}"
-        Logger.debug "[#{@log_tag}] [parse_result] Last 500 chars: #{source.last(500)}"
-        code_blocks = source.scan(/```[\s\S]{0,100}/).first(3)
-        Logger.debug "[#{@log_tag}] [parse_result] Code block starts found: #{code_blocks.inspect}" if code_blocks.any?
+        Logger.debug "[#{@log_tag}] [parse_result] Last 500 chars: #{(from_text_content ? source : stdout).last(500)}"
         return error_result('No WVRUNNER_RESULT found in output')
       end
-
-      Logger.debug "[#{@log_tag}] [parse_result] Marker found at index #{index}"
-
-      after_marker = source[(index + marker.length)..]
-      brace_index = after_marker.index('{')
-      unless brace_index
-        Logger.debug "[#{@log_tag}] [parse_result] ERROR: No opening brace found after marker!"
-        return error_result('Could not find JSON object after WVRUNNER_RESULT marker')
-      end
-
-      json_str = after_marker[brace_index..]
-      json_end = find_json_end(json_str)
-      unless json_end
-        Logger.debug "[#{@log_tag}] [parse_result] ERROR: Could not find JSON object boundaries!"
-        Logger.debug "[#{@log_tag}] [parse_result] JSON string: #{json_str[0...300]}"
-        return error_result('Could not find complete JSON object')
-      end
-
-      json_content = json_str[0...json_end].strip
 
       # Only unescape when parsing raw stream-json (text content is already clean)
       unless from_text_content
@@ -447,6 +417,7 @@ module WvRunner
 
       begin
         result = JSON.parse(json_content).tap do |obj|
+          obj.delete('WVRUNNER_RESULT')
           obj['hours'] ||= {}
           obj['hours']['task_worked'] = elapsed_hours
         end
@@ -458,6 +429,65 @@ module WvRunner
         Logger.debug "[#{@log_tag}] [parse_result] Attempted to parse: #{json_content.inspect}"
         error_result("Failed to parse JSON: #{e.message}")
       end
+    end
+
+    # Searches for WVRUNNER_RESULT in source text, trying JSON key format first, then legacy prefix.
+    # Returns [json_string, from_text_content] or [nil, from_text_content].
+    def find_result_marker(source, stdout, from_text_content)
+      # Try JSON key format: {"WVRUNNER_RESULT": true, ...}
+      json = extract_json_with_marker_key(source, from_text_content)
+      return json if json
+
+      # Fall back to raw stdout for JSON key format
+      if from_text_content
+        json = extract_json_with_marker_key(stdout, false)
+        return json if json
+      end
+
+      # Legacy prefix format: WVRUNNER_RESULT: {json}
+      json = extract_json_with_legacy_prefix(source, from_text_content)
+      return json if json
+
+      if from_text_content
+        json = extract_json_with_legacy_prefix(stdout, false)
+        return json if json
+      end
+
+      [nil, from_text_content]
+    end
+
+    def extract_json_with_marker_key(source, from_text_content)
+      key_index = source.index('"WVRUNNER_RESULT"')
+      return nil unless key_index
+
+      # Walk backward to find opening brace
+      i = key_index - 1
+      i -= 1 while i >= 0 && source[i] =~ /\s/
+      return nil unless i >= 0 && source[i] == '{'
+
+      json_str = source[i..]
+      json_end = find_json_end(json_str)
+      return nil unless json_end
+
+      Logger.debug "[#{@log_tag}] [parse_result] JSON key marker found at index #{key_index}"
+      [json_str[0...json_end].strip, from_text_content]
+    end
+
+    def extract_json_with_legacy_prefix(source, from_text_content)
+      marker = 'WVRUNNER_RESULT: '
+      index = source.index(marker)
+      return nil unless index
+
+      after_marker = source[(index + marker.length)..]
+      brace_index = after_marker.index('{')
+      return nil unless brace_index
+
+      json_str = after_marker[brace_index..]
+      json_end = find_json_end(json_str)
+      return nil unless json_end
+
+      Logger.debug "[#{@log_tag}] [parse_result] Legacy prefix marker found at index #{index}"
+      [json_str[0...json_end].strip, from_text_content]
     end
 
     def log_task_info(result)
@@ -575,6 +605,29 @@ module WvRunner
         - RUBOCOP BEFORE CI: Before running bin/ci, always run RuboCop autofix on changed .rb files:
           git diff --name-only main -- '*.rb' | xargs rubocop -a
           This prevents wasting CI cycles on style violations.
+      INSTRUCTION
+    end
+
+    def result_format_instruction(json_fields, extra_rules: [])
+      rules = [
+        'The JSON MUST be inside a ```json code block on its own line',
+        '"WVRUNNER_RESULT": true MUST be the FIRST key in the JSON object',
+        'Output VALID JSON - any quotes in string values must be escaped as \\"',
+        *extra_rules,
+        'NO other text after the closing ```'
+      ]
+
+      numbered = rules.each_with_index.map { |rule, i| "#{i + 1}. #{rule}" }.join("\n")
+
+      <<~INSTRUCTION.strip
+        At the END, output the result as valid JSON in a code block:
+
+        ```json
+        {"WVRUNNER_RESULT": true, #{json_fields}}
+        ```
+
+        CRITICAL FORMATTING:
+        #{numbered}
       INSTRUCTION
     end
 

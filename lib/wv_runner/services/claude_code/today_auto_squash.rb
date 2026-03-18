@@ -57,16 +57,9 @@ module WvRunner
           IMPORTANT: This is an AUTO-SQUASH workflow - PR is automatically merged after CI passes!
           If CI fails twice, the PR stays open for manual review.
 
-          At the END, output JSON in this exact format - on a new line in a code block:
-
-          ```json
-          WVRUNNER_RESULT: {"status": "success", "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}}
-          ```
-
-          CRITICAL FORMATTING:
-          1. The JSON MUST be inside triple backticks (```json ... ```) on a separate line
-          2. Output VALID JSON with proper string escaping. Any quotes in string values must be escaped as \\"
-          3. NO other text after the closing triple backticks
+          #{result_format_instruction(
+            '"status": "success", "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}'
+          )}
 
           How to get the data:
           1. Read workvector://user -> use "hour_goal" for per_day, use "worked_out" for already_worked

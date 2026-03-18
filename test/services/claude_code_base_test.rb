@@ -658,6 +658,69 @@ class ClaudeCodeBaseTest < Minitest::Test
     assert_equal 6, result['hours']['per_day']
   end
 
+  # Tests for new JSON key marker format: {"WVRUNNER_RESULT": true, ...}
+  def test_parse_result_with_json_key_marker
+    mock_output = '{"WVRUNNER_RESULT": true, "status": "success", "hours": {"per_day": 8, "task_estimated": 2}}'
+    base = WvRunner::ClaudeCodeBase.new
+    result = base.send(:parse_result, mock_output, 1.5)
+
+    assert_equal 'success', result['status']
+    assert_equal 8, result['hours']['per_day']
+    assert_equal 2, result['hours']['task_estimated']
+    assert_equal 1.5, result['hours']['task_worked']
+    refute result.key?('WVRUNNER_RESULT'), 'WVRUNNER_RESULT key should be removed from result'
+  end
+
+  def test_parse_result_with_json_key_marker_in_code_block
+    mock_output = "Here is the result:\n\n```json\n{\"WVRUNNER_RESULT\": true, \"status\": \"success\", \"hours\": {\"per_day\": 6}}\n```"
+    base = WvRunner::ClaudeCodeBase.new
+    result = base.send(:parse_result, mock_output, 0.5)
+
+    assert_equal 'success', result['status']
+    assert_equal 6, result['hours']['per_day']
+  end
+
+  def test_parse_result_with_json_key_marker_in_text_content
+    base = WvRunner::ClaudeCodeBase.new
+    base.instance_variable_set(:@text_content,
+                               "Analysis done.\n{\"WVRUNNER_RESULT\": true, \"status\": \"success\", \"task_id\": 9843, \"hours\": {\"per_day\": 8}}")
+
+    result = base.send(:parse_result, 'raw stream without marker', 1.0)
+
+    assert_equal 'success', result['status']
+    assert_equal 9843, result['task_id']
+  end
+
+  def test_parse_result_json_key_falls_back_to_raw_stdout
+    base = WvRunner::ClaudeCodeBase.new
+    base.instance_variable_set(:@text_content, 'No marker here')
+
+    raw = '{"WVRUNNER_RESULT": true, "status": "success", "hours": {"per_day": 4}}'
+    result = base.send(:parse_result, raw, 0.3)
+
+    assert_equal 'success', result['status']
+    assert_equal 4, result['hours']['per_day']
+  end
+
+  # Tests for result_format_instruction method
+  def test_result_format_instruction_includes_json_code_block
+    base = WvRunner::ClaudeCodeBase.new
+    instruction = base.send(:result_format_instruction, '"status": "success"')
+
+    assert_includes instruction, '```json'
+    assert_includes instruction, '"WVRUNNER_RESULT": true'
+    assert_includes instruction, '"status": "success"'
+    assert_includes instruction, 'CRITICAL FORMATTING'
+  end
+
+  def test_result_format_instruction_with_extra_rules
+    base = WvRunner::ClaudeCodeBase.new
+    instruction = base.send(:result_format_instruction, '"status": "success"',
+                            extra_rules: ['task_id MUST be numeric'])
+
+    assert_includes instruction, 'task_id MUST be numeric'
+  end
+
   def test_kill_process_handles_eperm_on_group_kill
     base = WvRunner::ClaudeCodeBase.new
     kill_targets = []
