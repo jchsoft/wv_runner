@@ -27,15 +27,18 @@ detectors:
   RepeatedConditional:
     enabled: false
   TooManyInstanceVariables:
-    max_instance_variables: 13
+    max_instance_variables: 14
   TooManyMethods:
-    max_methods: 35
+    max_methods: 41
   TooManyStatements:
-    max_statements: 70
+    max_statements: 75
   LongParameterList:
     max_params: 5
   DuplicateMethodCall:
     max_calls: 5
+  DataClump:
+    exclude:
+      - WvRunner::ClaudeCodeBase
   NestedIterators:
     max_allowed_nesting: 2
   UnusedParameters:

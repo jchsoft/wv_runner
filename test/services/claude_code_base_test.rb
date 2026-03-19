@@ -721,6 +721,86 @@ class ClaudeCodeBaseTest < Minitest::Test
     assert_includes instruction, 'task_id MUST be numeric'
   end
 
+  # Tests for tool tracking
+  def test_initialize_sets_active_tool_calls_to_empty_hash
+    base = WvRunner::ClaudeCodeBase.new
+    assert_equal({}, base.instance_variable_get(:@active_tool_calls))
+  end
+
+  def test_track_tool_event_adds_tool_use
+    base = WvRunner::ClaudeCodeBase.new
+    line = '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"tool_123","name":"Skill","input":{}}]}}'
+
+    base.send(:track_tool_event, line)
+
+    tools = base.instance_variable_get(:@active_tool_calls)
+    assert_equal 1, tools.size
+    assert_equal 'Skill', tools['tool_123'][:name]
+    assert_kind_of Float, tools['tool_123'][:started_at]
+  end
+
+  def test_track_tool_event_removes_on_tool_result
+    base = WvRunner::ClaudeCodeBase.new
+    now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    base.instance_variable_set(:@active_tool_calls, { 'tool_123' => { name: 'Skill', started_at: now } })
+
+    line = '{"type":"assistant","message":{"content":[{"type":"tool_result","tool_use_id":"tool_123","content":"ok"}]}}'
+    base.send(:track_tool_event, line)
+
+    assert_empty base.instance_variable_get(:@active_tool_calls)
+  end
+
+  def test_track_tool_event_ignores_non_json
+    base = WvRunner::ClaudeCodeBase.new
+    base.send(:track_tool_event, 'not json at all')
+    assert_empty base.instance_variable_get(:@active_tool_calls)
+  end
+
+  def test_track_tool_event_ignores_lines_without_content
+    base = WvRunner::ClaudeCodeBase.new
+    base.send(:track_tool_event, '{"type":"result","cost_usd":0.05}')
+    assert_empty base.instance_variable_get(:@active_tool_calls)
+  end
+
+  def test_format_active_tools_empty
+    base = WvRunner::ClaudeCodeBase.new
+    assert_equal '', base.send(:format_active_tools)
+  end
+
+  def test_format_active_tools_with_tools
+    base = WvRunner::ClaudeCodeBase.new
+    now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    base.instance_variable_set(:@active_tool_calls, {
+                                 'tool_1' => { name: 'Skill', started_at: now - 300 }
+                               })
+
+    result = base.send(:format_active_tools, now)
+    assert_includes result, 'waiting for:'
+    assert_includes result, 'Skill since 300s'
+  end
+
+  def test_write_debug_dump_creates_file
+    base = WvRunner::ClaudeCodeBase.new
+    base.instance_variable_set(:@stream_line_count, 198)
+    base.instance_variable_set(:@text_content, "line 1\nline 2\n")
+    base.instance_variable_set(:@active_tool_calls, {})
+    base.instance_variable_set(:@log_tag, 'test')
+
+    Dir.mktmpdir do |dir|
+      Dir.chdir(dir) do
+        base.send(:write_debug_dump, 'some stderr', 99_999)
+        dumps = Dir.glob('log/debug_dump_*.txt')
+        assert_equal 1, dumps.size
+        content = File.read(dumps.first)
+        assert_includes content, 'Stream event count: 198'
+        assert_includes content, 'ACTIVE TOOL CALLS'
+        assert_includes content, 'PROCESS TREE'
+        assert_includes content, 'some stderr'
+        assert_includes content, 'line 1'
+      end
+    end
+  end
+
   def test_kill_process_handles_eperm_on_group_kill
     base = WvRunner::ClaudeCodeBase.new
     kill_targets = []

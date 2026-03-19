@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'fileutils'
 require 'open3'
 require 'json'
 require 'shellwords'
@@ -36,6 +37,7 @@ module WvRunner
       @inactivity_timeout = false
       @child_pid = nil
       @stream_line_count = 0
+      @active_tool_calls = {}
       @log_tag = @log_tag
       OutputFormatter.verbose_mode = verbose
     end
@@ -183,6 +185,7 @@ module WvRunner
       @result_received = false
       @inactivity_timeout = false
       @stream_line_count = 0
+      @active_tool_calls = {}
       @child_pid = nil
       execution_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
@@ -195,6 +198,7 @@ module WvRunner
             stdout_content << line.dup
             @stream_line_count += 1
             @text_content << extract_text_from_line(line)
+            track_tool_event(line)
             check_for_result_message(line)
             if OutputFormatter.should_log_to_stdout?(line)
               formatted = OutputFormatter.format_line(line)
@@ -239,14 +243,16 @@ module WvRunner
             end
 
             inactive_seconds = (now - last_activity_time).to_i
+            tool_info = format_active_tools(now)
 
             Logger.info_stdout "[#{@log_tag}] [heartbeat] Claude is working... " \
-                               "(#{current_count} stream events, inactive: #{inactive_seconds}s)"
+                               "(#{current_count} stream events, inactive: #{inactive_seconds}s#{tool_info})"
 
             next unless inactive_seconds >= INACTIVITY_TIMEOUT
 
             Logger.error "[#{@log_tag}] Claude inactive for #{inactive_seconds}s " \
                          "(stream count stuck at #{current_count}), terminating..."
+            write_debug_dump(stderr_content, wait_thr.pid)
             @stopping = true
             @inactivity_timeout = true
             kill_process(wait_thr.pid)
@@ -352,6 +358,90 @@ module WvRunner
       error_msg = "#{stream_name} stream closed unexpectedly: #{error.message}"
       Logger.warn "[#{@log_tag}] #{error_msg}"
       yield error_msg
+    end
+
+    def track_tool_event(line)
+      parsed = JSON.parse(line)
+      content_items = parsed.dig('message', 'content')
+      return unless content_items.is_a?(Array)
+
+      now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      content_items.each do |item|
+        case item['type']
+        when 'tool_use'
+          @active_tool_calls[item['id']] = { name: item['name'], started_at: now }
+          Logger.debug "[#{@log_tag}] [tool_tracking] Tool started: #{item['name']} (#{item['id']})"
+        when 'tool_result'
+          removed = @active_tool_calls.delete(item['tool_use_id'])
+          if removed
+            duration = (now - removed[:started_at]).round(1)
+            Logger.debug "[#{@log_tag}] [tool_tracking] Tool finished: #{removed[:name]} after #{duration}s"
+          end
+        end
+      end
+    rescue JSON::ParserError
+      # Not JSON, ignore
+    end
+
+    def format_active_tools(now = nil)
+      return '' if @active_tool_calls.empty?
+
+      now ||= Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      tools = @active_tool_calls.map do |_id, info|
+        duration = (now - info[:started_at]).to_i
+        "#{info[:name]} since #{duration}s"
+      end
+      ", waiting for: #{tools.join(', ')}"
+    end
+
+    def write_debug_dump(stderr_content, pid)
+      timestamp = Time.now.strftime('%Y%m%d_%H%M%S')
+      dump_path = "log/debug_dump_#{timestamp}.txt"
+      now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+      sections = []
+      sections << "=== DEBUG DUMP #{Time.now} ==="
+      sections << "Stream event count: #{@stream_line_count}"
+      sections << "Child PID: #{pid}"
+      sections << ""
+
+      sections << "=== ACTIVE TOOL CALLS ==="
+      if @active_tool_calls.empty?
+        sections << "(none)"
+      else
+        @active_tool_calls.each do |id, info|
+          duration = (now - info[:started_at]).to_i
+          sections << "  #{info[:name]} (#{id}) - waiting #{duration}s"
+        end
+      end
+      sections << ""
+
+      sections << "=== PROCESS TREE ==="
+      sections << capture_process_tree(pid)
+      sections << ""
+
+      sections << "=== STDERR ==="
+      sections << (stderr_content.empty? ? '(empty)' : stderr_content)
+      sections << ""
+
+      sections << "=== LAST 50 STREAM LINES ==="
+      last_lines = (@text_content || '').lines.last(50)
+      sections << (last_lines.empty? ? '(empty)' : last_lines.join)
+
+      FileUtils.mkdir_p('log')
+      File.write(dump_path, sections.join("\n"))
+      Logger.info_stdout "[#{@log_tag}] Debug dump written to #{dump_path}"
+    rescue StandardError => e
+      Logger.warn "[#{@log_tag}] Failed to write debug dump: #{e.message}"
+    end
+
+    def capture_process_tree(pid)
+      return '(no pid)' unless pid
+
+      output = `ps -o pid,ppid,state,command -g #{pid} 2>&1`.strip
+      output.empty? ? '(no processes found)' : output
+    rescue StandardError => e
+      "(error: #{e.message})"
     end
 
     def check_for_result_message(line)
