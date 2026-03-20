@@ -3,6 +3,7 @@ $stdout.sync = true
 require "wv_runner/version"
 require "wv_runner/version_manager"
 require "wv_runner/logger"
+require "wv_runner/services/workflow_steps"
 require "wv_runner/services/claude_code_base"
 require "wv_runner/services/claude_code/honest"
 require "wv_runner/services/claude_code/dry"

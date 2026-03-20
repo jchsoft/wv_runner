@@ -6,6 +6,8 @@ module WvRunner
   module ClaudeCode
     # Executes real work - creates branches, modifies code, creates PRs
     class Honest < ClaudeCodeBase
+      include WorkflowSteps
+
       def initialize(verbose: false, model_override: nil, task_id: nil, resuming: false)
         super(verbose: verbose, model_override: model_override, resuming: resuming)
         @task_id = task_id
@@ -52,56 +54,27 @@ module WvRunner
                DESCRIPTION: <first 200 chars of description, or full if shorter>
                END_TASK_INFO
 
-          3. CREATE BRANCH: Start work on a new feature branch
-             - Use task name as branch name (e.g., "feature/task-name" or "fix/issue-name")
-             - Run: git checkout -b <branch-name>
+          #{create_branch_step(step_num: 3)}
 
-          4. IMPLEMENT TASK: Complete the task according to requirements
-             - Follow rules in global CLAUDE.md
-             - Make incremental commits with clear messages
+          #{implement_task_step(step_num: 4)}
 
-          5. RUN UNIT TESTS: Execute all unit tests
-             - Use the "test-runner" skill to run tests (invoke /test-runner)
-             - If failures: fix them and commit fixes
-             - Repeat until all pass
+          #{run_unit_tests_step(step_num: 5)}
 
-          6. PREPARE SCREENSHOTS: Save screenshots for PR review
-             - If you created new system tests with visual changes, save screenshots
-             - be sure that screenshots shows tested feature, if not - scroll
-             - These will be used later for PR
-             - may be there is a **special method** for this in ApplicationSystemTestCase
+          #{prepare_screenshots_step(step_num: 6, special_method_hint: true)}
 
-          7. RUN SYSTEM TESTS: Execute all system tests
-             - Use the "test-runner" skill to run system tests (invoke /test-runner for system tests)
-             - If failures: fix them and commit fixes
-             - Repeat until all pass
+          #{run_system_tests_step(step_num: 7)}
 
-          8. REFACTOR: Read global `~/.claude/rules/ruby-rails.md`, then refactor with FOCUS ON ROR RULES
-             - Apply Ruby/Rails best practices
-             - Commit refactoring changes
+          #{refactor_step(step_num: 8)}
 
-          9. VERIFY TESTS AFTER REFACTOR: Re-run all tests
-             - Use the "test-runner" skill for both unit and system tests
-             - Run unit tests - repeat until all pass
-             - Run system tests - repeat until all pass
+          #{verify_tests_step(step_num: 9)}
 
-          10. PUSH: Push branch to remote repository
-              - Run: git push origin HEAD
+          #{push_step(step_num: 10, set_upstream: false)}
 
-          11. CREATE PULL REQUEST: Open PR for review
-              - Use format from .github/pull_request_template.md if exists
-              - Include clear summary of changes
-              - Link to the task in WorkVector
+          #{create_pr_step(step_num: 11)}
 
-          12. ADD SCREENSHOTS TO PR: Add screenshots using skill "pr-screenshot"
-              - make sure the test is not due to some test failure
-              - be sure that screenshots shows tested feature
+          #{add_screenshots_to_pr_step(step_num: 12)}
 
-          13. RUN LOCAL CI: If "bin/ci" exists, use the "ci-runner" skill
-              - This step is MANDATORY - task is INCOMPLETE without CI verification
-              - If bin/ci doesn't exist: skip this step
-              - If some test in step 9 failed: skip this step
-              - Use the "ci-runner" skill (invoke /ci-runner)
+          #{run_local_ci_step(step_num: 13, verify_step_ref: 9)}
 
           ⚠️ TASK IS NOT COMPLETE UNTIL LOCAL CI PASSES (step 13)
 

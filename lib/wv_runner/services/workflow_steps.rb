@@ -1,0 +1,152 @@
+# frozen_string_literal: true
+
+module WvRunner
+  # Shared workflow step definitions for implementation workflows.
+  # Included by AutoSquashBase and manual workflow classes (Honest, TaskManual, StoryManual).
+  # Each method returns a formatted step string ready for embedding in instructions.
+  module WorkflowSteps
+    private
+
+    # Sub-item indentation: 3 spaces for steps 1-9, 4 for 10+
+    def step_indent(step_num)
+      step_num < 10 ? '   ' : '    '
+    end
+
+    def create_branch_step(step_num:)
+      s = step_indent(step_num)
+      <<~STEP.strip
+        #{step_num}. CREATE BRANCH: Start work on a new feature branch
+        #{s}- Use task name as branch name (e.g., "feature/task-name" or "fix/issue-name")
+        #{s}- Run: git checkout -b <branch-name>
+      STEP
+    end
+
+    def implement_task_step(step_num:)
+      s = step_indent(step_num)
+      <<~STEP.strip
+        #{step_num}. IMPLEMENT TASK: Complete the task according to requirements
+        #{s}- Follow rules in global CLAUDE.md
+        #{s}- Make incremental commits with clear messages
+      STEP
+    end
+
+    def run_unit_tests_step(step_num:)
+      s = step_indent(step_num)
+      <<~STEP.strip
+        #{step_num}. RUN UNIT TESTS: Execute all unit tests
+        #{s}- Use the "test-runner" skill to run tests (invoke /test-runner)
+        #{s}- If failures: fix them and commit fixes
+        #{s}- Repeat until all pass
+      STEP
+    end
+
+    def compile_test_assets_step(step_num:)
+      s = step_indent(step_num)
+      <<~STEP.strip
+        #{step_num}. COMPILE TEST ASSETS: Ensure test assets are ready
+        #{s}- Run: bin/rails assets:precompile RAILS_ENV=test
+        #{s}- This prevents test failures due to missing compiled assets
+      STEP
+    end
+
+    def prepare_screenshots_step(step_num:, special_method_hint: false)
+      s = step_indent(step_num)
+      lines = []
+      lines << "#{step_num}. PREPARE SCREENSHOTS: Save screenshots for PR review"
+      lines << "#{s}- If you created new system tests with visual changes, save screenshots"
+      lines << "#{s}- be sure that screenshots shows tested feature, if not - scroll"
+      lines << "#{s}- These will be used later for PR"
+      lines << "#{s}- may be there is a **special method** for this in ApplicationSystemTestCase" if special_method_hint
+      lines.join("\n")
+    end
+
+    def run_system_tests_step(step_num:)
+      s = step_indent(step_num)
+      <<~STEP.strip
+        #{step_num}. RUN SYSTEM TESTS: Execute all system tests
+        #{s}- Use the "test-runner" skill to run system tests (invoke /test-runner for system tests)
+        #{s}- If failures: fix them and commit fixes
+        #{s}- Repeat until all pass
+      STEP
+    end
+
+    def refactor_step(step_num:)
+      s = step_indent(step_num)
+      <<~STEP.strip
+        #{step_num}. REFACTOR: Read global `~/.claude/rules/ruby-rails.md`, then refactor with FOCUS ON ROR RULES
+        #{s}- Apply Ruby/Rails best practices
+        #{s}- Commit refactoring changes
+      STEP
+    end
+
+    def verify_tests_step(step_num:)
+      s = step_indent(step_num)
+      <<~STEP.strip
+        #{step_num}. VERIFY TESTS AFTER REFACTOR: Re-run all tests
+        #{s}- Use the "test-runner" skill for both unit and system tests
+        #{s}- Run unit tests - repeat until all pass
+        #{s}- Run system tests - repeat until all pass
+      STEP
+    end
+
+    def push_step(step_num:, set_upstream: true)
+      s = step_indent(step_num)
+      push_cmd = set_upstream ? 'git push -u origin HEAD' : 'git push origin HEAD'
+      <<~STEP.strip
+        #{step_num}. PUSH: Push branch to remote repository
+        #{s}- Run: #{push_cmd}
+      STEP
+    end
+
+    def create_pr_step(step_num:, no_merge_warning: false, auto_merge_note: false)
+      s = step_indent(step_num)
+      title_suffix = no_merge_warning ? ' (NO MERGE!)' : ''
+      lines = []
+      lines << "#{step_num}. CREATE PULL REQUEST: Open PR for review#{title_suffix}"
+      lines << "#{s}- Use format from .github/pull_request_template.md if exists"
+      lines << "#{s}- Include clear summary of changes"
+      lines << "#{s}- Link to the task in WorkVector"
+      lines << "#{s}- IMPORTANT: Do NOT merge the PR - leave it open for human review" if no_merge_warning
+      lines << "#{s}- Note: PR will be automatically merged after CI passes" if auto_merge_note
+      lines.join("\n")
+    end
+
+    def add_screenshots_to_pr_step(step_num:)
+      s = step_indent(step_num)
+      <<~STEP.strip
+        #{step_num}. ADD SCREENSHOTS TO PR: Add screenshots using skill "pr-screenshot"
+        #{s}- make sure the test is not due to some test failure
+        #{s}- be sure that screenshots shows tested feature
+      STEP
+    end
+
+    def skip_screenshots_step(step_num:)
+      "#{step_num}. do not add screenshots to PR review - it is autosquash"
+    end
+
+    def code_review_step(step_num:)
+      s = step_indent(step_num)
+      <<~STEP.strip
+        #{step_num}. CODE REVIEW: Review the PR using the code-review skill
+        #{s}- Use the "code-review" skill to review the pull request (invoke /code-review)
+        #{s}- If the review finds issues:
+        #{s}  * Fix all actionable feedback (bugs, missing tests, style issues)
+        #{s}  * Commit and push fixes
+        #{s}  * Re-run the "code-review" skill to verify fixes
+        #{s}  * Repeat until the review passes cleanly
+        #{s}- Only proceed when the code review has no more actionable findings
+      STEP
+    end
+
+    def run_local_ci_step(step_num:, verify_step_ref: nil)
+      s = step_indent(step_num)
+      lines = []
+      lines << "#{step_num}. RUN LOCAL CI: If \"bin/ci\" exists, use the \"ci-runner\" skill"
+      lines << "#{s}- This step is MANDATORY - task is INCOMPLETE without CI verification"
+      lines << "#{s}- If bin/ci doesn't exist: skip this step"
+      lines << "#{s}- If some test in step #{verify_step_ref} failed: skip this step" if verify_step_ref
+      lines << "#{s}- Use the \"ci-runner\" skill (invoke /ci-runner)"
+      lines.join("\n")
+    end
+  end
+end

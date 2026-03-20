@@ -8,73 +8,30 @@ module WvRunner
     # Provides shared instruction fragments for the implementation and CI+merge steps
     # so they are defined in one place across today/once/queue/story variants.
     class AutoSquashBase < ClaudeCodeBase
+      include WorkflowSteps
+
       private
 
       # Returns shared implementation steps from CREATE BRANCH through CODE REVIEW.
       # All four auto-squash files run these identical steps; only the starting step
       # number differs (today/once/queue start at 3, story starts at 4).
-      #
-      # Sub-item indentation follows numbering: 3 spaces for steps 1-9, 4 for 10+.
       def implementation_steps(start:)
         n = start
-        # Lambda: correct sub-item indent based on step number width
-        s = ->(step) { step < 10 ? '   ' : '    ' }
-        <<~STEPS
-          #{time_awareness_instruction}
-
-          #{coding_conventions_instruction}
-
-          #{n}. CREATE BRANCH: Start work on a new feature branch
-          #{s.(n)}- Use task name as branch name (e.g., "feature/task-name" or "fix/issue-name")
-          #{s.(n)}- Run: git checkout -b <branch-name>
-
-          #{n+1}. IMPLEMENT TASK: Complete the task according to requirements
-          #{s.(n+1)}- Follow rules in global CLAUDE.md
-          #{s.(n+1)}- Make incremental commits with clear messages
-
-          #{n+2}. RUN UNIT TESTS: Execute all unit tests
-          #{s.(n+2)}- Use the "test-runner" skill to run tests (invoke /test-runner)
-          #{s.(n+2)}- If failures: fix them and commit fixes
-          #{s.(n+2)}- Repeat until all pass
-
-          #{n+3}. COMPILE TEST ASSETS: Ensure test assets are ready
-          #{s.(n+3)}- Run: bin/rails assets:precompile RAILS_ENV=test
-          #{s.(n+3)}- This prevents test failures due to missing compiled assets
-
-          #{n+4}. RUN SYSTEM TESTS: Execute all system tests
-          #{s.(n+4)}- Use the "test-runner" skill to run system tests (invoke /test-runner for system tests)
-          #{s.(n+4)}- If failures: fix them and commit fixes
-          #{s.(n+4)}- Repeat until all pass
-
-          #{n+5}. REFACTOR: Read global `~/.claude/rules/ruby-rails.md`, then refactor with FOCUS ON ROR RULES
-          #{s.(n+5)}- Apply Ruby/Rails best practices
-          #{s.(n+5)}- Commit refactoring changes
-
-          #{n+6}. VERIFY TESTS AFTER REFACTOR: Re-run all tests
-          #{s.(n+6)}- Use the "test-runner" skill for both unit and system tests
-          #{s.(n+6)}- Run unit tests - repeat until all pass
-          #{s.(n+6)}- Run system tests - repeat until all pass
-
-          #{n+7}. PUSH: Push branch to remote repository
-          #{s.(n+7)}- Run: git push -u origin HEAD
-
-          #{n+8}. CREATE PULL REQUEST: Open PR for CI verification
-          #{s.(n+8)}- Use format from .github/pull_request_template.md if exists
-          #{s.(n+8)}- Include clear summary of changes
-          #{s.(n+8)}- Link to the task in WorkVector
-          #{s.(n+8)}- Note: PR will be automatically merged after CI passes
-
-          #{n+9}. do not add screenshots to PR review - it is autosquash
-
-          #{n+10}. CODE REVIEW: Review the PR using the code-review skill
-          #{s.(n+10)}- Use the "code-review" skill to review the pull request (invoke /code-review)
-          #{s.(n+10)}- If the review finds issues:
-          #{s.(n+10)}  * Fix all actionable feedback (bugs, missing tests, style issues)
-          #{s.(n+10)}  * Commit and push fixes
-          #{s.(n+10)}  * Re-run the "code-review" skill to verify fixes
-          #{s.(n+10)}  * Repeat until the review passes cleanly
-          #{s.(n+10)}- Only proceed when the code review has no more actionable findings
-        STEPS
+        [
+          time_awareness_instruction,
+          coding_conventions_instruction,
+          create_branch_step(step_num: n),
+          implement_task_step(step_num: n + 1),
+          run_unit_tests_step(step_num: n + 2),
+          compile_test_assets_step(step_num: n + 3),
+          run_system_tests_step(step_num: n + 4),
+          refactor_step(step_num: n + 5),
+          verify_tests_step(step_num: n + 6),
+          push_step(step_num: n + 7),
+          create_pr_step(step_num: n + 8, auto_merge_note: true),
+          skip_screenshots_step(step_num: n + 9),
+          code_review_step(step_num: n + 10)
+        ].join("\n\n")
       end
 
       # Returns the full CI run-and-auto-merge step.
@@ -106,7 +63,6 @@ module WvRunner
                    - IF RETRY FAILS: output status "ci_failed" (PR stays open)
         STEP
       end
-
     end
   end
 end

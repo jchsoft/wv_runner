@@ -7,6 +7,8 @@ module WvRunner
     # Processes tasks from a specific Story without auto-merge
     # Creates PRs for each task but leaves them open for human review
     class StoryManual < ClaudeCodeBase
+      include WorkflowSteps
+
       def initialize(story_id:, task_id:, verbose: false, model_override: nil, resuming: false)
         super(verbose: verbose, model_override: model_override, resuming: resuming)
         @story_id = story_id
@@ -36,56 +38,27 @@ module WvRunner
              - Run: git checkout main && git pull
              - This ensures you start from a clean, stable state
 
-          4. CREATE BRANCH: Start work on a new feature branch
-             - Use task name as branch name (e.g., "feature/task-name" or "fix/issue-name")
-             - Run: git checkout -b <branch-name>
+          #{create_branch_step(step_num: 4)}
 
-          5. IMPLEMENT TASK: Complete the task according to requirements
-             - Follow rules in global CLAUDE.md
-             - Make incremental commits with clear messages
+          #{implement_task_step(step_num: 5)}
 
-          6. RUN UNIT TESTS: Execute all unit tests
-             - Use the "test-runner" skill to run tests (invoke /test-runner)
-             - If failures: fix them and commit fixes
-             - Repeat until all pass
+          #{run_unit_tests_step(step_num: 6)}
 
-          7. PREPARE SCREENSHOTS: Save screenshots for PR review
-             - If you created new system tests with visual changes, save screenshots
-             - Be sure that screenshots shows tested feature, if not - scroll
-             - These will be used later for PR
+          #{prepare_screenshots_step(step_num: 7)}
 
-          8. RUN SYSTEM TESTS: Execute all system tests
-             - Use the "test-runner" skill to run system tests (invoke /test-runner for system tests)
-             - If failures: fix them and commit fixes
-             - Repeat until all pass
+          #{run_system_tests_step(step_num: 8)}
 
-          9. REFACTOR: Read global `~/.claude/rules/ruby-rails.md`, then refactor with FOCUS ON ROR RULES
-             - Apply Ruby/Rails best practices
-             - Commit refactoring changes
+          #{refactor_step(step_num: 9)}
 
-          10. VERIFY TESTS AFTER REFACTOR: Re-run all tests
-              - Use the "test-runner" skill for both unit and system tests
-              - Run unit tests - repeat until all pass
-              - Run system tests - repeat until all pass
+          #{verify_tests_step(step_num: 10)}
 
-          11. PUSH: Push branch to remote repository
-              - Run: git push -u origin HEAD
+          #{push_step(step_num: 11)}
 
-          12. CREATE PULL REQUEST: Open PR for review (NO MERGE!)
-              - Use format from .github/pull_request_template.md if exists
-              - Include clear summary of changes
-              - Link to the task in WorkVector
-              - IMPORTANT: Do NOT merge the PR - leave it open for human review
+          #{create_pr_step(step_num: 12, no_merge_warning: true)}
 
-          13. ADD SCREENSHOTS TO PR: Add screenshots using skill "pr-screenshot"
-              - Make sure the test is not due to some test failure
-              - Be sure that screenshots shows tested feature
+          #{add_screenshots_to_pr_step(step_num: 13)}
 
-          14. RUN LOCAL CI: If "bin/ci" exists, use the "ci-runner" skill
-              - This step is MANDATORY - task is INCOMPLETE without CI verification
-              - If bin/ci doesn't exist: skip this step
-              - If some test in step 10 failed: skip this step
-              - Use the "ci-runner" skill (invoke /ci-runner)
+          #{run_local_ci_step(step_num: 14, verify_step_ref: 10)}
 
           IMPORTANT: This is a MANUAL workflow - PR is created but NOT merged!
           Human will review and merge the PR manually.
