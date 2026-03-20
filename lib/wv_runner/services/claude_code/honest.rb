@@ -76,7 +76,7 @@ module WvRunner
              - If failures: fix them and commit fixes
              - Repeat until all pass
 
-          8. REFACTOR: Read global CLAUDE.md, then refactor with FOCUS ON ROR RULES
+          8. REFACTOR: Read global `~/.claude/rules/ruby-rails.md`, then refactor with FOCUS ON ROR RULES
              - Apply Ruby/Rails best practices
              - Commit refactoring changes
 
