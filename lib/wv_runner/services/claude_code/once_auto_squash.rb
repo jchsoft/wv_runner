@@ -52,8 +52,8 @@ module WvRunner
                END_TASK_INFO
 
           #{implementation_steps(start: 3)}
-          #{ci_run_and_merge_step(step_num: 13, next_step: 14)}
-          14. FINAL OUTPUT: Generate the result JSON
+          #{ci_run_and_merge_step(step_num: 14, next_step: 15)}
+          15. FINAL OUTPUT: Generate the result JSON
 
           IMPORTANT: This is ONCE AUTO-SQUASH workflow - runs exactly once and exits!
           PR is automatically merged after CI passes. If CI fails twice, PR stays open.

@@ -387,23 +387,19 @@ class ClaudeCodeAutoSquashBaseTest < Minitest::Test
     assert WvRunner::ClaudeCode::AutoSquashBase < WvRunner::ClaudeCodeBase
   end
 
-  def test_pr_review_check_step_includes_command
-    # Use a concrete subclass to access the private method
+  def test_code_review_step_in_implementation_steps
     obj = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 1, task_id: 456)
-    step = obj.send(:pr_review_check_step)
-    assert_includes step, 'CHECK PR REVIEWS'
-    assert_includes step, 'gh pr view --json reviews,comments'
-    assert_includes step, 'actionable feedback'
+    steps = obj.send(:implementation_steps, start: 3)
+    assert_includes steps, 'CODE REVIEW'
+    assert_includes steps, 'code-review'
+    assert_includes steps, 'actionable feedback'
   end
 
-  def test_pr_review_check_step_sub_items_have_correct_indent
+  def test_code_review_step_uses_skill_invocation
     obj = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 1, task_id: 456)
-    step = obj.send(:pr_review_check_step)
-    lines = step.split("\n")
-    assert lines[0].start_with?('- CHECK PR REVIEWS'), 'first line has no leading indent'
-    assert lines[1].start_with?('           - Run:'), 'sub-items have 11-space indent'
-    assert_includes step, 'loop back to CHECK PR REVIEWS', 'loop instruction present'
-    assert_includes step, 'ci_failed', 'ci_failed outcome present'
+    steps = obj.send(:implementation_steps, start: 3)
+    assert_includes steps, '/code-review'
+    assert_includes steps, 'review passes cleanly'
   end
 end
 
@@ -506,11 +502,11 @@ class ClaudeCodeStoryAutoSquashTest < Minitest::Test
     assert_includes instructions, 'assets:precompile'
   end
 
-  def test_story_auto_squash_instructions_includes_pr_review_check
+  def test_story_auto_squash_instructions_includes_code_review_skill
     story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123, task_id: 456)
     instructions = story_auto_squash.send(:build_instructions)
-    assert_includes instructions, 'CHECK PR REVIEWS'
-    assert_includes instructions, 'gh pr view --json reviews,comments'
+    assert_includes instructions, 'CODE REVIEW'
+    assert_includes instructions, '/code-review'
     assert_includes instructions, 'actionable feedback'
   end
 
@@ -653,13 +649,13 @@ class ClaudeCodeTodayAutoSquashTest < Minitest::Test
     end
   end
 
-  def test_today_auto_squash_instructions_includes_pr_review_check
+  def test_today_auto_squash_instructions_includes_code_review_skill
     File.stub :exist?, true do
       File.stub :read, 'project_relative_id=99' do
         today_auto_squash = WvRunner::ClaudeCode::TodayAutoSquash.new
         instructions = today_auto_squash.send(:build_instructions)
-        assert_includes instructions, 'CHECK PR REVIEWS'
-        assert_includes instructions, 'gh pr view --json reviews,comments'
+        assert_includes instructions, 'CODE REVIEW'
+        assert_includes instructions, '/code-review'
         assert_includes instructions, 'actionable feedback'
       end
     end
@@ -937,13 +933,13 @@ class ClaudeCodeQueueAutoSquashTest < Minitest::Test
     end
   end
 
-  def test_queue_auto_squash_instructions_includes_pr_review_check
+  def test_queue_auto_squash_instructions_includes_code_review_skill
     File.stub :exist?, true do
       File.stub :read, 'project_relative_id=99' do
         queue_auto_squash = WvRunner::ClaudeCode::QueueAutoSquash.new
         instructions = queue_auto_squash.send(:build_instructions)
-        assert_includes instructions, 'CHECK PR REVIEWS'
-        assert_includes instructions, 'gh pr view --json reviews,comments'
+        assert_includes instructions, 'CODE REVIEW'
+        assert_includes instructions, '/code-review'
         assert_includes instructions, 'actionable feedback'
       end
     end
@@ -1104,13 +1100,13 @@ class ClaudeCodeOnceAutoSquashTest < Minitest::Test
     end
   end
 
-  def test_once_auto_squash_instructions_includes_pr_review_check
+  def test_once_auto_squash_instructions_includes_code_review_skill
     File.stub :exist?, true do
       File.stub :read, 'project_relative_id=99' do
         once_auto_squash = WvRunner::ClaudeCode::OnceAutoSquash.new
         instructions = once_auto_squash.send(:build_instructions)
-        assert_includes instructions, 'CHECK PR REVIEWS'
-        assert_includes instructions, 'gh pr view --json reviews,comments'
+        assert_includes instructions, 'CODE REVIEW'
+        assert_includes instructions, '/code-review'
         assert_includes instructions, 'actionable feedback'
       end
     end
@@ -1419,11 +1415,11 @@ class ClaudeCodeTaskAutoSquashTest < Minitest::Test
     assert_includes instructions, 'assets:precompile'
   end
 
-  def test_task_auto_squash_instructions_includes_pr_review_check
+  def test_task_auto_squash_instructions_includes_code_review_skill
     task_auto_squash = WvRunner::ClaudeCode::TaskAutoSquash.new(task_id: 123)
     instructions = task_auto_squash.send(:build_instructions)
-    assert_includes instructions, 'CHECK PR REVIEWS'
-    assert_includes instructions, 'gh pr view --json reviews,comments'
+    assert_includes instructions, 'CODE REVIEW'
+    assert_includes instructions, '/code-review'
     assert_includes instructions, 'actionable feedback'
   end
 

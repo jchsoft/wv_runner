@@ -10,7 +10,7 @@ module WvRunner
     class AutoSquashBase < ClaudeCodeBase
       private
 
-      # Returns shared implementation steps from CREATE BRANCH through "no screenshots".
+      # Returns shared implementation steps from CREATE BRANCH through CODE REVIEW.
       # All four auto-squash files run these identical steps; only the starting step
       # number differs (today/once/queue start at 3, story starts at 4).
       #
@@ -65,11 +65,20 @@ module WvRunner
           #{s.(n+8)}- Note: PR will be automatically merged after CI passes
 
           #{n+9}. do not add screenshots to PR review - it is autosquash
+
+          #{n+10}. CODE REVIEW: Review the PR using the code-review skill
+          #{s.(n+10)}- Use the "code-review" skill to review the pull request (invoke /code-review)
+          #{s.(n+10)}- If the review finds issues:
+          #{s.(n+10)}  * Fix all actionable feedback (bugs, missing tests, style issues)
+          #{s.(n+10)}  * Commit and push fixes
+          #{s.(n+10)}  * Re-run the "code-review" skill to verify fixes
+          #{s.(n+10)}  * Repeat until the review passes cleanly
+          #{s.(n+10)}- Only proceed when the code review has no more actionable findings
         STEPS
       end
 
       # Returns the full CI run-and-auto-merge step.
-      # step_num: the step number shown to the agent (13 for today/once/queue, 14 for story)
+      # step_num: the step number shown to the agent (14 for today/once/queue, 15 for story)
       # next_step: the final output step number to skip to when bin/ci is absent
       def ci_run_and_merge_step(step_num:, next_step:)
         <<~STEP
@@ -85,7 +94,6 @@ module WvRunner
                 GitHub Actions workflow.
               - CI RESULT HANDLING:
                 a) IF CI PASSES:
-                   #{pr_review_check_step}
                    - Run: gh pr merge --squash --delete-branch
                    - Run: git checkout main && git pull
                    - Output status "success"
@@ -99,23 +107,6 @@ module WvRunner
         STEP
       end
 
-      # Returns the PR review check sub-step for embedding inside ci_run_and_merge_step.
-      #
-      # Indentation contract (tied to ci_run_and_merge_step's <<~STEP structure):
-      #   - First line: no leading spaces — caller's heredoc literal provides 9 spaces
-      #   - Sub-items:  11 leading spaces (9 base + 2 sub-indent)
-      def pr_review_check_step
-        "- CHECK PR REVIEWS: Before merging, quickly check if there are any PR review comments\n" \
-        "           - Run: gh pr view --json reviews,comments\n" \
-        "           - If reviews exist with actionable feedback:\n" \
-        "             * Fix obviously valid points (bugs, missing tests, style issues)\n" \
-        "             * Skip irrelevant or nitpicky comments\n" \
-        "             * Commit and push your fixes\n" \
-        "             * Re-run bin/ci — treat this EXACTLY like a fresh CI run:\n" \
-        "               → If it passes: check reviews again (loop back to CHECK PR REVIEWS)\n" \
-        "               → If it fails: fix issues, push, retry once; if still failing → ci_failed\n" \
-        "           - Only proceed to merge when CI passes AND there are no more actionable review comments"
-      end
     end
   end
 end

@@ -33,8 +33,8 @@ module WvRunner
              - This ensures you start from a clean, stable state
 
           #{implementation_steps(start: 4)}
-          #{ci_run_and_merge_step(step_num: 14, next_step: 15)}
-          15. FINAL OUTPUT: Generate the result JSON
+          #{ci_run_and_merge_step(step_num: 15, next_step: 16)}
+          16. FINAL OUTPUT: Generate the result JSON
 
           IMPORTANT: This is an AUTO-SQUASH workflow - PR is automatically merged after CI passes!
           If CI fails twice, the PR stays open for manual review.
