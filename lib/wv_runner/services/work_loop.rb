@@ -178,6 +178,10 @@ module WvRunner
         Logger.info_stdout("[WorkLoop] Task ##{iteration_count} completed with status: #{result['status']}")
 
         if result['status'] == 'no_more_tasks'
+          if !@ignore_quota && triage_quota_exceeded?(result)
+            Logger.info_stdout('[WorkLoop] Quota exceeded and no tasks available, stopping')
+            break
+          end
           break unless handle_no_tasks_in_today_auto_squash_mode
 
           next
@@ -358,6 +362,10 @@ module WvRunner
         end
 
         if no_tasks_available?(results.last)
+          if !@ignore_quota && triage_quota_exceeded?(results.last)
+            Logger.info_stdout('[WorkLoop] Quota exceeded and no tasks available, stopping')
+            break
+          end
           Logger.info_stdout('[WorkLoop] No tasks available, will wait 1 hour before retry...')
           break unless handle_no_tasks_in_daily_mode
           Logger.debug('[WorkLoop] [run_today_tasks] Retrying after wait...')
