@@ -124,6 +124,30 @@ class WorkLoopTriageTest < Minitest::Test
     end
   end
 
+  def test_triage_explicit_task_id_not_overridden_by_triage
+    triage_result_mock = Object.new
+    def triage_result_mock.run
+      { 'status' => 'success', 'recommended_model' => 'opus', 'task_id' => 9809,
+        'resuming' => false, 'hours' => { 'per_day' => 8, 'task_estimated' => 2, 'already_worked' => 0 } }
+    end
+
+    received_kwargs = nil
+    executor_mock = Object.new
+    def executor_mock.run
+      { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2 } }
+    end
+
+    WvRunner::ClaudeCode::Triage.stub(:new, triage_result_mock) do
+      WvRunner::ClaudeCode::TaskAutoSquash.stub(:new, ->(**kwargs) { received_kwargs = kwargs; executor_mock }) do
+        loop_instance = WvRunner::WorkLoop.new(task_id: 9901)
+        loop_instance.execute(:task_auto_squash)
+
+        assert_equal 9901, received_kwargs[:task_id],
+                     'Explicit task_id should not be overridden by triage result'
+      end
+    end
+  end
+
   def test_triage_passes_resuming_true_to_executor
     triage_result_mock = Object.new
     def triage_result_mock.run

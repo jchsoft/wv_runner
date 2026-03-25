@@ -485,11 +485,17 @@ module WvRunner
 
       model_override = extract_triage_model(triage_result)
       triaged_task_id = triage_result['task_id']
+      explicit_task_id = kwargs[:task_id]
       resuming = triage_result['resuming'] == true
 
       unless triaged_task_id
         Logger.error('[WorkLoop] Triage did not return a task_id')
         return { 'status' => 'error', 'message' => 'Triage completed but no task_id returned' }
+      end
+
+      if explicit_task_id && triaged_task_id != explicit_task_id
+        Logger.warn("[WorkLoop] Triage returned task_id #{triaged_task_id} but explicit task_id #{explicit_task_id} was requested, using explicit")
+        triaged_task_id = explicit_task_id
       end
 
       Logger.info_stdout("[WorkLoop] Triage recommended model: #{model_override} (task_id: #{triaged_task_id}, resuming: #{resuming})")

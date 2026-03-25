@@ -86,20 +86,10 @@ module WvRunner
         <<~INSTRUCTIONS
           You are a task triage agent. Your ONLY job is to analyze a task and recommend which AI model should execute it.
 
-          STEP 1 - BRANCH & RESUME DETECTION (do this FIRST):
-          1. Run: git branch --show-current
-          2. If on main/master: skip to STEP 2 with resuming=false
-          3. If on a feature branch:
-             a. Try to extract a numeric task ID (4+ digits) from the branch name
-                (e.g., "feature/9508-contact-page" → task ID 9508)
-             b. If NO numeric ID found in branch name, check for an open PR:
-                Run: gh pr list --head $(git branch --show-current) --json body --jq '.[0].body'
-                Look for a mcptask.online task link (e.g., mcptask.online/jchsoft/tasks/9508) and extract the task ID
-             c. If task ID found from branch or PR: use workvector://pieces/jchsoft/{task_id} instead of the default fetch URL, set resuming=true
-             d. If no task ID found at all: skip to STEP 2 with resuming=false
+          #{branch_detection_step}
 
           STEP 2 - FETCH TASK:
-          1. Fetch the task from: #{fetch_url} (unless overridden by STEP 1c)
+          1. Fetch the task from: #{fetch_url}#{" (unless overridden by STEP 1c)" unless @task_id}
           2. If no tasks available: output status "no_more_tasks" with recommended_model "opus"
 
           STEP 3 - ANALYZE:
@@ -132,6 +122,33 @@ module WvRunner
              - "success" if task analyzed successfully
              - "no_more_tasks" if no tasks available
         INSTRUCTIONS
+      end
+
+      def branch_detection_step
+        if @task_id
+          <<~STEP.strip
+            STEP 1 - BRANCH & RESUME DETECTION (do this FIRST):
+            1. Run: git branch --show-current
+            2. If on main/master: set resuming=false
+            3. If on a feature branch that contains "#{@task_id}" in its name: set resuming=true
+            4. Otherwise: set resuming=false
+            NOTE: The task to analyze is ALREADY determined (#{@task_id}). Do NOT fetch a different task.
+          STEP
+        else
+          <<~STEP.strip
+            STEP 1 - BRANCH & RESUME DETECTION (do this FIRST):
+            1. Run: git branch --show-current
+            2. If on main/master: skip to STEP 2 with resuming=false
+            3. If on a feature branch:
+               a. Try to extract a numeric task ID (4+ digits) from the branch name
+                  (e.g., "feature/9508-contact-page" → task ID 9508)
+               b. If NO numeric ID found in branch name, check for an open PR:
+                  Run: gh pr list --head $(git branch --show-current) --json body --jq '.[0].body'
+                  Look for a mcptask.online task link (e.g., mcptask.online/jchsoft/tasks/9508) and extract the task ID
+               c. If task ID found from branch or PR: use workvector://pieces/jchsoft/{task_id} instead of the default fetch URL, set resuming=true
+               d. If no task ID found at all: skip to STEP 2 with resuming=false
+          STEP
+        end
       end
     end
   end
