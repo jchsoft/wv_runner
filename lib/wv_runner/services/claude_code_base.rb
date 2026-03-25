@@ -479,9 +479,14 @@ module WvRunner
       parsed = JSON.parse(line)
       return unless parsed['type'] == 'result'
 
-      @result_received = true
-      @stopping = true # Mark as expected shutdown
-      Logger.info_stdout "[#{@log_tag}] Result received, stopping streams..."
+      result_text = parsed['result'].to_s
+      if result_text.include?('WVRUNNER_RESULT')
+        @result_received = true
+        @stopping = true
+        Logger.info_stdout "[#{@log_tag}] Final result received (WVRUNNER_RESULT found), stopping streams..."
+      else
+        Logger.info_stdout "[#{@log_tag}] Interim result received (no WVRUNNER_RESULT), continuing to stream..."
+      end
     rescue JSON::ParserError
       # Not JSON or invalid, ignore
     end

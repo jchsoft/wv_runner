@@ -315,21 +315,23 @@ class ClaudeCodeBaseTest < Minitest::Test
     refute base.instance_variable_get(:@result_received)
   end
 
-  def test_check_for_result_message_sets_flag_on_result_type
+  def test_check_for_result_message_ignores_interim_result_without_marker
     base = WvRunner::ClaudeCodeBase.new
-    result_line = '{"type": "result", "cost_usd": 0.05}'
+    result_line = '{"type": "result", "result": "Tests running in background..."}'
+
+    base.send(:check_for_result_message, result_line)
+
+    refute base.instance_variable_get(:@result_received)
+    refute base.instance_variable_get(:@stopping)
+  end
+
+  def test_check_for_result_message_sets_flag_on_final_result_with_marker
+    base = WvRunner::ClaudeCodeBase.new
+    result_line = '{"type": "result", "result": "{\"WVRUNNER_RESULT\": true, \"status\": \"success\"}"}'
 
     base.send(:check_for_result_message, result_line)
 
     assert base.instance_variable_get(:@result_received)
-  end
-
-  def test_check_for_result_message_sets_stopping_on_result_type
-    base = WvRunner::ClaudeCodeBase.new
-    result_line = '{"type": "result", "cost_usd": 0.05}'
-
-    base.send(:check_for_result_message, result_line)
-
     assert base.instance_variable_get(:@stopping)
   end
 
