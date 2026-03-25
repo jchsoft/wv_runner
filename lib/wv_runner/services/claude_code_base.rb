@@ -38,7 +38,7 @@ module WvRunner
       @child_pid = nil
       @stream_line_count = 0
       @active_tool_calls = {}
-      @log_tag = @log_tag
+      @log_tag = self.class.name.split('::').last
       OutputFormatter.verbose_mode = verbose
     end
 
@@ -276,12 +276,14 @@ module WvRunner
           # Check if heartbeat detected inactivity
           raise Timeout::Error, "Claude inactive for #{INACTIVITY_TIMEOUT}s" if @inactivity_timeout
 
-          exit_status = wait_thr.value
-          Logger.debug "[#{@log_tag}] Process exit status: #{exit_status.exitstatus}"
+          exit_status = wait_for_process(wait_thr)
+          if exit_status
+            Logger.debug "[#{@log_tag}] Process exit status: #{exit_status.exitstatus}"
 
-          if exit_status.exitstatus != 0 && !@result_received
-            Logger.debug "[#{@log_tag}] WARNING: Claude exited with non-zero status!"
-            Logger.debug "[#{@log_tag}] stderr: #{stderr_content}" unless stderr_content.empty?
+            if exit_status.exitstatus != 0 && !@result_received
+              Logger.debug "[#{@log_tag}] WARNING: Claude exited with non-zero status!"
+              Logger.debug "[#{@log_tag}] stderr: #{stderr_content}" unless stderr_content.empty?
+            end
           end
         ensure
           heartbeat_thread&.kill
@@ -293,6 +295,33 @@ module WvRunner
       Logger.info_stdout "[#{@log_tag}] Execution finished in #{elapsed}s (#{@stream_line_count} stream events)"
 
       stdout_content
+    end
+
+    PROCESS_WAIT_TIMEOUT = 15 # seconds to wait for process exit after kill
+
+    def wait_for_process(wait_thr)
+      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + PROCESS_WAIT_TIMEOUT
+
+      loop do
+        return wait_thr.value unless wait_thr.alive?
+
+        if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+          Logger.warn "[#{@log_tag}] Process still alive after #{PROCESS_WAIT_TIMEOUT}s, force killing..."
+          force_kill_process_group(wait_thr.pid)
+          return wait_thr.value
+        end
+
+        sleep(0.5)
+      end
+    end
+
+    def force_kill_process_group(pid)
+      pgid = resolve_process_group(pid)
+      target = pgid ? -pgid : pid
+
+      Process.kill('KILL', target)
+    rescue Errno::ESRCH, Errno::EPERM
+      safe_kill('KILL', pid)
     end
 
     def resolve_process_group(pid)
