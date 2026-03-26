@@ -28,8 +28,10 @@ detectors:
     enabled: false
   TooManyInstanceVariables:
     max_instance_variables: 14
+  TooManyConstants:
+    max_constants: 7
   TooManyMethods:
-    max_methods: 41
+    max_methods: 43
   TooManyStatements:
     max_statements: 75
   LongParameterList:

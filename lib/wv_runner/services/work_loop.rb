@@ -478,6 +478,11 @@ module WvRunner
         return triage_result
       end
 
+      if triage_result['status'] == 'quota_exceeded'
+        Logger.info_stdout('[WorkLoop] Triage reported quota exceeded')
+        return { 'status' => 'quota_exceeded' }
+      end
+
       if !@ignore_quota && triage_quota_exceeded?(triage_result)
         Logger.info_stdout('[WorkLoop] Quota already exceeded before execution, skipping task')
         return { 'status' => 'quota_exceeded' }

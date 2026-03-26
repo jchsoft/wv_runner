@@ -38,6 +38,15 @@ module WvRunner
         <<~INSTRUCTIONS
           You are a task triage agent. Your ONLY job is to find the next incomplete subtask from a Story and recommend which AI model should execute it.
 
+          STEP 0 - CHECK DAILY QUOTA (do this FIRST, before anything else):
+          1. Read: workvector://user
+          2. Extract "hour_goal" (this is per_day) and "worked_out" (this is already_worked)
+          3. CRITICAL: If worked_out >= hour_goal → STOP IMMEDIATELY. Output WVRUNNER_RESULT with:
+             - status: "quota_exceeded", recommended_model: "opus", task_id: 0, resuming: false
+             - hours: { per_day: <hour_goal value>, task_estimated: 0, already_worked: <worked_out value> }
+             Do NOT proceed to any other steps. Do NOT fetch any task.
+          4. If worked_out < hour_goal → continue to STEP 1
+
           STEP 1 - LOAD STORY:
           1. Read: workvector://pieces/jchsoft/#{@story_id}
           2. Find subtasks array in the response
@@ -66,17 +75,19 @@ module WvRunner
             extra_rules: [
               'recommended_model MUST be exactly "opus" or "sonnet" (lowercase)',
               'task_id MUST be the numeric relative_id of the subtask (NOT the story)',
-              'resuming MUST be false (story triage always starts fresh tasks)'
+              'resuming MUST be false (story triage always starts fresh tasks)',
+              'already_worked MUST be the EXACT "worked_out" number from workvector://user - NEVER 0 unless API returned 0'
             ]
           )}
 
-          How to get the data:
-          1. Read workvector://user -> use "hour_goal" for per_day, use "worked_out" for already_worked
-             IMPORTANT: Read workvector://user at the very BEGINNING of the task before logging any work progress
-          2. From the subtask -> extract relative_id (as task_id) and parse "duration_best" field for task_estimated
-          3. Set status:
+          How to populate hours in the result:
+          1. per_day = "hour_goal" from workvector://user (already read in STEP 0)
+          2. already_worked = "worked_out" from workvector://user (already read in STEP 0)
+          3. task_estimated = parse "duration_best" field from subtask (e.g. "30 minut" → 0.5, "1 hodina" → 1.0)
+          4. Set status:
              - "success" if subtask analyzed successfully
              - "no_more_tasks" if no incomplete subtasks in the Story
+             - "quota_exceeded" if worked_out >= hour_goal (from STEP 0)
         INSTRUCTIONS
       end
 
@@ -85,6 +96,15 @@ module WvRunner
 
         <<~INSTRUCTIONS
           You are a task triage agent. Your ONLY job is to analyze a task and recommend which AI model should execute it.
+
+          STEP 0 - CHECK DAILY QUOTA (do this FIRST, before anything else):
+          1. Read: workvector://user
+          2. Extract "hour_goal" (this is per_day) and "worked_out" (this is already_worked)
+          3. CRITICAL: If worked_out >= hour_goal → STOP IMMEDIATELY. Output WVRUNNER_RESULT with:
+             - status: "quota_exceeded", recommended_model: "opus", task_id: 0, resuming: false
+             - hours: { per_day: <hour_goal value>, task_estimated: 0, already_worked: <worked_out value> }
+             Do NOT proceed to any other steps. Do NOT fetch any task.
+          4. If worked_out < hour_goal → continue to STEP 1
 
           #{branch_detection_step}
 
@@ -110,17 +130,19 @@ module WvRunner
             extra_rules: [
               'recommended_model MUST be exactly "opus" or "sonnet" (lowercase)',
               'task_id MUST be the numeric relative_id of the task',
-              'resuming MUST be true or false (boolean, not string)'
+              'resuming MUST be true or false (boolean, not string)',
+              'already_worked MUST be the EXACT "worked_out" number from workvector://user - NEVER 0 unless API returned 0'
             ]
           )}
 
-          How to get the data:
-          1. Read workvector://user -> use "hour_goal" for per_day, use "worked_out" for already_worked
-             IMPORTANT: Read workvector://user at the very BEGINNING of the task before logging any work progress
-          2. From the task -> extract relative_id (as task_id) and parse "duration_best" field for task_estimated
-          3. Set status:
+          How to populate hours in the result:
+          1. per_day = "hour_goal" from workvector://user (already read in STEP 0)
+          2. already_worked = "worked_out" from workvector://user (already read in STEP 0)
+          3. task_estimated = parse "duration_best" field from task (e.g. "30 minut" → 0.5, "1 hodina" → 1.0)
+          4. Set status:
              - "success" if task analyzed successfully
              - "no_more_tasks" if no tasks available
+             - "quota_exceeded" if worked_out >= hour_goal (from STEP 0)
         INSTRUCTIONS
       end
 
