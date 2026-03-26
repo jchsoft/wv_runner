@@ -25,6 +25,7 @@ module WvRunner
     RETRY_WAIT_SECONDS = 30
     PROCESS_KILL_TIMEOUT = 5 # seconds to wait for SIGTERM before SIGKILL
     HEARTBEAT_INTERVAL = 120 # 2 minutes between heartbeat messages
+    PRODUCTIVE_STREAM_THRESHOLD = 10 # stream events to consider a run "productive" (resets retry counter)
 
     def initialize(verbose: false, model_override: nil, resuming: false)
       @verbose = verbose
@@ -59,10 +60,15 @@ module WvRunner
         result = attempt_execution(start_time)
         return result if result
 
-        @retry_count += 1
+        if @stream_line_count >= PRODUCTIVE_STREAM_THRESHOLD
+          Logger.info_stdout "[#{@log_tag}] Claude was productive (#{@stream_line_count} stream events), resetting retry counter"
+          @retry_count = 0
+        else
+          @retry_count += 1
+        end
         break if @retry_count >= MAX_RETRY_ATTEMPTS
 
-        Logger.info_stdout "[#{@log_tag}] Waiting #{RETRY_WAIT_SECONDS}s before retry #{@retry_count}/#{MAX_RETRY_ATTEMPTS}..."
+        Logger.info_stdout "[#{@log_tag}] Waiting #{RETRY_WAIT_SECONDS}s before retry #{@retry_count + 1}/#{MAX_RETRY_ATTEMPTS}..."
         sleep(RETRY_WAIT_SECONDS)
       end
 
@@ -267,8 +273,8 @@ module WvRunner
           # Kill process first if result received, so streams close and threads unblock
           kill_process(wait_thr.pid) if @result_received
 
-          stdout_thread.join(30)
-          stderr_thread.join(10)
+          stdout_thread.join
+          stderr_thread.join(30)
 
           # Check if stream was unexpectedly closed
           raise StreamClosedError, stream_error if stream_error && !@stopping
