@@ -6,6 +6,8 @@ require 'json'
 require 'shellwords'
 require 'timeout'
 require_relative 'output_formatter'
+require_relative 'concerns/process_management'
+require_relative 'concerns/retry_handling'
 
 module WvRunner
   # Raised when IO stream unexpectedly closes during Claude execution
@@ -14,18 +16,20 @@ module WvRunner
   # Raised when WVRUNNER_RESULT marker is not found in output
   class MissingMarkerError < StandardError; end
 
+  # Raised when Claude exits due to API overload (529 errors)
+  class ApiOverloadError < StandardError; end
+
   # Base class for Claude Code executors
   # Handles common execution, streaming, and JSON parsing logic
   # Subclasses must implement:
   # - build_instructions() -> returns instruction string
   # - model_name() -> returns the model to use (e.g., 'sonnet', 'haiku', 'opus')
   class ClaudeCodeBase
+    include Concerns::ProcessManagement
+    include Concerns::RetryHandling
+
     INACTIVITY_TIMEOUT = 1200 # 20 minutes - kill only if stream_line_count stops changing
-    MAX_RETRY_ATTEMPTS = 3
-    RETRY_WAIT_SECONDS = 30
-    PROCESS_KILL_TIMEOUT = 5 # seconds to wait for SIGTERM before SIGKILL
     HEARTBEAT_INTERVAL = 120 # 2 minutes between heartbeat messages
-    PRODUCTIVE_STREAM_THRESHOLD = 10 # stream events to consider a run "productive" (resets retry counter)
 
     def initialize(verbose: false, model_override: nil, resuming: false)
       @verbose = verbose
@@ -33,6 +37,7 @@ module WvRunner
       @resuming = resuming
       @stopping = false
       @retry_count = 0
+      @api_overload_count = 0
       @marker_retry_mode = false
       @result_received = false
       @inactivity_timeout = false
@@ -54,27 +59,6 @@ module WvRunner
     end
 
     private
-
-    def run_with_retry(start_time)
-      loop do
-        result = attempt_execution(start_time)
-        return result if result
-
-        if @stream_line_count >= PRODUCTIVE_STREAM_THRESHOLD
-          Logger.info_stdout "[#{@log_tag}] Claude was productive (#{@stream_line_count} stream events), resetting retry counter"
-          @retry_count = 0
-        else
-          @retry_count += 1
-        end
-        break if @retry_count >= MAX_RETRY_ATTEMPTS
-
-        Logger.info_stdout "[#{@log_tag}] Waiting #{RETRY_WAIT_SECONDS}s before retry #{@retry_count + 1}/#{MAX_RETRY_ATTEMPTS}..."
-        sleep(RETRY_WAIT_SECONDS)
-      end
-
-      elapsed_hours = ((Time.now - start_time) / 3600.0).round(2)
-      error_result("Claude execution failed after #{MAX_RETRY_ATTEMPTS} retry attempts (#{elapsed_hours} hours)")
-    end
 
     def attempt_execution(start_time)
       claude_path = resolve_claude_path
@@ -99,6 +83,9 @@ module WvRunner
 
       result = parse_result(@accumulated_output, elapsed_hours)
 
+      # Detect API overload - Claude crashed due to 529 errors, not a real failure
+      raise ApiOverloadError if api_overload_detected?
+
       # If marker not found and Claude completed successfully, retry with marker-only instruction
       if result['status'] == 'error' && result['message'].include?('WVRUNNER_RESULT')
         raise MissingMarkerError
@@ -111,51 +98,8 @@ module WvRunner
       handle_recoverable_error("Stream closed: #{e.message}", start_time)
     rescue MissingMarkerError
       handle_marker_retry(start_time)
-    end
-
-    def handle_recoverable_error(error_type, start_time)
-      elapsed_hours = ((Time.now - start_time) / 3600.0).round(2)
-
-      if @retry_count >= MAX_RETRY_ATTEMPTS - 1
-        Logger.error "[#{@log_tag}] #{error_type} - max retries reached"
-        return error_result("#{error_type} after #{INACTIVITY_TIMEOUT}s inactivity (#{elapsed_hours}h), retries exhausted")
-      end
-
-      Logger.warn "[#{@log_tag}] #{error_type} after #{elapsed_hours}h - will retry with --continue"
-      nil # Signal to retry
-    end
-
-    def handle_marker_retry(start_time)
-      elapsed_hours = ((Time.now - start_time) / 3600.0).round(2)
-
-      if @retry_count >= MAX_RETRY_ATTEMPTS - 1
-        Logger.error "[#{@log_tag}] Missing marker - max retries reached"
-        return error_result("Missing WVRUNNER_RESULT after retries exhausted (#{elapsed_hours}h)")
-      end
-
-      Logger.warn "[#{@log_tag}] Missing WVRUNNER_RESULT marker - will retry with marker-only instruction"
-      @marker_retry_mode = true
-      nil # Signal to retry
-    end
-
-    def build_marker_retry_instructions
-      original_instructions = build_instructions
-
-      <<~INSTRUCTIONS
-        Your previous session was interrupted before completing the workflow.
-
-        Please:
-        1. Check what you already completed (git status, git log, check for open PRs)
-        2. Continue from where you left off in the workflow below
-        3. Complete ALL remaining steps
-        4. At the END, output the WVRUNNER_RESULT marker as specified
-
-        IMPORTANT: Do NOT just output the marker - first verify and complete any remaining work!
-
-        === ORIGINAL WORKFLOW (continue from where you left off) ===
-
-        #{original_instructions}
-      INSTRUCTIONS
+    rescue ApiOverloadError
+      handle_api_overload(start_time)
     end
 
     def resolve_claude_path
@@ -301,83 +245,6 @@ module WvRunner
       Logger.info_stdout "[#{@log_tag}] Execution finished in #{elapsed}s (#{@stream_line_count} stream events)"
 
       stdout_content
-    end
-
-    PROCESS_WAIT_TIMEOUT = 15 # seconds to wait for process exit after kill
-
-    def wait_for_process(wait_thr)
-      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + PROCESS_WAIT_TIMEOUT
-
-      loop do
-        return wait_thr.value unless wait_thr.alive?
-
-        if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
-          Logger.warn "[#{@log_tag}] Process still alive after #{PROCESS_WAIT_TIMEOUT}s, force killing..."
-          force_kill_process_group(wait_thr.pid)
-          return wait_thr.value
-        end
-
-        sleep(0.5)
-      end
-    end
-
-    def force_kill_process_group(pid)
-      pgid = resolve_process_group(pid)
-      target = pgid ? -pgid : pid
-
-      Process.kill('KILL', target)
-    rescue Errno::ESRCH, Errno::EPERM
-      safe_kill('KILL', pid)
-    end
-
-    def resolve_process_group(pid)
-      Process.getpgid(pid)
-    rescue Errno::ESRCH, Errno::EPERM
-      nil
-    end
-
-    def safe_kill(signal, pid)
-      Process.kill(signal, pid)
-      true
-    rescue Errno::ESRCH
-      false
-    end
-
-    def kill_process(pid)
-      return unless pid
-
-      pgid = resolve_process_group(pid)
-      kill_target = pgid ? -pgid : pid
-      target_label = pgid ? "process group #{pgid}" : "pid #{pid}"
-
-      Logger.info_stdout "[#{@log_tag}] Terminating Claude #{target_label}..."
-      begin
-        Process.kill('TERM', kill_target)
-      rescue Errno::ESRCH
-        return
-      rescue Errno::EPERM
-        Logger.warn "[#{@log_tag}] No permission to kill #{target_label}, falling back to pid #{pid}"
-        safe_kill('TERM', pid) || return
-      end
-
-      PROCESS_KILL_TIMEOUT.times do
-        sleep(1)
-        begin
-          Process.kill(0, pid)
-        rescue Errno::ESRCH
-          Logger.debug "[#{@log_tag}] Process #{pid} terminated after SIGTERM"
-          return
-        end
-      end
-
-      Logger.warn "[#{@log_tag}] Process #{pid} not responding to SIGTERM, sending SIGKILL..."
-      begin
-        Process.kill('KILL', kill_target)
-      rescue Errno::ESRCH, Errno::EPERM
-        safe_kill('KILL', pid)
-      end
-    rescue StandardError => e
-      Logger.warn "[#{@log_tag}] Error during process cleanup: #{e.message}"
     end
 
     def stream_lines(io)

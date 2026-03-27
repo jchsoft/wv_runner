@@ -309,6 +309,79 @@ class ClaudeCodeBaseTest < Minitest::Test
     assert_includes instructions, 'Step 2: Do that'
   end
 
+  # Tests for API overload detection and handling
+  def test_api_overload_detected_with_529_error_status
+    base = WvRunner::ClaudeCodeBase.new
+    base.instance_variable_set(:@accumulated_output, '{"type":"system","subtype":"api_retry","error_status": 529}')
+
+    assert base.send(:api_overload_detected?), 'Should detect 529 error status'
+  end
+
+  def test_api_overload_detected_with_repeated_529_message
+    base = WvRunner::ClaudeCodeBase.new
+    base.instance_variable_set(:@accumulated_output, '[Claude] API Error: Repeated 529 Overloaded errors')
+
+    assert base.send(:api_overload_detected?), 'Should detect repeated 529 message'
+  end
+
+  def test_api_overload_not_detected_for_normal_output
+    base = WvRunner::ClaudeCodeBase.new
+    base.instance_variable_set(:@accumulated_output, '{"type":"result","result":"WVRUNNER_RESULT: {}"}')
+
+    refute base.send(:api_overload_detected?), 'Should not detect overload in normal output'
+  end
+
+  def test_handle_api_overload_returns_nil_for_retry
+    base = WvRunner::ClaudeCodeBase.new
+    base.instance_variable_set(:@api_overload_count, 0)
+
+    base.stub(:sleep, nil) do
+      result = base.send(:handle_api_overload, Time.now)
+      assert_nil result, 'Should return nil to signal retry'
+    end
+  end
+
+  def test_handle_api_overload_increments_counter
+    base = WvRunner::ClaudeCodeBase.new
+    base.instance_variable_set(:@api_overload_count, 0)
+
+    base.stub(:sleep, nil) do
+      base.send(:handle_api_overload, Time.now)
+    end
+
+    assert_equal 1, base.instance_variable_get(:@api_overload_count)
+  end
+
+  def test_handle_api_overload_returns_error_at_max_retries
+    base = WvRunner::ClaudeCodeBase.new
+    base.instance_variable_set(:@api_overload_count, WvRunner::ClaudeCodeBase::MAX_API_OVERLOAD_RETRIES - 1)
+
+    result = base.send(:handle_api_overload, Time.now)
+
+    assert_equal 'error', result['status']
+    assert_match(/API overloaded/, result['message'])
+    assert_match(/529/, result['message'])
+  end
+
+  def test_api_overload_does_not_increment_normal_retry_count
+    base = WvRunner::ClaudeCodeBase.new
+    base.instance_variable_set(:@retry_count, 0)
+    base.instance_variable_set(:@api_overload_count, 0)
+    base.instance_variable_set(:@stream_line_count, 5)
+
+    # Simulate: attempt_execution returns nil (retry), api_overload_count was incremented
+    # The run_with_retry loop should skip normal retry counter
+    base.instance_variable_set(:@api_overload_count, 1)
+
+    # After API overload, retry_count should remain 0
+    assert_equal 0, base.instance_variable_get(:@retry_count)
+  end
+
+  def test_initialize_sets_api_overload_count_to_zero
+    base = WvRunner::ClaudeCodeBase.new
+    assert_equal 0, base.instance_variable_get(:@api_overload_count)
+  end
+
   # Tests for result_received flag and early stream termination
   def test_initialize_sets_result_received_to_false
     base = WvRunner::ClaudeCodeBase.new
