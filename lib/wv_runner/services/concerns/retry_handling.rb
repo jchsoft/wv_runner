@@ -63,7 +63,8 @@ module WvRunner
       end
 
       def api_overload_detected?
-        @accumulated_output.include?('"error_status": 529') ||
+        @api_overload_flag ||
+          @accumulated_output.include?('"error_status": 529') ||
           @accumulated_output.include?('Repeated 529 Overloaded') ||
           @accumulated_output.include?('"error_status":529')
       end

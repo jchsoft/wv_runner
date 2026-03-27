@@ -38,6 +38,7 @@ module WvRunner
       @stopping = false
       @retry_count = 0
       @api_overload_count = 0
+      @api_overload_flag = false
       @marker_retry_mode = false
       @result_received = false
       @inactivity_timeout = false
@@ -95,6 +96,8 @@ module WvRunner
     rescue Timeout::Error
       handle_recoverable_error('Timeout', start_time)
     rescue StreamClosedError => e
+      raise ApiOverloadError if @api_overload_flag
+
       handle_recoverable_error("Stream closed: #{e.message}", start_time)
     rescue MissingMarkerError
       handle_marker_retry(start_time)
@@ -128,15 +131,20 @@ module WvRunner
       @model_override || model_name
     end
 
+    def reset_streaming_state
+      @result_received = false
+      @inactivity_timeout = false
+      @api_overload_flag = false
+      @stream_line_count = 0
+      @active_tool_calls = {}
+      @child_pid = nil
+    end
+
     def execute_with_streaming(command)
       stdout_content = ''.dup
       stderr_content = ''.dup
       stream_error = nil
-      @result_received = false
-      @inactivity_timeout = false
-      @stream_line_count = 0
-      @active_tool_calls = {}
-      @child_pid = nil
+      reset_streaming_state
       execution_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
       Open3.popen3(*command, pgroup: true) do |stdin, stdout, stderr, wait_thr|
@@ -149,6 +157,7 @@ module WvRunner
             @stream_line_count += 1
             @text_content << extract_text_from_line(line)
             track_tool_event(line)
+            check_for_api_overload(line)
             check_for_result_message(line)
             if OutputFormatter.should_log_to_stdout?(line)
               formatted = OutputFormatter.format_line(line)
@@ -344,6 +353,14 @@ module WvRunner
       output.empty? ? '(no processes found)' : output
     rescue StandardError => e
       "(error: #{e.message})"
+    end
+
+    def check_for_api_overload(line)
+      return if @api_overload_flag
+
+      @api_overload_flag = true if line.include?('"error_status": 529') ||
+                                   line.include?('"error_status":529') ||
+                                   line.include?('Repeated 529 Overloaded')
     end
 
     def check_for_result_message(line)

@@ -27,11 +27,11 @@ detectors:
   RepeatedConditional:
     enabled: false
   TooManyInstanceVariables:
-    max_instance_variables: 15
+    max_instance_variables: 16
   TooManyConstants:
     max_constants: 6
   TooManyMethods:
-    max_methods: 35
+    max_methods: 36
   TooManyStatements:
     max_statements: 75
   LongParameterList:

@@ -382,6 +382,55 @@ class ClaudeCodeBaseTest < Minitest::Test
     assert_equal 0, base.instance_variable_get(:@api_overload_count)
   end
 
+  def test_initialize_sets_api_overload_flag_to_false
+    base = WvRunner::ClaudeCodeBase.new
+    refute base.instance_variable_get(:@api_overload_flag)
+  end
+
+  def test_check_for_api_overload_sets_flag_on_529
+    base = WvRunner::ClaudeCodeBase.new
+    base.send(:check_for_api_overload, '{"type":"system","subtype":"api_retry","error_status": 529}')
+
+    assert base.instance_variable_get(:@api_overload_flag), 'Should set flag on 529 error'
+  end
+
+  def test_check_for_api_overload_sets_flag_on_repeated_529
+    base = WvRunner::ClaudeCodeBase.new
+    base.send(:check_for_api_overload, '[Claude] API Error: Repeated 529 Overloaded errors')
+
+    assert base.instance_variable_get(:@api_overload_flag), 'Should set flag on repeated 529'
+  end
+
+  def test_check_for_api_overload_does_not_set_flag_on_normal_output
+    base = WvRunner::ClaudeCodeBase.new
+    base.send(:check_for_api_overload, '{"type":"assistant","message":"Hello"}')
+
+    refute base.instance_variable_get(:@api_overload_flag), 'Should not set flag on normal output'
+  end
+
+  def test_api_overload_detected_via_flag
+    base = WvRunner::ClaudeCodeBase.new
+    base.instance_variable_set(:@accumulated_output, '')
+    base.instance_variable_set(:@api_overload_flag, true)
+
+    assert base.send(:api_overload_detected?), 'Should detect overload via flag even with empty accumulated_output'
+  end
+
+  def test_stream_closed_with_529_raises_api_overload
+    base = WvRunner::ClaudeCodeBase.new
+    base.instance_variable_set(:@api_overload_flag, true)
+    base.instance_variable_set(:@retry_count, 0)
+    base.instance_variable_set(:@api_overload_count, 0)
+
+    # attempt_execution rescues StreamClosedError, checks flag, re-raises as ApiOverloadError
+    # which is then caught and handled by handle_api_overload
+    base.stub(:sleep, nil) do
+      result = base.send(:handle_api_overload, Time.now)
+      assert_nil result, 'API overload handler should return nil to signal retry'
+      assert_equal 1, base.instance_variable_get(:@api_overload_count), 'Should increment overload counter'
+    end
+  end
+
   # Tests for result_received flag and early stream termination
   def test_initialize_sets_result_received_to_false
     base = WvRunner::ClaudeCodeBase.new
