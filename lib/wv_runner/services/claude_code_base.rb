@@ -8,6 +8,9 @@ require 'timeout'
 require_relative 'output_formatter'
 require_relative 'concerns/process_management'
 require_relative 'concerns/retry_handling'
+require_relative 'concerns/stream_processing'
+require_relative 'concerns/result_parsing'
+require_relative 'concerns/instruction_building'
 
 module WvRunner
   # Raised when IO stream unexpectedly closes during Claude execution
@@ -27,6 +30,9 @@ module WvRunner
   class ClaudeCodeBase
     include Concerns::ProcessManagement
     include Concerns::RetryHandling
+    include Concerns::StreamProcessing
+    include Concerns::ResultParsing
+    include Concerns::InstructionBuilding
 
     INACTIVITY_TIMEOUT = 1200 # 20 minutes - kill only if stream_line_count stops changing
     HEARTBEAT_INTERVAL = 120 # 2 minutes between heartbeat messages
@@ -36,10 +42,8 @@ module WvRunner
       @model_override = model_override
       @resuming = resuming
       @stopping = false
-      @retry_count = 0
-      @api_overload_count = 0
+      @retry_state = Concerns::RetryHandling::RetryState.initial
       @api_overload_flag = false
-      @marker_retry_mode = false
       @result_received = false
       @inactivity_timeout = false
       @child_pid = nil
@@ -63,13 +67,13 @@ module WvRunner
 
     def attempt_execution(start_time)
       claude_path = resolve_claude_path
-      instructions = @marker_retry_mode ? build_marker_retry_instructions : build_instructions
-      command = build_command(claude_path, instructions, continue_session: @retry_count.positive? || @marker_retry_mode)
+      instructions = @retry_state.marker_retry_mode ? build_marker_retry_instructions : build_instructions
+      command = build_command(claude_path, instructions, continue_session: @retry_state.count.positive? || @retry_state.marker_retry_mode)
 
       Logger.debug "[#{@log_tag}] Executing Claude with instructions (length: #{instructions.length} chars)"
       Logger.info_stdout "[#{@log_tag}] Starting real-time stream of Claude output:"
-      Logger.info_stdout "[#{@log_tag}] Retry attempt: #{@retry_count + 1}/#{MAX_RETRY_ATTEMPTS}" if @retry_count.positive?
-      Logger.info_stdout "[#{@log_tag}] Marker retry mode: ON" if @marker_retry_mode
+      Logger.info_stdout "[#{@log_tag}] Retry attempt: #{@retry_state.count + 1}/#{MAX_RETRY_ATTEMPTS}" if @retry_state.count.positive?
+      Logger.info_stdout "[#{@log_tag}] Marker retry mode: ON" if @retry_state.marker_retry_mode
       Logger.info_stdout '-' * 80
 
       @stopping = false
@@ -88,9 +92,7 @@ module WvRunner
       raise ApiOverloadError if api_overload_detected?
 
       # If marker not found and Claude completed successfully, retry with marker-only instruction
-      if result['status'] == 'error' && result['message'].include?('WVRUNNER_RESULT')
-        raise MissingMarkerError
-      end
+      raise MissingMarkerError if result['status'] == 'error' && result['message'].include?('WVRUNNER_RESULT')
 
       result
     rescue Timeout::Error
@@ -256,131 +258,6 @@ module WvRunner
       stdout_content
     end
 
-    def stream_lines(io)
-      io.each_line do |line|
-        yield line
-        break if @result_received
-      end
-    end
-
-    def handle_stream_error(error, stream_name)
-      return if @stopping # Expected closure during timeout/shutdown
-
-      error_msg = "#{stream_name} stream closed unexpectedly: #{error.message}"
-      Logger.warn "[#{@log_tag}] #{error_msg}"
-      yield error_msg
-    end
-
-    def track_tool_event(line)
-      parsed = JSON.parse(line)
-      content_items = parsed.dig('message', 'content')
-      return unless content_items.is_a?(Array)
-
-      now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      content_items.each do |item|
-        case item['type']
-        when 'tool_use'
-          @active_tool_calls[item['id']] = { name: item['name'], started_at: now }
-          Logger.debug "[#{@log_tag}] [tool_tracking] Tool started: #{item['name']} (#{item['id']})"
-        when 'tool_result'
-          removed = @active_tool_calls.delete(item['tool_use_id'])
-          if removed
-            duration = (now - removed[:started_at]).round(1)
-            Logger.debug "[#{@log_tag}] [tool_tracking] Tool finished: #{removed[:name]} after #{duration}s"
-          end
-        end
-      end
-    rescue JSON::ParserError
-      # Not JSON, ignore
-    end
-
-    def format_active_tools(now = nil)
-      return '' if @active_tool_calls.empty?
-
-      now ||= Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      tools = @active_tool_calls.map do |_id, info|
-        duration = (now - info[:started_at]).to_i
-        "#{info[:name]} since #{duration}s"
-      end
-      ", waiting for: #{tools.join(', ')}"
-    end
-
-    def write_debug_dump(stderr_content, pid)
-      timestamp = Time.now.strftime('%Y%m%d_%H%M%S')
-      dump_path = "log/debug_dump_#{timestamp}.txt"
-      now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-
-      sections = []
-      sections << "=== DEBUG DUMP #{Time.now} ==="
-      sections << "Stream event count: #{@stream_line_count}"
-      sections << "Child PID: #{pid}"
-      sections << ""
-
-      sections << "=== ACTIVE TOOL CALLS ==="
-      if @active_tool_calls.empty?
-        sections << "(none)"
-      else
-        @active_tool_calls.each do |id, info|
-          duration = (now - info[:started_at]).to_i
-          sections << "  #{info[:name]} (#{id}) - waiting #{duration}s"
-        end
-      end
-      sections << ""
-
-      sections << "=== PROCESS TREE ==="
-      sections << capture_process_tree(pid)
-      sections << ""
-
-      sections << "=== STDERR ==="
-      sections << (stderr_content.empty? ? '(empty)' : stderr_content)
-      sections << ""
-
-      sections << "=== LAST 50 STREAM LINES ==="
-      last_lines = (@text_content || '').lines.last(50)
-      sections << (last_lines.empty? ? '(empty)' : last_lines.join)
-
-      FileUtils.mkdir_p('log')
-      File.write(dump_path, sections.join("\n"))
-      Logger.info_stdout "[#{@log_tag}] Debug dump written to #{dump_path}"
-    rescue StandardError => e
-      Logger.warn "[#{@log_tag}] Failed to write debug dump: #{e.message}"
-    end
-
-    def capture_process_tree(pid)
-      return '(no pid)' unless pid
-
-      output = `ps -o pid,ppid,state,command -g #{pid} 2>&1`.strip
-      output.empty? ? '(no processes found)' : output
-    rescue StandardError => e
-      "(error: #{e.message})"
-    end
-
-    def check_for_api_overload(line)
-      return if @api_overload_flag
-
-      @api_overload_flag = true if line.include?('"error_status": 529') ||
-                                   line.include?('"error_status":529') ||
-                                   line.include?('Repeated 529 Overloaded')
-    end
-
-    def check_for_result_message(line)
-      return if @result_received
-
-      parsed = JSON.parse(line)
-      return unless parsed['type'] == 'result'
-
-      result_text = parsed['result'].to_s
-      if result_text.include?('WVRUNNER_RESULT')
-        @result_received = true
-        @stopping = true
-        Logger.info_stdout "[#{@log_tag}] Final result received (WVRUNNER_RESULT found), stopping streams..."
-      else
-        Logger.info_stdout "[#{@log_tag}] Interim result received (no WVRUNNER_RESULT), continuing to stream..."
-      end
-    rescue JSON::ParserError
-      # Not JSON or invalid, ignore
-    end
-
     def build_instructions
       raise NotImplementedError, "#{self.class} must implement build_instructions"
     end
@@ -389,272 +266,9 @@ module WvRunner
       raise NotImplementedError, "#{self.class} must implement model_name"
     end
 
-    def extract_text_from_line(line)
-      parsed = JSON.parse(line)
-      if (content = parsed.dig('message', 'content'))
-        content.select { |item| item['type'] == 'text' }
-               .map { |item| item['text'] }
-               .join
-      elsif parsed.dig('delta', 'type') == 'text_delta'
-        parsed.dig('delta', 'text') || ''
-      else
-        ''
-      end
-    rescue JSON::ParserError
-      ''
-    end
-
-    def parse_result(stdout, elapsed_hours)
-      Logger.debug "[#{@log_tag}] [parse_result] Starting to parse Claude output..."
-
-      # Prefer clean extracted text over raw stream-json
-      source = @text_content && !@text_content.empty? ? @text_content : stdout
-      from_text_content = source.equal?(@text_content)
-      Logger.debug "[#{@log_tag}] [parse_result] Using #{from_text_content ? 'extracted text' : 'raw stream-json'} (#{source.length} chars)"
-
-      # Find WVRUNNER_RESULT marker - either as JSON key or legacy prefix
-      json_content, from_text_content = find_result_marker(source, stdout, from_text_content)
-
-      unless json_content
-        Logger.debug "[#{@log_tag}] [parse_result] ERROR: Marker not found in output!"
-        Logger.debug "[#{@log_tag}] [parse_result] Last 500 chars: #{(from_text_content ? source : stdout).last(500)}"
-        return error_result('No WVRUNNER_RESULT found in output')
-      end
-
-      # Only unescape when parsing raw stream-json (text content is already clean)
-      unless from_text_content
-        json_content = json_content.gsub('\"', '"')
-        json_content = json_content.gsub('\\\"', '\"')
-      end
-
-      Logger.debug "[#{@log_tag}] [parse_result] Final JSON content to parse: #{json_content}"
-
-      begin
-        result = JSON.parse(json_content).tap do |obj|
-          obj.delete('WVRUNNER_RESULT')
-          obj['hours'] ||= {}
-          obj['hours']['task_worked'] = elapsed_hours
-        end
-        Logger.debug "[#{@log_tag}] [parse_result] Successfully parsed result: #{result.inspect}"
-        log_task_info(result)
-        result
-      rescue JSON::ParserError => e
-        Logger.debug "[#{@log_tag}] [parse_result] ERROR: JSON parsing failed: #{e.message}"
-        Logger.debug "[#{@log_tag}] [parse_result] Attempted to parse: #{json_content.inspect}"
-        error_result("Failed to parse JSON: #{e.message}")
-      end
-    end
-
-    # Searches for WVRUNNER_RESULT in source text, trying JSON key format first, then legacy prefix.
-    # Returns [json_string, from_text_content] or [nil, from_text_content].
-    def find_result_marker(source, stdout, from_text_content)
-      # Try JSON key format: {"WVRUNNER_RESULT": true, ...}
-      json = extract_json_with_marker_key(source, from_text_content)
-      return json if json
-
-      # Fall back to raw stdout for JSON key format
-      if from_text_content
-        json = extract_json_with_marker_key(stdout, false)
-        return json if json
-      end
-
-      # Legacy prefix format: WVRUNNER_RESULT: {json}
-      json = extract_json_with_legacy_prefix(source, from_text_content)
-      return json if json
-
-      if from_text_content
-        json = extract_json_with_legacy_prefix(stdout, false)
-        return json if json
-      end
-
-      [nil, from_text_content]
-    end
-
-    def extract_json_with_marker_key(source, from_text_content)
-      key_index = source.index('"WVRUNNER_RESULT"')
-      return nil unless key_index
-
-      # Walk backward to find opening brace
-      i = key_index - 1
-      i -= 1 while i >= 0 && source[i] =~ /\s/
-      return nil unless i >= 0 && source[i] == '{'
-
-      json_str = source[i..]
-      json_end = find_json_end(json_str)
-      return nil unless json_end
-
-      Logger.debug "[#{@log_tag}] [parse_result] JSON key marker found at index #{key_index}"
-      [json_str[0...json_end].strip, from_text_content]
-    end
-
-    def extract_json_with_legacy_prefix(source, from_text_content)
-      marker = 'WVRUNNER_RESULT: '
-      index = source.index(marker)
-      return nil unless index
-
-      after_marker = source[(index + marker.length)..]
-      brace_index = after_marker.index('{')
-      return nil unless brace_index
-
-      json_str = after_marker[brace_index..]
-      json_end = find_json_end(json_str)
-      return nil unless json_end
-
-      Logger.debug "[#{@log_tag}] [parse_result] Legacy prefix marker found at index #{index}"
-      [json_str[0...json_end].strip, from_text_content]
-    end
-
-    def log_task_info(result)
-      if result['task_info']
-        Logger.debug '[parse_result] DEBUG: Extracted task_info:'
-        Logger.debug "  - name: #{result['task_info']['name']}"
-        Logger.debug "  - id: #{result['task_info']['id']}"
-        Logger.debug "  - status: #{result['task_info']['status']}"
-      end
-      return unless result['hours']
-
-      Logger.debug '[parse_result] DEBUG: Extracted hours:'
-      Logger.debug "  - per_day: #{result['hours']['per_day']}"
-      Logger.debug "  - task_estimated: #{result['hours']['task_estimated']}"
-      Logger.debug "  - task_worked: #{result['hours']['task_worked']}"
-    end
-
-    def find_json_end(json_str)
-      brace_count = 0
-      i = 0
-
-      while i < json_str.length
-        char = json_str[i]
-
-        if char == '\\'
-          backslash_count = 0
-          j = i
-          while j < json_str.length && json_str[j] == '\\'
-            backslash_count += 1
-            j += 1
-          end
-
-          if j < json_str.length && json_str[j] == '"' && backslash_count.odd?
-            i = j + 1
-            next
-          end
-        end
-
-        if char == '{'
-          brace_count += 1
-        elsif char == '}'
-          brace_count -= 1
-          return i + 1 if brace_count.zero?
-        end
-
-        i += 1
-      end
-
-      Logger.debug "[#{@log_tag}] [find_json_end] ERROR: JSON object not properly closed, final brace_count: #{brace_count}"
-      nil
-    end
-
     def error_result(message)
       Logger.debug "[#{@log_tag}] [error_result] Creating error result: #{message}"
       { 'status' => 'error', 'message' => message }
-    end
-
-    def triaged_git_step(resuming:)
-      if resuming
-        <<~STEP.strip
-          1. RESUME IN-PROGRESS TASK:
-             - You are resuming a task that is already in progress on the current feature branch.
-             - Do NOT checkout main. Do NOT create a new branch.
-             - Review git log and current code state to understand what was already done.
-             - SKIP steps 2-3 (task fetch, branch creation) and go directly to step 4 (IMPLEMENT).
-        STEP
-      else
-        <<~STEP.strip
-          1. GIT SETUP:
-             - Run: git checkout main && git pull
-             - Proceed to step 2 (TASK FETCH)
-        STEP
-      end
-    end
-
-    def branch_resume_check_step(project_id:, pull_on_main: true)
-      pull_cmd = pull_on_main ? 'git checkout main && git pull' : 'git checkout main'
-      <<~STEP.strip
-        1. GIT STATE AND RESUME CHECK:
-           - Run: git branch --show-current
-           - IF on "main" or "master":
-             → Run: #{pull_cmd}
-             → Proceed to step 2 (TASK FETCH)
-           - IF on ANY OTHER branch (feature branch):
-             a) TRY TO IDENTIFY TASK from branch name:
-                - Branch names often contain task ID (e.g., "feature/9508-contact-page", "fix/9123-bug")
-                - Extract numeric ID from branch name
-                - If found: read workvector://pieces/jchsoft/{task_id} to load task details
-             b) If no ID in branch name, check for open PR:
-                - gh pr list --head $(git branch --show-current) --json body --jq '.[0].body'
-                - Look for mcptask.online link → extract task ID → load task
-             c) If STILL no task found:
-                → #{pull_cmd} → proceed to step 2
-             d) CHECK TASK PROGRESS (if task was found):
-                - If progress >= 100 or state "Schváleno"/"Hotovo?":
-                  → Task is done. #{pull_cmd} → proceed to step 2
-                - If progress < 100:
-                  → RESUME: display WVRUNNER_TASK_INFO, SKIP steps 2-3, go to step 4
-      STEP
-    end
-
-    def coding_conventions_instruction
-      <<~INSTRUCTION.strip
-        CODING CONVENTIONS (MANDATORY):
-        - GIT COMMITS: NEVER use $() command substitution in git commit messages.
-          Always pass the message as a simple quoted string directly:
-          ✅ git commit -m "Fix login validation for empty emails"
-          ❌ git commit -m "$(echo 'Fix login')"
-          ❌ git commit -m "$(cat some_file)"
-          For multi-line messages, use heredoc:
-          git commit -m "$(cat <<'EOF'
-          Your message here.
-          EOF
-          )"
-        - RUBOCOP BEFORE CI: Before running bin/ci, always run RuboCop autofix on changed .rb files:
-          git diff --name-only main -- '*.rb' | xargs rubocop -a
-          This prevents wasting CI cycles on style violations.
-      INSTRUCTION
-    end
-
-    def result_format_instruction(json_fields, extra_rules: [])
-      rules = [
-        'The JSON MUST be inside a ```json code block on its own line',
-        '"WVRUNNER_RESULT": true MUST be the FIRST key in the JSON object',
-        'Output VALID JSON - any quotes in string values must be escaped as \\"',
-        *extra_rules,
-        'NO other text after the closing ```'
-      ]
-
-      numbered = rules.each_with_index.map { |rule, i| "#{i + 1}. #{rule}" }.join("\n")
-
-      <<~INSTRUCTION.strip
-        At the END, output the result as valid JSON in a code block:
-
-        ```json
-        {"WVRUNNER_RESULT": true, #{json_fields}}
-        ```
-
-        CRITICAL FORMATTING:
-        #{numbered}
-      INSTRUCTION
-    end
-
-    def time_awareness_instruction
-      <<~INSTRUCTION.strip
-        TIME MANAGEMENT (CRITICAL):
-        - You should aim to complete within 90 minutes, but you will only be terminated if inactive for 20 minutes.
-        - "Inactive" means no new stream output for 20 minutes straight - as long as you're producing output, you're safe.
-        - Before starting any long-running step (system tests, full CI), consider elapsed time.
-        - If more than 70 minutes have elapsed, SKIP full test suites and full CI.
-          Instead: run only targeted tests for YOUR changes, then proceed to output WVRUNNER_RESULT.
-        - ALWAYS prioritize outputting WVRUNNER_RESULT when your work is complete.
-      INSTRUCTION
     end
 
     def release_test_lock

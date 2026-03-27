@@ -10,26 +10,32 @@ module WvRunner
       RETRY_WAIT_SECONDS = 30
       PRODUCTIVE_STREAM_THRESHOLD = 10 # stream events to consider a run "productive" (resets retry counter)
 
+      RetryState = Struct.new(:count, :api_overload_count, :marker_retry_mode, keyword_init: true) do
+        def self.initial
+          new(count: 0, api_overload_count: 0, marker_retry_mode: false)
+        end
+      end
+
       private
 
       def run_with_retry(start_time)
         loop do
-          overload_before = @api_overload_count
+          overload_before = @retry_state.api_overload_count
           result = attempt_execution(start_time)
           return result if result
 
           # API overload retries are handled separately with their own counter and backoff
-          next if @api_overload_count > overload_before
+          next if @retry_state.api_overload_count > overload_before
 
           if @stream_line_count >= PRODUCTIVE_STREAM_THRESHOLD
             Logger.info_stdout "[#{@log_tag}] Claude was productive (#{@stream_line_count} stream events), resetting retry counter"
-            @retry_count = 0
+            @retry_state.count = 0
           else
-            @retry_count += 1
+            @retry_state.count += 1
           end
-          break if @retry_count >= MAX_RETRY_ATTEMPTS
+          break if @retry_state.count >= MAX_RETRY_ATTEMPTS
 
-          Logger.info_stdout "[#{@log_tag}] Waiting #{RETRY_WAIT_SECONDS}s before retry #{@retry_count + 1}/#{MAX_RETRY_ATTEMPTS}..."
+          Logger.info_stdout "[#{@log_tag}] Waiting #{RETRY_WAIT_SECONDS}s before retry #{@retry_state.count + 1}/#{MAX_RETRY_ATTEMPTS}..."
           sleep(RETRY_WAIT_SECONDS)
         end
 
@@ -40,7 +46,7 @@ module WvRunner
       def handle_recoverable_error(error_type, start_time)
         elapsed_hours = ((Time.now - start_time) / 3600.0).round(2)
 
-        if @retry_count >= MAX_RETRY_ATTEMPTS - 1
+        if @retry_state.count >= MAX_RETRY_ATTEMPTS - 1
           Logger.error "[#{@log_tag}] #{error_type} - max retries reached"
           return error_result("#{error_type} after #{ClaudeCodeBase::INACTIVITY_TIMEOUT}s inactivity (#{elapsed_hours}h), retries exhausted")
         end
@@ -52,13 +58,13 @@ module WvRunner
       def handle_marker_retry(start_time)
         elapsed_hours = ((Time.now - start_time) / 3600.0).round(2)
 
-        if @retry_count >= MAX_RETRY_ATTEMPTS - 1
+        if @retry_state.count >= MAX_RETRY_ATTEMPTS - 1
           Logger.error "[#{@log_tag}] Missing marker - max retries reached"
           return error_result("Missing WVRUNNER_RESULT after retries exhausted (#{elapsed_hours}h)")
         end
 
         Logger.warn "[#{@log_tag}] Missing WVRUNNER_RESULT marker - will retry with marker-only instruction"
-        @marker_retry_mode = true
+        @retry_state.marker_retry_mode = true
         nil # Signal to retry
       end
 
@@ -70,16 +76,16 @@ module WvRunner
       end
 
       def handle_api_overload(start_time)
-        @api_overload_count += 1
+        @retry_state.api_overload_count += 1
         elapsed_hours = ((Time.now - start_time) / 3600.0).round(2)
 
-        if @api_overload_count >= MAX_API_OVERLOAD_RETRIES
+        if @retry_state.api_overload_count >= MAX_API_OVERLOAD_RETRIES
           Logger.error "[#{@log_tag}] API overload - max retries (#{MAX_API_OVERLOAD_RETRIES}) reached after #{elapsed_hours}h"
           return error_result("API overloaded (529) after #{MAX_API_OVERLOAD_RETRIES} retries (#{elapsed_hours}h)")
         end
 
-        wait_seconds = [API_OVERLOAD_BASE_WAIT * (2**([@api_overload_count - 1, 3].min)), 600].min
-        Logger.warn "[#{@log_tag}] API overloaded (529) - retry #{@api_overload_count}/#{MAX_API_OVERLOAD_RETRIES}, " \
+        wait_seconds = [API_OVERLOAD_BASE_WAIT * (2**([@retry_state.api_overload_count - 1, 3].min)), 600].min
+        Logger.warn "[#{@log_tag}] API overloaded (529) - retry #{@retry_state.api_overload_count}/#{MAX_API_OVERLOAD_RETRIES}, " \
                     "waiting #{wait_seconds}s before next attempt..."
         sleep(wait_seconds)
         nil # Signal to retry (bypass normal retry counter)

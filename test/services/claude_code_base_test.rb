@@ -213,7 +213,7 @@ class ClaudeCodeBaseTest < Minitest::Test
   # Tests for handle_recoverable_error method
   def test_handle_recoverable_error_returns_nil_for_retry
     base = WvRunner::ClaudeCodeBase.new
-    base.instance_variable_set(:@retry_count, 0)
+    base.instance_variable_get(:@retry_state).count = 0
     start_time = Time.now
 
     result = base.send(:handle_recoverable_error, 'Timeout', start_time)
@@ -223,7 +223,7 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_handle_recoverable_error_returns_error_when_max_retries_reached
     base = WvRunner::ClaudeCodeBase.new
-    base.instance_variable_set(:@retry_count, 2) # MAX_RETRY_ATTEMPTS - 1
+    base.instance_variable_get(:@retry_state).count = 2 # MAX_RETRY_ATTEMPTS - 1
     start_time = Time.now
 
     result = base.send(:handle_recoverable_error, 'Timeout', start_time)
@@ -238,20 +238,18 @@ class ClaudeCodeBaseTest < Minitest::Test
     refute base.instance_variable_get(:@stopping)
   end
 
-  def test_initialize_sets_retry_count_to_zero
+  def test_initialize_sets_retry_state
     base = WvRunner::ClaudeCodeBase.new
-    assert_equal 0, base.instance_variable_get(:@retry_count)
-  end
-
-  def test_initialize_sets_marker_retry_mode_to_false
-    base = WvRunner::ClaudeCodeBase.new
-    refute base.instance_variable_get(:@marker_retry_mode)
+    retry_state = base.instance_variable_get(:@retry_state)
+    assert_equal 0, retry_state.count
+    assert_equal 0, retry_state.api_overload_count
+    refute retry_state.marker_retry_mode
   end
 
   # Tests for handle_marker_retry method
   def test_handle_marker_retry_returns_nil_for_retry
     base = WvRunner::ClaudeCodeBase.new
-    base.instance_variable_set(:@retry_count, 0)
+    base.instance_variable_get(:@retry_state).count = 0
     start_time = Time.now
 
     result = base.send(:handle_marker_retry, start_time)
@@ -261,17 +259,17 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_handle_marker_retry_sets_marker_retry_mode
     base = WvRunner::ClaudeCodeBase.new
-    base.instance_variable_set(:@retry_count, 0)
+    base.instance_variable_get(:@retry_state).count = 0
     start_time = Time.now
 
     base.send(:handle_marker_retry, start_time)
 
-    assert base.instance_variable_get(:@marker_retry_mode), 'Should set marker_retry_mode to true'
+    assert base.instance_variable_get(:@retry_state).marker_retry_mode, 'Should set marker_retry_mode to true'
   end
 
   def test_handle_marker_retry_returns_error_when_max_retries_reached
     base = WvRunner::ClaudeCodeBase.new
-    base.instance_variable_set(:@retry_count, 2) # MAX_RETRY_ATTEMPTS - 1
+    base.instance_variable_get(:@retry_state).count = 2 # MAX_RETRY_ATTEMPTS - 1
     start_time = Time.now
 
     result = base.send(:handle_marker_retry, start_time)
@@ -333,7 +331,6 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_handle_api_overload_returns_nil_for_retry
     base = WvRunner::ClaudeCodeBase.new
-    base.instance_variable_set(:@api_overload_count, 0)
 
     base.stub(:sleep, nil) do
       result = base.send(:handle_api_overload, Time.now)
@@ -343,18 +340,17 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_handle_api_overload_increments_counter
     base = WvRunner::ClaudeCodeBase.new
-    base.instance_variable_set(:@api_overload_count, 0)
 
     base.stub(:sleep, nil) do
       base.send(:handle_api_overload, Time.now)
     end
 
-    assert_equal 1, base.instance_variable_get(:@api_overload_count)
+    assert_equal 1, base.instance_variable_get(:@retry_state).api_overload_count
   end
 
   def test_handle_api_overload_returns_error_at_max_retries
     base = WvRunner::ClaudeCodeBase.new
-    base.instance_variable_set(:@api_overload_count, WvRunner::ClaudeCodeBase::MAX_API_OVERLOAD_RETRIES - 1)
+    base.instance_variable_get(:@retry_state).api_overload_count = WvRunner::Concerns::RetryHandling::MAX_API_OVERLOAD_RETRIES - 1
 
     result = base.send(:handle_api_overload, Time.now)
 
@@ -365,21 +361,12 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_api_overload_does_not_increment_normal_retry_count
     base = WvRunner::ClaudeCodeBase.new
-    base.instance_variable_set(:@retry_count, 0)
-    base.instance_variable_set(:@api_overload_count, 0)
-    base.instance_variable_set(:@stream_line_count, 5)
+    retry_state = base.instance_variable_get(:@retry_state)
+    retry_state.count = 0
+    retry_state.api_overload_count = 1
 
-    # Simulate: attempt_execution returns nil (retry), api_overload_count was incremented
-    # The run_with_retry loop should skip normal retry counter
-    base.instance_variable_set(:@api_overload_count, 1)
-
-    # After API overload, retry_count should remain 0
-    assert_equal 0, base.instance_variable_get(:@retry_count)
-  end
-
-  def test_initialize_sets_api_overload_count_to_zero
-    base = WvRunner::ClaudeCodeBase.new
-    assert_equal 0, base.instance_variable_get(:@api_overload_count)
+    # After API overload, retry count should remain 0
+    assert_equal 0, retry_state.count
   end
 
   def test_initialize_sets_api_overload_flag_to_false
@@ -419,15 +406,13 @@ class ClaudeCodeBaseTest < Minitest::Test
   def test_stream_closed_with_529_raises_api_overload
     base = WvRunner::ClaudeCodeBase.new
     base.instance_variable_set(:@api_overload_flag, true)
-    base.instance_variable_set(:@retry_count, 0)
-    base.instance_variable_set(:@api_overload_count, 0)
 
     # attempt_execution rescues StreamClosedError, checks flag, re-raises as ApiOverloadError
     # which is then caught and handled by handle_api_overload
     base.stub(:sleep, nil) do
       result = base.send(:handle_api_overload, Time.now)
       assert_nil result, 'API overload handler should return nil to signal retry'
-      assert_equal 1, base.instance_variable_get(:@api_overload_count), 'Should increment overload counter'
+      assert_equal 1, base.instance_variable_get(:@retry_state).api_overload_count, 'Should increment overload counter'
     end
   end
 
