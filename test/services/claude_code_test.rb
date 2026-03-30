@@ -1437,3 +1437,77 @@ class ClaudeCodeTaskAutoSquashTest < Minitest::Test
     assert_includes instructions, '/ci-runner'
   end
 end
+
+class PreexistingTestErrorsInstructionsTest < Minitest::Test
+  def test_once_auto_squash_includes_preexisting_test_errors_instruction
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        obj = WvRunner::ClaudeCode::OnceAutoSquash.new
+        instructions = obj.send(:build_instructions)
+        assert_includes instructions, 'PREEXISTING TEST ERRORS'
+        assert_includes instructions, 'CreatePieceTool'
+        assert_includes instructions, 'preexisting_test_errors'
+      end
+    end
+  end
+
+  def test_today_auto_squash_includes_preexisting_test_errors_instruction
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        obj = WvRunner::ClaudeCode::TodayAutoSquash.new
+        instructions = obj.send(:build_instructions)
+        assert_includes instructions, 'PREEXISTING TEST ERRORS'
+        assert_includes instructions, 'CreatePieceTool'
+        assert_includes instructions, 'preexisting_test_errors'
+      end
+    end
+  end
+
+  def test_queue_auto_squash_includes_preexisting_test_errors_instruction
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        obj = WvRunner::ClaudeCode::QueueAutoSquash.new
+        instructions = obj.send(:build_instructions)
+        assert_includes instructions, 'PREEXISTING TEST ERRORS'
+        assert_includes instructions, 'CreatePieceTool'
+        assert_includes instructions, 'preexisting_test_errors'
+      end
+    end
+  end
+
+  def test_story_auto_squash_includes_preexisting_test_errors_instruction
+    obj = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123, task_id: 456)
+    instructions = obj.send(:build_instructions)
+    assert_includes instructions, 'PREEXISTING TEST ERRORS'
+    assert_includes instructions, 'CreatePieceTool'
+    assert_includes instructions, 'preexisting_test_errors'
+  end
+
+  def test_task_auto_squash_includes_preexisting_test_errors_instruction
+    obj = WvRunner::ClaudeCode::TaskAutoSquash.new(task_id: 123)
+    instructions = obj.send(:build_instructions)
+    assert_includes instructions, 'PREEXISTING TEST ERRORS'
+    assert_includes instructions, 'CreatePieceTool'
+    assert_includes instructions, 'preexisting_test_errors'
+  end
+
+  def test_preexisting_instruction_includes_bug_task_creation_details
+    obj = WvRunner::ClaudeCode::TaskAutoSquash.new(task_id: 123)
+    instructions = obj.send(:build_instructions)
+    assert_includes instructions, 'task_type_code'
+    assert_includes instructions, '"bug"'
+    assert_includes instructions, 'priority_code'
+    assert_includes instructions, '"urgent"'
+    assert_includes instructions, 'project_id'
+  end
+
+  def test_dry_does_not_include_preexisting_test_errors_instruction
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=99' do
+        obj = WvRunner::ClaudeCode::Dry.new
+        instructions = obj.send(:build_instructions)
+        refute_includes instructions, 'PREEXISTING TEST ERRORS'
+      end
+    end
+  end
+end

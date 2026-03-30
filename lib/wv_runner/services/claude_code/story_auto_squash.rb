@@ -52,6 +52,7 @@ module WvRunner
              - "success" if task completed and PR merged successfully
              - "no_more_tasks" if no incomplete tasks in the Story
              - "ci_failed" if CI failed after retry (PR stays open)
+             - "preexisting_test_errors" if tests were already failing before your changes (urgent bug task created)
              - "failure" for other errors
         INSTRUCTIONS
       end

@@ -20,6 +20,7 @@ module WvRunner
         [
           time_awareness_instruction,
           coding_conventions_instruction,
+          preexisting_test_errors_instruction,
           create_branch_step(step_num: n),
           implement_task_step(step_num: n + 1),
           run_unit_tests_step(step_num: n + 2),

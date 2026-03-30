@@ -154,6 +154,12 @@ module WvRunner
         status = result['status']
         Logger.info_stdout("[WorkLoop] Task ##{iteration_count} completed with status: #{status}")
 
+        if status == 'preexisting_test_errors'
+          Logger.info_stdout('[WorkLoop] Preexisting test errors detected, bug task created - continuing to next task...')
+          sleep(2)
+          next
+        end
+
         break if %w[no_more_tasks failure task_already_started ci_failed quota_exceeded].include?(status)
         break if quota_exceeded?(results)
 
@@ -186,6 +192,11 @@ module WvRunner
 
           next
         end
+        if result['status'] == 'preexisting_test_errors'
+          Logger.info_stdout('[WorkLoop] Preexisting test errors detected, bug task created - continuing to next task...')
+          sleep(2)
+          next
+        end
         break if result['status'] == 'failure'
         break if result['status'] == 'ci_failed'
         break if result['status'] == 'quota_exceeded'
@@ -211,6 +222,11 @@ module WvRunner
         results << result
         Logger.info_stdout("[WorkLoop] Task ##{iteration_count} completed with status: #{result['status']}")
 
+        if result['status'] == 'preexisting_test_errors'
+          Logger.info_stdout('[WorkLoop] Preexisting test errors detected, bug task created - continuing to next task...')
+          sleep(2)
+          next
+        end
         break if result['status'] == 'no_more_tasks'
         break if result['status'] == 'failure'
         break if result['status'] == 'ci_failed'

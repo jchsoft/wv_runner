@@ -139,6 +139,27 @@ module WvRunner
       STEP
     end
 
+    def preexisting_test_errors_instruction
+      <<~INSTRUCTION.strip
+        PREEXISTING TEST ERRORS (CRITICAL):
+        If during any test step you discover test failures in code you did NOT modify:
+        1. Verify: check if the failing tests are in files you never touched,
+           or run tests on main branch (git stash, run tests, git stash pop)
+        2. If tests fail WITHOUT your changes = PREEXISTING TEST ERRORS
+        3. Create an URGENT bug task to fix them:
+           - Use mcp__workvector-production__CreatePieceTool with:
+             - account_code: "jchsoft"
+             - piece_type: "Task"
+             - task_type_code: "bug"
+             - priority_code: "urgent"
+             - project_id: <project_relative_id from CLAUDE.md>
+             - name: "Fix: Padající testy - <brief description of failures>"
+             - description: Include: failing test names, error messages, branch/commit where they fail
+        4. Output status "preexisting_test_errors" in WVRUNNER_RESULT
+        5. Do NOT try to fix preexisting errors yourself - focus on YOUR task only
+      INSTRUCTION
+    end
+
     def run_local_ci_step(step_num:, verify_step_ref: nil)
       s = step_indent(step_num)
       lines = []

@@ -53,6 +53,7 @@ module WvRunner
           3. Set status:
              - "success" if task completed and PR merged successfully
              - "ci_failed" if CI failed after retry (PR stays open)
+             - "preexisting_test_errors" if tests were already failing before your changes (urgent bug task created)
              - "failure" for other errors
         INSTRUCTIONS
       end
