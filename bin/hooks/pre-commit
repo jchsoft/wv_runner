@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Pre-commit hook: runs RuboCop on staged Ruby files in lib/
+set -euo pipefail
+
+STAGED_RB=$(git diff --cached --name-only --diff-filter=ACM | grep '^lib/.*\.rb$' || true)
+
+if [ -z "$STAGED_RB" ]; then
+  exit 0
+fi
+
+echo "[pre-commit] Running RuboCop on staged files..."
+# shellcheck disable=SC2086
+if ! rubocop --force-exclusion $STAGED_RB; then
+  echo "[pre-commit] RuboCop failed. Fix issues or commit with --no-verify to skip."
+  exit 1
+fi

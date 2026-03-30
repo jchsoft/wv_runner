@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Post-merge hook: auto-increment wv_runner version after merge
+set -euo pipefail
+
+# Only bump if lib/ files were changed in the merge
+CHANGED_LIB=$(git diff-tree -r --name-only ORIG_HEAD HEAD | grep '^lib/' || true)
+
+if [ -z "$CHANGED_LIB" ]; then
+  exit 0
+fi
+
+echo "[post-merge] lib/ changed, incrementing version..."
+ruby bin/increment_version.rb
+git add lib/wv_runner/version.rb
+git commit -m "chore: bump version after merge"
+echo "[post-merge] Version bumped."
