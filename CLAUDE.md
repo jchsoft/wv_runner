@@ -1,6 +1,21 @@
 
+## Hledání informací
+
+| Typ informace | Nástroj | Příklad |
+|---------------|---------|---------|
+| **Symboly** (třídy, metody) | CodeGraph (`mcp__codegraph__*`) | "najdi `WorkLoop`" |
+| **Moduly, concerns, mixiny** | **LSP** `documentSymbol` nebo `Grep` | `module InstructionBuilding` |
+| **Struktura souboru** (všechny symboly) | **LSP** `documentSymbol` | kompletní přehled tříd, modulů, metod |
+| **Kdo volá/referencuje symbol** | **LSP** `findReferences` / `incomingCalls` | přesné reference z known pozice |
+| **Architektura, patterns, lessons learned** | `/memory-search` skill | "jak funguje triage?" |
+
+**LSP tool je dostupný** (ruby-lsp plugin) — vidí moduly, concerns, vše co CodeGraph nevidí. Vyžaduje file:line pozici, takže nejdřív najdi soubor přes CodeGraph/Grep, pak analyzuj přes LSP.
+**CodeGraph omezení pro Ruby:** Neindexuje `module` definice (concerns, namespace modules).
+
 ## LLM Memory Notes MCP Usage
 - Memory identifier for this project: `wv-runner` (contains architecture, patterns, commands, testing info)
+- **Search**: Use `/memory-search` skill (runs on Haiku, returns compact filtered results)
+- **Do NOT use direct `ReadMcpResourceTool`** for searching — returns too verbose data into context
 
 ## WorkVector
 - Project name is: WorkVector
