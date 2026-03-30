@@ -154,9 +154,13 @@ module WvRunner
              - priority_code: "urgent"
              - project_id: <project_relative_id from CLAUDE.md>
              - name: "Fix: Padající testy - <brief description of failures>"
-             - description: Include: failing test names, error messages, branch/commit where they fail
-        4. Output status "preexisting_test_errors" in WVRUNNER_RESULT
-        5. Do NOT try to fix preexisting errors yourself - focus on YOUR task only
+             - description: Include: failing test names, error messages, branch/commit where they fail,
+               and note which task was interrupted (task ID + branch name)
+        4. CLEANUP: Switch back to main branch before outputting result:
+           - Run: git checkout main
+           - Do NOT delete the feature branch (it will be resumed later after tests are fixed)
+        5. Output status "preexisting_test_errors" in WVRUNNER_RESULT
+        6. Do NOT try to fix preexisting errors yourself - focus only on creating the bug task
       INSTRUCTION
     end
 

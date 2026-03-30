@@ -151,16 +151,20 @@ module WvRunner
           <<~STEP.strip
             STEP 1 - BRANCH & RESUME DETECTION (do this FIRST):
             1. Run: git branch --show-current
-            2. If on main/master: set resuming=false
-            3. If on a feature branch that contains "#{@task_id}" in its name: set resuming=true
-            4. Otherwise: set resuming=false
+            2. If on a feature branch that contains "#{@task_id}" in its name: set resuming=true
+            3. If on main/master:
+               a. Check for existing feature branch: git branch --list "*#{@task_id}*"
+               b. If a matching branch exists: set resuming=true (the branch will be checked out in the executor)
+               c. If no matching branch: set resuming=false
+            4. Otherwise (different feature branch): set resuming=false
             NOTE: The task to analyze is ALREADY determined (#{@task_id}). Do NOT fetch a different task.
           STEP
         else
           <<~STEP.strip
             STEP 1 - BRANCH & RESUME DETECTION (do this FIRST):
             1. Run: git branch --show-current
-            2. If on main/master: skip to STEP 2 with resuming=false
+            2. If on main/master:
+               a. Skip to STEP 2 with resuming=false
             3. If on a feature branch:
                a. Try to extract a numeric task ID (4+ digits) from the branch name
                   (e.g., "feature/9508-contact-page" → task ID 9508)

@@ -10,9 +10,15 @@ module WvRunner
         if resuming
           <<~STEP.strip
             1. RESUME IN-PROGRESS TASK:
-               - You are resuming a task that is already in progress on the current feature branch.
-               - Do NOT checkout main. Do NOT create a new branch.
-               - Review git log and current code state to understand what was already done.
+               - Run: git branch --show-current
+               - IF already on the feature branch for this task:
+                 → Pull latest main and merge: git fetch origin main && git merge origin/main
+                 → Review git log and current code state to understand what was already done.
+               - IF on main/master (feature branch exists elsewhere):
+                 → Find the feature branch: git branch --list "*<task_id>*"
+                 → Checkout it: git checkout <branch_name>
+                 → Pull latest main and merge: git fetch origin main && git merge origin/main
+                 → Review git log and current code state to understand what was already done.
                - SKIP steps 2-3 (task fetch, branch creation) and go directly to step 4 (IMPLEMENT).
           STEP
         else
