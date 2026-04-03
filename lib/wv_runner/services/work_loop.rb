@@ -556,7 +556,7 @@ module WvRunner
     def extract_triage_model(triage_result)
       recommended = triage_result['recommended_model']
       case recommended
-      when 'sonnet', 'opus' then recommended
+      when 'sonnet', 'opus', 'haiku' then recommended
       else
         Logger.warn("[WorkLoop] Unknown triage model '#{recommended}', defaulting to opus")
         'opus'

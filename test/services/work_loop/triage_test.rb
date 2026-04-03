@@ -18,9 +18,15 @@ class WorkLoopTriageTest < Minitest::Test
     assert_equal 'sonnet', result
   end
 
-  def test_extract_triage_model_defaults_to_opus_for_unknown
+  def test_extract_triage_model_accepts_haiku
     loop_instance = WvRunner::WorkLoop.new
     result = loop_instance.send(:extract_triage_model, { 'recommended_model' => 'haiku' })
+    assert_equal 'haiku', result
+  end
+
+  def test_extract_triage_model_defaults_to_opus_for_unknown
+    loop_instance = WvRunner::WorkLoop.new
+    result = loop_instance.send(:extract_triage_model, { 'recommended_model' => 'gpt4' })
     assert_equal 'opus', result
   end
 

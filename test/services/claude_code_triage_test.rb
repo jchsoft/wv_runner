@@ -102,14 +102,14 @@ class ClaudeCodeTriageTest < Minitest::Test
     end
   end
 
-  def test_instructions_only_allow_opus_or_sonnet
+  def test_instructions_allow_opus_sonnet_or_haiku
     File.stub :exist?, true do
       File.stub :read, 'project_relative_id=7' do
         triage = WvRunner::ClaudeCode::Triage.new
         instructions = triage.send(:build_instructions)
 
-        assert_includes instructions, 'recommended_model MUST be exactly "opus" or "sonnet"'
-        refute_includes instructions, 'opusplan'
+        assert_includes instructions, 'recommended_model MUST be exactly "opus", "sonnet", or "haiku"'
+        assert_includes instructions, '"haiku" for trivial changes'
       end
     end
   end
@@ -121,11 +121,32 @@ class ClaudeCodeTriageTest < Minitest::Test
         instructions = triage.send(:build_instructions)
 
         assert_includes instructions, 'Story'
-        assert_includes instructions, 'Frontend'
-        assert_includes instructions, 'Simple backend'
+        assert_includes instructions, 'UI improvements'
+        assert_includes instructions, 'Standard CRUD'
+        assert_includes instructions, 'Refactoring'
         assert_includes instructions, 'attachment'
       end
     end
+  end
+
+  def test_instructions_default_to_sonnet
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=7' do
+        triage = WvRunner::ClaudeCode::Triage.new
+        instructions = triage.send(:build_instructions)
+
+        assert_includes instructions, 'DEFAULT: "sonnet"'
+        assert_includes instructions, 'DURATION HINT'
+      end
+    end
+  end
+
+  def test_story_triage_defaults_to_sonnet
+    triage = WvRunner::ClaudeCode::Triage.new(story_id: 8965)
+    instructions = triage.send(:build_instructions)
+
+    assert_includes instructions, 'DEFAULT: "sonnet"'
+    assert_includes instructions, 'DURATION HINT'
   end
 
   # Story triage tests

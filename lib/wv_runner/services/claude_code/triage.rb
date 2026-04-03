@@ -61,19 +61,38 @@ module WvRunner
           1. Read the task: title, description, piece_type, and attachment FILENAMES only (do NOT download attachments)
           2. Based on the classification rules below, decide the recommended model
 
-          MODEL SELECTION RULES:
-          - "opus" if: Frontend work (views, CSS, JS, Slim, Tailwind, HTML templates),
-            Complex backend (new models, architecture, multi-file changes, migrations),
-            Ambiguous or unclear requirements, OR when in doubt
-          - "sonnet" if: Simple backend (single file, minor logic change, simple CRUD, config update),
-            Simple fix (CSS color change, JS tweak, typo fix, minor text change, simple validation)
+          MODEL SELECTION RULES (pick exactly one: "opus", "sonnet", or "haiku"):
 
-          DEFAULT: "opus" (when in doubt, always choose opus)
+          Use "haiku" for trivial changes:
+          - Typo fix, text correction, translation string change
+          - Single CSS property change (color, font-size, margin)
+          - One-line config update (env variable, locale key, feature flag)
+
+          Use "opus" ONLY for:
+          - New UI elements, UI improvements, UI beautification (new pages, design changes, UX enhancements)
+          - Complex architecture (new models with associations, multi-service orchestration, migrations with data transforms)
+          - Security-sensitive changes (authentication, authorization, encryption)
+          - Ambiguous or unclear requirements needing creative interpretation
+          - Story (piece_type)
+
+          Use "sonnet" for everything else, including:
+          - Standard CRUD (even multi-file: model + controller + views for simple resources)
+          - Refactoring (extract method, rename, move code, extract concern)
+          - Bug fixes with clear error messages or stack traces
+          - Adding/modifying tests
+          - Simple frontend changes (fix existing CSS, tweak existing JS, adjust existing layout)
+          - Validations, scopes, simple associations, callbacks
+          - Config, environment, locale, or documentation changes
+          - API endpoints with straightforward logic
+
+          DURATION HINT: tasks estimated under 1 hour (duration_best) lean toward "sonnet" or "haiku"
+
+          DEFAULT: "sonnet" (when in doubt, choose sonnet — it handles most standard dev work well)
 
           #{result_format_instruction(
-            '"status": "success", "recommended_model": "opus", "task_id": 123, "resuming": false, "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}',
+            '"status": "success", "recommended_model": "sonnet", "task_id": 123, "resuming": false, "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}',
             extra_rules: [
-              'recommended_model MUST be exactly "opus" or "sonnet" (lowercase)',
+              'recommended_model MUST be exactly "opus", "sonnet", or "haiku" (lowercase)',
               'task_id MUST be the numeric relative_id of the subtask (NOT the story)',
               'resuming MUST be false (story triage always starts fresh tasks)',
               'already_worked MUST be the EXACT "worked_out" number from workvector://user - NEVER 0 unless API returned 0'
@@ -116,19 +135,38 @@ module WvRunner
           1. Read the task: title, description, piece_type, and attachment FILENAMES only (do NOT download attachments)
           2. Based on the classification rules below, decide the recommended model
 
-          MODEL SELECTION RULES:
-          - "opus" if: Story (piece_type), Frontend work (views, CSS, JS, Slim, Tailwind, HTML templates),
-            Complex backend (new models, architecture, multi-file changes, migrations),
-            Ambiguous or unclear requirements, OR when in doubt
-          - "sonnet" if: Simple backend (single file, minor logic change, simple CRUD, config update),
-            Simple fix (CSS color change, JS tweak, typo fix, minor text change, simple validation)
+          MODEL SELECTION RULES (pick exactly one: "opus", "sonnet", or "haiku"):
 
-          DEFAULT: "opus" (when in doubt, always choose opus)
+          Use "haiku" for trivial changes:
+          - Typo fix, text correction, translation string change
+          - Single CSS property change (color, font-size, margin)
+          - One-line config update (env variable, locale key, feature flag)
+
+          Use "opus" ONLY for:
+          - New UI elements, UI improvements, UI beautification (new pages, design changes, UX enhancements)
+          - Complex architecture (new models with associations, multi-service orchestration, migrations with data transforms)
+          - Security-sensitive changes (authentication, authorization, encryption)
+          - Ambiguous or unclear requirements needing creative interpretation
+          - Story (piece_type)
+
+          Use "sonnet" for everything else, including:
+          - Standard CRUD (even multi-file: model + controller + views for simple resources)
+          - Refactoring (extract method, rename, move code, extract concern)
+          - Bug fixes with clear error messages or stack traces
+          - Adding/modifying tests
+          - Simple frontend changes (fix existing CSS, tweak existing JS, adjust existing layout)
+          - Validations, scopes, simple associations, callbacks
+          - Config, environment, locale, or documentation changes
+          - API endpoints with straightforward logic
+
+          DURATION HINT: tasks estimated under 1 hour (duration_best) lean toward "sonnet" or "haiku"
+
+          DEFAULT: "sonnet" (when in doubt, choose sonnet — it handles most standard dev work well)
 
           #{result_format_instruction(
-            '"status": "success", "recommended_model": "opus", "task_id": 123, "resuming": false, "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}',
+            '"status": "success", "recommended_model": "sonnet", "task_id": 123, "resuming": false, "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}',
             extra_rules: [
-              'recommended_model MUST be exactly "opus" or "sonnet" (lowercase)',
+              'recommended_model MUST be exactly "opus", "sonnet", or "haiku" (lowercase)',
               'task_id MUST be the numeric relative_id of the task',
               'resuming MUST be true or false (boolean, not string)',
               'already_worked MUST be the EXACT "worked_out" number from workvector://user - NEVER 0 unless API returned 0'
