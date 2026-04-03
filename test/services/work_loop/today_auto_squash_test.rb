@@ -128,12 +128,14 @@ class WorkLoopTodayAutoSquashTest < Minitest::Test
     with_triage_stub do
       WvRunner::ClaudeCode::TodayAutoSquash.stub(:new, mock) do
         Kernel.stub(:sleep, nil) do
-          loop_instance = WvRunner::WorkLoop.new
-          results = loop_instance.execute(:today_auto_squash)
+          Time.stub(:now, Time.new(2025, 1, 15, 19, 0)) do
+            loop_instance = WvRunner::WorkLoop.new
+            results = loop_instance.execute(:today_auto_squash)
 
-          assert_equal 2, results.length
-          assert_equal 'preexisting_test_errors', results.first['status']
-          assert_equal 'no_more_tasks', results.last['status']
+            assert_equal 2, results.length
+            assert_equal 'preexisting_test_errors', results.first['status']
+            assert_equal 'no_more_tasks', results.last['status']
+          end
         end
       end
     end

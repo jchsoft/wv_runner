@@ -181,9 +181,10 @@ module WvRunner
         Logger.debug("[WorkLoop] [run_today_auto_squash] Starting iteration ##{iteration_count}...")
         result = triage_and_execute(ClaudeCode::TodayAutoSquash)
         results << result
-        Logger.info_stdout("[WorkLoop] Task ##{iteration_count} completed with status: #{result['status']}")
+        status = result['status']
+        Logger.info_stdout("[WorkLoop] Task ##{iteration_count} completed with status: #{status}")
 
-        if result['status'] == 'no_more_tasks'
+        if status == 'no_more_tasks'
           if !@ignore_quota && triage_quota_exceeded?(result)
             Logger.info_stdout('[WorkLoop] Quota exceeded and no tasks available, stopping')
             break
@@ -192,14 +193,14 @@ module WvRunner
 
           next
         end
-        if result['status'] == 'preexisting_test_errors'
+        if status == 'preexisting_test_errors'
           Logger.info_stdout('[WorkLoop] Preexisting test errors detected, bug task created - continuing to next task...')
           sleep(2)
           next
         end
-        break if result['status'] == 'failure'
-        break if result['status'] == 'ci_failed'
-        break if result['status'] == 'quota_exceeded'
+        break if status == 'failure'
+        break if status == 'ci_failed'
+        break if status == 'quota_exceeded'
         break if quota_exceeded?(results)
 
         Logger.debug('[WorkLoop] [run_today_auto_squash] Continuing to next task, sleeping 2 seconds...')
@@ -220,17 +221,18 @@ module WvRunner
         Logger.debug("[WorkLoop] [run_queue_auto_squash] Starting iteration ##{iteration_count}...")
         result = triage_and_execute(ClaudeCode::QueueAutoSquash)
         results << result
-        Logger.info_stdout("[WorkLoop] Task ##{iteration_count} completed with status: #{result['status']}")
+        status = result['status']
+        Logger.info_stdout("[WorkLoop] Task ##{iteration_count} completed with status: #{status}")
 
-        if result['status'] == 'preexisting_test_errors'
+        if status == 'preexisting_test_errors'
           Logger.info_stdout('[WorkLoop] Preexisting test errors detected, bug task created - continuing to next task...')
           sleep(2)
           next
         end
-        break if result['status'] == 'no_more_tasks'
-        break if result['status'] == 'failure'
-        break if result['status'] == 'ci_failed'
-        break if result['status'] == 'quota_exceeded'
+        break if status == 'no_more_tasks'
+        break if status == 'failure'
+        break if status == 'ci_failed'
+        break if status == 'quota_exceeded'
         break if quota_exceeded?(results)
 
         Logger.debug('[WorkLoop] [run_queue_auto_squash] Continuing to next task, sleeping 2 seconds...')
