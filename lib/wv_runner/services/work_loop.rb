@@ -523,6 +523,13 @@ module WvRunner
 
       Logger.info_stdout("[WorkLoop] Triage recommended model: #{model_override} (task_id: #{triaged_task_id}, resuming: #{resuming})")
 
+      # Story detected from @next — switch to story loop
+      if triage_result['piece_type'] == 'Story' && !kwargs[:story_id]
+        story_id = triage_result['story_id']
+        Logger.info_stdout("[WorkLoop] Story ##{story_id} detected from @next, switching to story loop")
+        return run_story_loop(story_id, executor_class, model_override: model_override, first_task_id: triaged_task_id)
+      end
+
       executor_kwargs = kwargs.merge(verbose: @verbose, model_override: model_override, resuming: resuming)
       executor_kwargs[:task_id] = triaged_task_id if triaged_task_id
 
@@ -530,6 +537,58 @@ module WvRunner
       Logger.info_stdout("[WorkLoop] Task completed with status: #{result['status']}")
       Logger.debug("[WorkLoop] Full result: #{result.inspect}")
       result
+    end
+
+    def run_story_loop(story_id, original_executor_class, model_override: nil, first_task_id: nil)
+      story_executor = story_executor_for(original_executor_class)
+      Logger.info_stdout("[WorkLoop] Story loop: using #{story_executor.name} (mapped from #{original_executor_class.name})")
+      results = []
+      iteration_count = 0
+
+      loop do
+        iteration_count += 1
+        Logger.debug("[WorkLoop] [run_story_loop] Story ##{story_id}, iteration ##{iteration_count}...")
+
+        # First iteration — triage already found the subtask, execute directly
+        # Subsequent iterations — re-triage to find next incomplete subtask
+        result = if iteration_count == 1 && first_task_id
+          story_executor.new(story_id: story_id, task_id: first_task_id, verbose: @verbose, model_override: model_override).run
+        else
+          triage_and_execute(story_executor, story_id: story_id)
+        end
+
+        results << result
+        status = result['status']
+        Logger.info_stdout("[WorkLoop] Story loop task ##{iteration_count} completed with status: #{status}")
+
+        if status == 'preexisting_test_errors'
+          Logger.info_stdout('[WorkLoop] Preexisting test errors in story loop, continuing to next task...')
+          sleep(2)
+          next
+        end
+
+        break if %w[no_more_tasks failure task_already_started ci_failed quota_exceeded].include?(status)
+        break if quota_exceeded?(results)
+
+        sleep(2)
+      end
+
+      Logger.info_stdout("[WorkLoop] Story loop complete for Story ##{story_id}, total tasks: #{results.length}")
+      results.last || { 'status' => 'no_more_tasks' }
+    end
+
+    STORY_EXECUTOR_MAP = {
+      ClaudeCode::Honest => ClaudeCode::StoryManual,
+      ClaudeCode::TodayAutoSquash => ClaudeCode::StoryAutoSquash,
+      ClaudeCode::OnceAutoSquash => ClaudeCode::StoryAutoSquash,
+      ClaudeCode::QueueAutoSquash => ClaudeCode::StoryAutoSquash
+    }.freeze
+
+    def story_executor_for(executor_class)
+      STORY_EXECUTOR_MAP.fetch(executor_class) do
+        Logger.warn("[WorkLoop] No story executor mapping for #{executor_class.name}, using StoryManual")
+        ClaudeCode::StoryManual
+      end
     end
 
     def detect_task_id_from_branch

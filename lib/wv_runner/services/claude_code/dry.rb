@@ -21,8 +21,18 @@ module WvRunner
           Load and display information about the next task from: workvector://pieces/jchsoft/@next?project_relative_id=#{project_id}
 
           WORKFLOW (DRY RUN - NO EXECUTION):
-          1. Fetch the next task from WorkVector using the URL above
-          2. DISPLAY TASK INFO: After loading, output in this exact format:
+          1. Fetch the next piece from WorkVector using the URL above
+          2. Check the "type" field:
+             - If type is "Story": go to step 2b
+             - If type is "Task": go to step 2c
+          2b. STORY DETECTED:
+             - Display story info (ID, TITLE, DESCRIPTION)
+             - List ALL subtasks with their state and progress
+             - Find first subtask where state is NOT "Schváleno" and NOT "Hotovo?" and progress < 100
+             - If found: fetch that subtask via workvector://pieces/jchsoft/<subtask_relative_id> and display it too
+             - Set piece_type to "Story" and story_id to the Story's relative_id in the result
+             - Use the SUBTASK data for task_info in the result (not the Story)
+          2c. DISPLAY TASK INFO: After loading, output in this exact format:
              WVRUNNER_TASK_INFO:
              ID: <relative_id>
              TITLE: <task name>
@@ -38,7 +48,7 @@ module WvRunner
           [DEBUG] duration_best: '<original_value>' -> task_estimated: Y
 
           #{result_format_instruction(
-            '"status": "success", "task_info": {"name": "...", "id": 123, "description": "...", "status": "...", "priority": "...", "assigned_user": "...", "scrum_points": "..."}, "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}'
+            '"status": "success", "piece_type": "Task", "story_id": null, "task_info": {"name": "...", "id": 123, "description": "...", "status": "...", "priority": "...", "assigned_user": "...", "scrum_points": "..."}, "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}'
           )}
 
           How to get the data:

@@ -197,6 +197,19 @@ class ClaudeCodeDryTest < Minitest::Test
       end
     end
   end
+
+  def test_instructions_dry_includes_story_detection
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=77' do
+        dry = WvRunner::ClaudeCode::Dry.new
+        instructions = dry.send(:build_instructions)
+        assert_includes instructions, 'STORY DETECTED'
+        assert_includes instructions, 'piece_type'
+        assert_includes instructions, 'story_id'
+        assert_includes instructions, '"piece_type": "Task"'
+      end
+    end
+  end
 end
 
 class ClaudeCodeReviewTest < Minitest::Test

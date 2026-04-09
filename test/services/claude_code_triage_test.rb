@@ -199,4 +199,47 @@ class ClaudeCodeTriageTest < Minitest::Test
       end
     end
   end
+
+  # Story detection from @next tests
+
+  def test_standard_triage_includes_story_handling_step
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=7' do
+        triage = WvRunner::ClaudeCode::Triage.new
+        instructions = triage.send(:build_instructions)
+
+        assert_includes instructions, 'STORY HANDLING'
+        assert_includes instructions, 'piece_type'
+        assert_includes instructions, 'story_id'
+      end
+    end
+  end
+
+  def test_standard_triage_result_format_includes_piece_type_and_story_id
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=7' do
+        triage = WvRunner::ClaudeCode::Triage.new
+        instructions = triage.send(:build_instructions)
+
+        assert_includes instructions, '"piece_type": "Task"'
+        assert_includes instructions, '"story_id": null'
+        assert_includes instructions, 'piece_type MUST be "Task" or "Story"'
+      end
+    end
+  end
+
+  def test_standard_triage_story_step_finds_incomplete_subtasks
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=7' do
+        triage = WvRunner::ClaudeCode::Triage.new
+        instructions = triage.send(:build_instructions)
+
+        step_2b_pos = instructions.index('STEP 2b')
+        assert step_2b_pos, 'Instructions must include STEP 2b for Story handling'
+        assert_includes instructions, 'Schváleno'
+        assert_includes instructions, 'Hotovo?'
+        assert_includes instructions, 'progress < 100'
+      end
+    end
+  end
 end

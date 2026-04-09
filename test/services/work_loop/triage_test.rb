@@ -177,4 +177,146 @@ class WorkLoopTriageTest < Minitest::Test
       end
     end
   end
+
+  # Story detection from @next tests
+
+  def test_story_executor_mapping
+    loop_instance = WvRunner::WorkLoop.new
+
+    assert_equal WvRunner::ClaudeCode::StoryManual,
+                 loop_instance.send(:story_executor_for, WvRunner::ClaudeCode::Honest)
+    assert_equal WvRunner::ClaudeCode::StoryAutoSquash,
+                 loop_instance.send(:story_executor_for, WvRunner::ClaudeCode::TodayAutoSquash)
+    assert_equal WvRunner::ClaudeCode::StoryAutoSquash,
+                 loop_instance.send(:story_executor_for, WvRunner::ClaudeCode::OnceAutoSquash)
+    assert_equal WvRunner::ClaudeCode::StoryAutoSquash,
+                 loop_instance.send(:story_executor_for, WvRunner::ClaudeCode::QueueAutoSquash)
+  end
+
+  def test_story_executor_mapping_defaults_to_story_manual
+    loop_instance = WvRunner::WorkLoop.new
+
+    assert_equal WvRunner::ClaudeCode::StoryManual,
+                 loop_instance.send(:story_executor_for, WvRunner::ClaudeCode::Review)
+  end
+
+  def test_story_detected_switches_to_story_loop
+    call_count = 0
+    story_triage_mock = Object.new
+    story_triage_mock.define_singleton_method(:run) do
+      call_count += 1
+      if call_count <= 1
+        { 'status' => 'success', 'recommended_model' => 'opus', 'task_id' => 555,
+          'piece_type' => 'Story', 'story_id' => 8965,
+          'hours' => { 'per_day' => 8, 'task_estimated' => 2, 'already_worked' => 0 } }
+      else
+        { 'status' => 'no_more_tasks', 'recommended_model' => 'opus' }
+      end
+    end
+
+    story_executor_kwargs = nil
+    executor_mock = Object.new
+    def executor_mock.run
+      { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2 } }
+    end
+
+    WvRunner::ClaudeCode::Triage.stub(:new, story_triage_mock) do
+      WvRunner::ClaudeCode::StoryManual.stub(:new, ->(**kwargs) { story_executor_kwargs = kwargs; executor_mock }) do
+        loop_instance = WvRunner::WorkLoop.new
+        result = loop_instance.execute(:once)
+
+        # Should have used StoryManual (not Honest)
+        assert story_executor_kwargs, 'StoryManual should have been called'
+        assert_equal 8965, story_executor_kwargs[:story_id]
+        assert_equal 555, story_executor_kwargs[:task_id]
+      end
+    end
+  end
+
+  def test_story_detected_in_auto_squash_uses_story_auto_squash
+    story_triage_mock = Object.new
+    def story_triage_mock.run
+      { 'status' => 'success', 'recommended_model' => 'opus', 'task_id' => 555,
+        'piece_type' => 'Story', 'story_id' => 8965,
+        'hours' => { 'per_day' => 8, 'task_estimated' => 2, 'already_worked' => 0 } }
+    end
+
+    story_executor_called = false
+    executor_mock = Object.new
+    executor_mock.define_singleton_method(:run) do
+      story_executor_called = true
+      { 'status' => 'no_more_tasks' }
+    end
+
+    WvRunner::ClaudeCode::Triage.stub(:new, story_triage_mock) do
+      WvRunner::ClaudeCode::StoryAutoSquash.stub(:new, ->(**_kwargs) { executor_mock }) do
+        loop_instance = WvRunner::WorkLoop.new
+        loop_instance.execute(:once_auto_squash)
+
+        assert story_executor_called, 'StoryAutoSquash should have been called'
+      end
+    end
+  end
+
+  def test_story_loop_processes_multiple_subtasks
+    triage_call_count = 0
+    triage_mock_obj = Object.new
+    triage_mock_obj.define_singleton_method(:run) do
+      triage_call_count += 1
+      case triage_call_count
+      when 1
+        { 'status' => 'success', 'recommended_model' => 'opus', 'task_id' => 100,
+          'piece_type' => 'Story', 'story_id' => 8965,
+          'hours' => { 'per_day' => 8, 'task_estimated' => 1, 'already_worked' => 0 } }
+      when 2
+        { 'status' => 'success', 'recommended_model' => 'sonnet', 'task_id' => 101,
+          'hours' => { 'per_day' => 8, 'task_estimated' => 1, 'already_worked' => 1 } }
+      else
+        { 'status' => 'no_more_tasks', 'recommended_model' => 'opus' }
+      end
+    end
+
+    executor_call_count = 0
+    executor_mock = Object.new
+    executor_mock.define_singleton_method(:run) do
+      executor_call_count += 1
+      { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 1 } }
+    end
+
+    WvRunner::ClaudeCode::Triage.stub(:new, triage_mock_obj) do
+      WvRunner::ClaudeCode::StoryManual.stub(:new, ->(**_kwargs) { executor_mock }) do
+        loop_instance = WvRunner::WorkLoop.new
+        loop_instance.execute(:once)
+
+        assert_equal 2, executor_call_count, 'Should have processed 2 subtasks before no_more_tasks'
+      end
+    end
+  end
+
+  def test_explicit_story_id_does_not_trigger_story_loop_again
+    # When already in story mode (kwargs[:story_id] present), don't re-trigger story loop
+    triage_result_mock = Object.new
+    def triage_result_mock.run
+      { 'status' => 'success', 'recommended_model' => 'opus', 'task_id' => 555,
+        'piece_type' => 'Story', 'story_id' => 8965,
+        'hours' => { 'per_day' => 8, 'task_estimated' => 2, 'already_worked' => 0 } }
+    end
+
+    story_manual_kwargs = nil
+    executor_mock = Object.new
+    def executor_mock.run
+      { 'status' => 'no_more_tasks' }
+    end
+
+    WvRunner::ClaudeCode::Triage.stub(:new, triage_result_mock) do
+      WvRunner::ClaudeCode::StoryManual.stub(:new, ->(**kwargs) { story_manual_kwargs = kwargs; executor_mock }) do
+        loop_instance = WvRunner::WorkLoop.new(story_id: 8965)
+        loop_instance.execute(:story_manual)
+
+        # Should call StoryManual directly (not enter story_loop again)
+        assert story_manual_kwargs, 'StoryManual should have been called directly'
+        assert_equal 555, story_manual_kwargs[:task_id]
+      end
+    end
+  end
 end

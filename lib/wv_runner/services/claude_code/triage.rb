@@ -130,6 +130,18 @@ module WvRunner
           STEP 2 - FETCH TASK:
           1. Fetch the task from: #{fetch_url}#{" (unless overridden by STEP 1c)" unless @task_id}
           2. If no tasks available: output status "no_more_tasks" with recommended_model "opus"
+          3. Check the "type" field of the fetched piece:
+             - If type is "Story": go to STEP 2b (Story handling)
+             - If type is "Task": go to STEP 3 (Analyze)
+
+          STEP 2b - STORY HANDLING (only if type is "Story"):
+          1. Remember the Story's relative_id as story_id
+          2. Find subtasks array in the response
+          3. Look for first task where state is NOT "Schváleno" and NOT "Hotovo?" and progress < 100
+          4. If no incomplete subtasks found: output status "no_more_tasks" with recommended_model "opus", piece_type "Story"
+          5. Fetch the subtask: Read workvector://pieces/jchsoft/<subtask_relative_id>
+          6. Continue to STEP 3 with the SUBTASK data (not the Story)
+          7. IMPORTANT: In the final result, set piece_type to "Story" and story_id to the Story's relative_id, and task_id to the subtask's relative_id
 
           STEP 3 - ANALYZE:
           1. Read the task: title, description, piece_type, and attachment FILENAMES only (do NOT download attachments)
@@ -164,11 +176,13 @@ module WvRunner
           DEFAULT: "sonnet" (when in doubt, choose sonnet — it handles most standard dev work well)
 
           #{result_format_instruction(
-            '"status": "success", "recommended_model": "sonnet", "task_id": 123, "resuming": false, "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}',
+            '"status": "success", "recommended_model": "sonnet", "task_id": 123, "resuming": false, "piece_type": "Task", "story_id": null, "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}',
             extra_rules: [
               'recommended_model MUST be exactly "opus", "sonnet", or "haiku" (lowercase)',
-              'task_id MUST be the numeric relative_id of the task',
+              'task_id MUST be the numeric relative_id of the task (or subtask if Story was detected)',
               'resuming MUST be true or false (boolean, not string)',
+              'piece_type MUST be "Task" or "Story" — set to "Story" ONLY if the fetched piece was a Story (STEP 2b)',
+              'story_id MUST be the numeric relative_id of the Story if piece_type is "Story", otherwise null',
               'already_worked MUST be the EXACT "worked_out" number from workvector://user - NEVER 0 unless API returned 0'
             ]
           )}
