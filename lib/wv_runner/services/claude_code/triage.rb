@@ -57,14 +57,7 @@ module WvRunner
             ]
           )}
 
-          #{triage_hours_instruction(
-            entity: 'subtask',
-            status_entries: <<~STATUS.strip
-              - "success" if subtask analyzed successfully
-              - "no_more_tasks" if no incomplete subtasks in the Story
-              - "quota_exceeded" if worked_out >= hour_goal (from STEP 0)
-            STATUS
-          )}
+          #{triage_hours_instruction(entity: 'subtask', status_entries: story_triage_status_entries)}
         INSTRUCTIONS
       end
 
@@ -112,15 +105,20 @@ module WvRunner
             ]
           )}
 
-          #{triage_hours_instruction(
-            entity: 'task',
-            status_entries: <<~STATUS.strip
-              - "success" if task analyzed successfully
-              - "no_more_tasks" if no tasks available
-              - "quota_exceeded" if worked_out >= hour_goal (from STEP 0)
-            STATUS
-          )}
+          #{triage_hours_instruction(entity: 'task', status_entries: standard_triage_status_entries)}
         INSTRUCTIONS
+      end
+
+      def story_triage_status_entries
+        "- \"success\" if subtask analyzed successfully\n" \
+          "- \"no_more_tasks\" if no incomplete subtasks in the Story\n" \
+          '- "quota_exceeded" if worked_out >= hour_goal (from STEP 0)'
+      end
+
+      def standard_triage_status_entries
+        "- \"success\" if task analyzed successfully\n" \
+          "- \"no_more_tasks\" if no tasks available\n" \
+          '- "quota_exceeded" if worked_out >= hour_goal (from STEP 0)'
       end
 
       def daily_quota_check_step
