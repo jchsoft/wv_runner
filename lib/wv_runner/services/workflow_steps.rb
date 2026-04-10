@@ -183,11 +183,11 @@ module WvRunner
       s = step_indent(step_num)
       <<~STEP.strip
         #{step_num}. CODE REVIEW: Review the PR using the code-review skill
-        #{s}- Use the "code-review" skill to review the pull request (invoke /code-review)
+        #{s}- Use the "code-review:code-review" skill to review the pull request (invoke /code-review:code-review)
         #{s}- If the review finds issues:
         #{s}  * Fix all actionable feedback (bugs, missing tests, style issues)
         #{s}  * Commit and push fixes
-        #{s}  * Re-run the "code-review" skill to verify fixes
+        #{s}  * Re-run the "code-review:code-review" skill to verify fixes
         #{s}  * Repeat until the review passes cleanly
         #{s}- Only proceed when the code review has no more actionable findings
       STEP

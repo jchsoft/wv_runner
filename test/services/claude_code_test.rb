@@ -404,14 +404,14 @@ class ClaudeCodeAutoSquashBaseTest < Minitest::Test
     obj = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 1, task_id: 456)
     steps = obj.send(:implementation_steps, start: 3)
     assert_includes steps, 'CODE REVIEW'
-    assert_includes steps, 'code-review'
+    assert_includes steps, 'code-review:code-review'
     assert_includes steps, 'actionable feedback'
   end
 
   def test_code_review_step_uses_skill_invocation
     obj = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 1, task_id: 456)
     steps = obj.send(:implementation_steps, start: 3)
-    assert_includes steps, '/code-review'
+    assert_includes steps, '/code-review:code-review'
     assert_includes steps, 'review passes cleanly'
   end
 end
@@ -519,7 +519,7 @@ class ClaudeCodeStoryAutoSquashTest < Minitest::Test
     story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123, task_id: 456)
     instructions = story_auto_squash.send(:build_instructions)
     assert_includes instructions, 'CODE REVIEW'
-    assert_includes instructions, '/code-review'
+    assert_includes instructions, '/code-review:code-review'
     assert_includes instructions, 'actionable feedback'
   end
 
@@ -668,7 +668,7 @@ class ClaudeCodeTodayAutoSquashTest < Minitest::Test
         today_auto_squash = WvRunner::ClaudeCode::TodayAutoSquash.new
         instructions = today_auto_squash.send(:build_instructions)
         assert_includes instructions, 'CODE REVIEW'
-        assert_includes instructions, '/code-review'
+        assert_includes instructions, '/code-review:code-review'
         assert_includes instructions, 'actionable feedback'
       end
     end
@@ -952,7 +952,7 @@ class ClaudeCodeQueueAutoSquashTest < Minitest::Test
         queue_auto_squash = WvRunner::ClaudeCode::QueueAutoSquash.new
         instructions = queue_auto_squash.send(:build_instructions)
         assert_includes instructions, 'CODE REVIEW'
-        assert_includes instructions, '/code-review'
+        assert_includes instructions, '/code-review:code-review'
         assert_includes instructions, 'actionable feedback'
       end
     end
@@ -1119,7 +1119,7 @@ class ClaudeCodeOnceAutoSquashTest < Minitest::Test
         once_auto_squash = WvRunner::ClaudeCode::OnceAutoSquash.new
         instructions = once_auto_squash.send(:build_instructions)
         assert_includes instructions, 'CODE REVIEW'
-        assert_includes instructions, '/code-review'
+        assert_includes instructions, '/code-review:code-review'
         assert_includes instructions, 'actionable feedback'
       end
     end
@@ -1432,7 +1432,7 @@ class ClaudeCodeTaskAutoSquashTest < Minitest::Test
     task_auto_squash = WvRunner::ClaudeCode::TaskAutoSquash.new(task_id: 123)
     instructions = task_auto_squash.send(:build_instructions)
     assert_includes instructions, 'CODE REVIEW'
-    assert_includes instructions, '/code-review'
+    assert_includes instructions, '/code-review:code-review'
     assert_includes instructions, 'actionable feedback'
   end
 
