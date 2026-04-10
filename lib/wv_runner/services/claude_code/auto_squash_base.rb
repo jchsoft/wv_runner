@@ -12,6 +12,49 @@ module WvRunner
 
       private
 
+      # Builds complete instructions for @next-based auto-squash runners (once/queue/today).
+      # Subclasses only need to provide task_description and workflow_notice strings.
+      def build_next_task_instructions(task_description:, workflow_notice:)
+        project_id = project_relative_id or raise 'project_relative_id not found in CLAUDE.md'
+        fetch_url = task_fetch_url
+
+        <<~INSTRUCTIONS
+          #{persona_instruction}
+
+          [TASK]
+          #{task_description}
+
+          WORKFLOW:
+          #{@task_id ? triaged_git_step(resuming: @resuming) : branch_resume_check_step(project_id: project_id, pull_on_main: true)}
+
+          #{task_fetch_step(step_num: 2, fetch_url: fetch_url)}
+
+          #{implementation_steps(start: 3)}
+          #{ci_run_and_merge_step(step_num: 14, next_step: 15)}
+          15. FINAL OUTPUT: Generate the result JSON
+
+          #{workflow_notice}
+
+          #{result_format_instruction(
+            '"status": "success", "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}'
+          )}
+
+          #{hours_data_instruction}
+          3. Set status:
+             #{next_task_auto_squash_status_options}
+        INSTRUCTIONS
+      end
+
+      def next_task_auto_squash_status_options
+        <<~STATUS.strip
+          - "success" if task completed and PR merged successfully
+          - "no_more_tasks" if no tasks available (workvector returns "No available tasks found")
+          - "ci_failed" if CI failed after retry (PR stays open)
+          - "preexisting_test_errors" if tests were already failing before your changes (urgent bug task created)
+          - "failure" for other errors
+        STATUS
+      end
+
       # Returns shared implementation steps from CREATE BRANCH through CODE REVIEW.
       # All four auto-squash files run these identical steps; only the starting step
       # number differs (today/once/queue start at 3, story starts at 4).

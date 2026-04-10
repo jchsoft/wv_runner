@@ -20,10 +20,7 @@ module WvRunner
       end
 
       def persona_section
-        <<~PERSONA
-          [PERSONA]
-          You are a senior Ruby On Rails software developer, following RubyWay principles.
-        PERSONA
+        persona_instruction
       end
 
       def task_section

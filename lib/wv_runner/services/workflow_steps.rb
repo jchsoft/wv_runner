@@ -12,6 +12,60 @@ module WvRunner
       step_num < 10 ? '   ' : '    '
     end
 
+    def task_fetch_step(step_num:, fetch_url:)
+      s = step_indent(step_num)
+      <<~STEP.strip
+        #{step_num}. TASK FETCH: Get the next available task
+        #{s}- Read: #{fetch_url}
+        #{s}- If no tasks available: STOP and output status "no_more_tasks"
+        #{s}- Verify task is NOT already started or completed
+        #{s}- DISPLAY TASK INFO: After loading, output in this exact format:
+        #{s}  WVRUNNER_TASK_INFO:
+        #{s}  ID: <relative_id>
+        #{s}  TITLE: <task name>
+        #{s}  DESCRIPTION: <first 200 chars of description, or full if shorter>
+        #{s}  END_TASK_INFO
+      STEP
+    end
+
+    def load_task_step(step_num:, task_id:)
+      s = step_indent(step_num)
+      <<~STEP.strip
+        #{step_num}. LOAD TASK: Get task details
+        #{s}- Read: workvector://pieces/jchsoft/#{task_id}
+        #{s}- DISPLAY TASK INFO: After loading, output in this exact format:
+        #{s}  WVRUNNER_TASK_INFO:
+        #{s}  ID: <relative_id>
+        #{s}  TITLE: <task name>
+        #{s}  DESCRIPTION: <first 200 chars of description, or full if shorter>
+        #{s}  END_TASK_INFO
+      STEP
+    end
+
+    def story_task_discovery_steps(story_id:, task_id:)
+      <<~STEPS.chomp
+        1. LOAD STORY CONTEXT: Read the story to understand the bigger picture
+           - Read: workvector://pieces/jchsoft/#{story_id}
+           - Review the story name, description, and subtasks list
+           - Understand the overall goal and how subtasks relate to each other
+           - Note which subtasks are already completed for context
+           - You will work on task ##{task_id} (pre-selected by triage)
+
+        2. LOAD TASK DETAILS: Get full task information
+           - Read: workvector://pieces/jchsoft/#{task_id}
+           - If task is IN PROGRESS (progress > 0):
+             → This is a CONTINUATION - skip git checkout/branch creation (steps 3-4)
+             → Go directly to step 5 (IMPLEMENT TASK) and continue where it was left off
+           - If task is NEW (progress = 0): proceed normally with all steps
+           - DISPLAY TASK INFO: After loading, output in this exact format:
+             WVRUNNER_TASK_INFO:
+             ID: <relative_id>
+             TITLE: <task name>
+             DESCRIPTION: <first 200 chars of description, or full if shorter>
+             END_TASK_INFO
+      STEPS
+    end
+
     def create_branch_step(step_num:)
       s = step_indent(step_num)
       <<~STEP.strip

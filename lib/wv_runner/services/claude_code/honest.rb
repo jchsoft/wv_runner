@@ -17,22 +17,12 @@ module WvRunner
 
       private
 
-      def task_fetch_url
-        if @task_id
-          "workvector://pieces/jchsoft/#{@task_id}"
-        else
-          project_id = project_relative_id or raise 'project_relative_id not found in CLAUDE.md'
-          "workvector://pieces/jchsoft/@next?project_relative_id=#{project_id}"
-        end
-      end
-
       def build_instructions
         project_id = project_relative_id or raise 'project_relative_id not found in CLAUDE.md'
         fetch_url = task_fetch_url
 
         <<~INSTRUCTIONS
-          [PERSONA]
-          You are a senior Ruby On Rails software developer, following RubyWay principles.
+          #{persona_instruction}
           [TASK]
           Work on next task from: #{fetch_url}! Create PullRequest and RUN LOCAL CI. DO EACH STEP OF THE WORKFLOW!
 
@@ -43,16 +33,7 @@ module WvRunner
           WORKFLOW:
           #{@task_id ? triaged_git_step(resuming: @resuming) : branch_resume_check_step(project_id: project_id, pull_on_main: true)}
 
-          2. TASK FETCH: Get the next available task
-             - Read: #{fetch_url}
-             - If no tasks available: STOP and output status "no_more_tasks"
-             - Verify task is NOT already started or completed
-             - DISPLAY TASK INFO: After loading, output in this exact format:
-               WVRUNNER_TASK_INFO:
-               ID: <relative_id>
-               TITLE: <task name>
-               DESCRIPTION: <first 200 chars of description, or full if shorter>
-               END_TASK_INFO
+          #{task_fetch_step(step_num: 2, fetch_url: fetch_url)}
 
           #{create_branch_step(step_num: 3)}
 
@@ -82,11 +63,7 @@ module WvRunner
             '"status": "success", "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}'
           )}
 
-          How to get the data:
-          1. Read workvector://user -> use "hour_goal" for per_day, use "worked_out" for already_worked
-             IMPORTANT: Read workvector://user at the very BEGINNING of the task before logging any work progress
-             WARNING: "already_worked" is the DAILY worked hours from "worked_out" field (e.g. 3.0). Do NOT calculate it from task effort minutes or effort history!
-          2. From the task you're working on -> parse "duration_best" field (e.g., "1 hodina" -> 1.0) for task_estimated
+          #{hours_data_instruction(include_warning: true)}
           3. Set status:
              - "success" if task completed successfully
              - "no_more_tasks" if no tasks available (workvector returns "No available tasks found")

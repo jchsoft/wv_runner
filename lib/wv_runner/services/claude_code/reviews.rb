@@ -60,14 +60,6 @@ module WvRunner
         STEP
       end
 
-      def extract_task_info_step
-        <<~STEP.strip
-          3. EXTRACT TASK INFO: From PR description, find the WorkVector task link
-             - Look for URL pattern: workvector.com/{account}/tasks/{id}
-             - Extract account code and task ID
-        STEP
-      end
-
       def load_review_comments_step
         <<~STEP.strip
           4. LOAD REVIEW COMMENTS: Get the latest human review for current PR
@@ -86,23 +78,6 @@ module WvRunner
         STEP
       end
 
-      def fix_review_issues_step
-        <<~STEP.strip
-          6. FIX REVIEW ISSUES: Address all problems mentioned in the review
-             - Read the review comments carefully
-             - Make necessary code changes
-             - Follow Ruby/Rails best practices from global CLAUDE.md
-        STEP
-      end
-
-      def commit_changes_step
-        <<~STEP.strip
-          7. COMMIT CHANGES: If any changes were made
-             - git add the changed files
-             - git commit with clear message referencing PR review
-        STEP
-      end
-
       def run_unit_tests_step
         <<~STEP.strip
           8. RUN UNIT TESTS: Execute all unit tests
@@ -118,19 +93,6 @@ module WvRunner
              - Run system tests (may take up to 5 minutes)
              - If failures: fix them and commit fixes
              - Repeat until all pass
-        STEP
-      end
-
-      def final_commit_step
-        <<~STEP.strip
-          10. FINAL COMMIT: Commit any remaining fixes
-        STEP
-      end
-
-      def push_step
-        <<~STEP.strip
-          11. PUSH: Push all changes to the branch
-              - git push origin HEAD
         STEP
       end
 

@@ -21,15 +21,6 @@ module WvRunner
         false
       end
 
-      def task_fetch_url
-        if @task_id
-          "workvector://pieces/jchsoft/#{@task_id}"
-        else
-          project_id = project_relative_id or raise 'project_relative_id not found in CLAUDE.md'
-          "workvector://pieces/jchsoft/@next?project_relative_id=#{project_id}"
-        end
-      end
-
       def build_instructions
         @story_id ? build_story_triage_instructions : build_standard_triage_instructions
       end
@@ -38,14 +29,7 @@ module WvRunner
         <<~INSTRUCTIONS
           You are a task triage agent. Your ONLY job is to find the next incomplete subtask from a Story and recommend which AI model should execute it.
 
-          STEP 0 - CHECK DAILY QUOTA (do this FIRST, before anything else):
-          1. Read: workvector://user
-          2. Extract "hour_goal" (this is per_day) and "worked_out" (this is already_worked)
-          3. CRITICAL: If worked_out >= hour_goal → STOP IMMEDIATELY. Output WVRUNNER_RESULT with:
-             - status: "quota_exceeded", recommended_model: "opus", task_id: 0, resuming: false
-             - hours: { per_day: <hour_goal value>, task_estimated: 0, already_worked: <worked_out value> }
-             Do NOT proceed to any other steps. Do NOT fetch any task.
-          4. If worked_out < hour_goal → continue to STEP 1
+          #{daily_quota_check_step}
 
           STEP 1 - LOAD STORY:
           1. Read: workvector://pieces/jchsoft/#{@story_id}
@@ -61,33 +45,7 @@ module WvRunner
           1. Read the task: title, description, piece_type, and attachment FILENAMES only (do NOT download attachments)
           2. Based on the classification rules below, decide the recommended model
 
-          MODEL SELECTION RULES (pick exactly one: "opus", "sonnet", or "haiku"):
-
-          Use "haiku" for trivial changes:
-          - Typo fix, text correction, translation string change
-          - Single CSS property change (color, font-size, margin)
-          - One-line config update (env variable, locale key, feature flag)
-
-          Use "opus" ONLY for:
-          - New UI elements, UI improvements, UI beautification (new pages, design changes, UX enhancements)
-          - Complex architecture (new models with associations, multi-service orchestration, migrations with data transforms)
-          - Security-sensitive changes (authentication, authorization, encryption)
-          - Ambiguous or unclear requirements needing creative interpretation
-          - Story (piece_type)
-
-          Use "sonnet" for everything else, including:
-          - Standard CRUD (even multi-file: model + controller + views for simple resources)
-          - Refactoring (extract method, rename, move code, extract concern)
-          - Bug fixes with clear error messages or stack traces
-          - Adding/modifying tests
-          - Simple frontend changes (fix existing CSS, tweak existing JS, adjust existing layout)
-          - Validations, scopes, simple associations, callbacks
-          - Config, environment, locale, or documentation changes
-          - API endpoints with straightforward logic
-
-          DURATION HINT: tasks estimated under 1 hour (duration_best) lean toward "sonnet" or "haiku"
-
-          DEFAULT: "sonnet" (when in doubt, choose sonnet — it handles most standard dev work well)
+          #{model_selection_rules}
 
           #{result_format_instruction(
             '"status": "success", "recommended_model": "sonnet", "task_id": 123, "resuming": false, "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}',
@@ -99,14 +57,14 @@ module WvRunner
             ]
           )}
 
-          How to populate hours in the result:
-          1. per_day = "hour_goal" from workvector://user (already read in STEP 0)
-          2. already_worked = "worked_out" from workvector://user (already read in STEP 0)
-          3. task_estimated = parse "duration_best" field from subtask (e.g. "30 minut" → 0.5, "1 hodina" → 1.0)
-          4. Set status:
-             - "success" if subtask analyzed successfully
-             - "no_more_tasks" if no incomplete subtasks in the Story
-             - "quota_exceeded" if worked_out >= hour_goal (from STEP 0)
+          #{triage_hours_instruction(
+            entity: 'subtask',
+            status_entries: <<~STATUS.strip
+              - "success" if subtask analyzed successfully
+              - "no_more_tasks" if no incomplete subtasks in the Story
+              - "quota_exceeded" if worked_out >= hour_goal (from STEP 0)
+            STATUS
+          )}
         INSTRUCTIONS
       end
 
@@ -116,14 +74,7 @@ module WvRunner
         <<~INSTRUCTIONS
           You are a task triage agent. Your ONLY job is to analyze a task and recommend which AI model should execute it.
 
-          STEP 0 - CHECK DAILY QUOTA (do this FIRST, before anything else):
-          1. Read: workvector://user
-          2. Extract "hour_goal" (this is per_day) and "worked_out" (this is already_worked)
-          3. CRITICAL: If worked_out >= hour_goal → STOP IMMEDIATELY. Output WVRUNNER_RESULT with:
-             - status: "quota_exceeded", recommended_model: "opus", task_id: 0, resuming: false
-             - hours: { per_day: <hour_goal value>, task_estimated: 0, already_worked: <worked_out value> }
-             Do NOT proceed to any other steps. Do NOT fetch any task.
-          4. If worked_out < hour_goal → continue to STEP 1
+          #{daily_quota_check_step}
 
           #{branch_detection_step}
 
@@ -147,6 +98,46 @@ module WvRunner
           1. Read the task: title, description, piece_type, and attachment FILENAMES only (do NOT download attachments)
           2. Based on the classification rules below, decide the recommended model
 
+          #{model_selection_rules}
+
+          #{result_format_instruction(
+            '"status": "success", "recommended_model": "sonnet", "task_id": 123, "resuming": false, "piece_type": "Task", "story_id": null, "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}',
+            extra_rules: [
+              'recommended_model MUST be exactly "opus", "sonnet", or "haiku" (lowercase)',
+              'task_id MUST be the numeric relative_id of the task (or subtask if Story was detected)',
+              'resuming MUST be true or false (boolean, not string)',
+              'piece_type MUST be "Task" or "Story" — set to "Story" ONLY if the fetched piece was a Story (STEP 2b)',
+              'story_id MUST be the numeric relative_id of the Story if piece_type is "Story", otherwise null',
+              'already_worked MUST be the EXACT "worked_out" number from workvector://user - NEVER 0 unless API returned 0'
+            ]
+          )}
+
+          #{triage_hours_instruction(
+            entity: 'task',
+            status_entries: <<~STATUS.strip
+              - "success" if task analyzed successfully
+              - "no_more_tasks" if no tasks available
+              - "quota_exceeded" if worked_out >= hour_goal (from STEP 0)
+            STATUS
+          )}
+        INSTRUCTIONS
+      end
+
+      def daily_quota_check_step
+        <<~STEP.strip
+          STEP 0 - CHECK DAILY QUOTA (do this FIRST, before anything else):
+          1. Read: workvector://user
+          2. Extract "hour_goal" (this is per_day) and "worked_out" (this is already_worked)
+          3. CRITICAL: If worked_out >= hour_goal → STOP IMMEDIATELY. Output WVRUNNER_RESULT with:
+             - status: "quota_exceeded", recommended_model: "opus", task_id: 0, resuming: false
+             - hours: { per_day: <hour_goal value>, task_estimated: 0, already_worked: <worked_out value> }
+             Do NOT proceed to any other steps. Do NOT fetch any task.
+          4. If worked_out < hour_goal → continue to STEP 1
+        STEP
+      end
+
+      def model_selection_rules
+        <<~RULES.strip
           MODEL SELECTION RULES (pick exactly one: "opus", "sonnet", or "haiku"):
 
           Use "haiku" for trivial changes:
@@ -174,28 +165,18 @@ module WvRunner
           DURATION HINT: tasks estimated under 1 hour (duration_best) lean toward "sonnet" or "haiku"
 
           DEFAULT: "sonnet" (when in doubt, choose sonnet — it handles most standard dev work well)
+        RULES
+      end
 
-          #{result_format_instruction(
-            '"status": "success", "recommended_model": "sonnet", "task_id": 123, "resuming": false, "piece_type": "Task", "story_id": null, "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}',
-            extra_rules: [
-              'recommended_model MUST be exactly "opus", "sonnet", or "haiku" (lowercase)',
-              'task_id MUST be the numeric relative_id of the task (or subtask if Story was detected)',
-              'resuming MUST be true or false (boolean, not string)',
-              'piece_type MUST be "Task" or "Story" — set to "Story" ONLY if the fetched piece was a Story (STEP 2b)',
-              'story_id MUST be the numeric relative_id of the Story if piece_type is "Story", otherwise null',
-              'already_worked MUST be the EXACT "worked_out" number from workvector://user - NEVER 0 unless API returned 0'
-            ]
-          )}
-
+      def triage_hours_instruction(entity:, status_entries:)
+        <<~INSTRUCTION.strip
           How to populate hours in the result:
           1. per_day = "hour_goal" from workvector://user (already read in STEP 0)
           2. already_worked = "worked_out" from workvector://user (already read in STEP 0)
-          3. task_estimated = parse "duration_best" field from task (e.g. "30 minut" → 0.5, "1 hodina" → 1.0)
+          3. task_estimated = parse "duration_best" field from #{entity} (e.g. "30 minut" → 0.5, "1 hodina" → 1.0)
           4. Set status:
-             - "success" if task analyzed successfully
-             - "no_more_tasks" if no tasks available
-             - "quota_exceeded" if worked_out >= hour_goal (from STEP 0)
-        INSTRUCTIONS
+             #{status_entries}
+        INSTRUCTION
       end
 
       def branch_detection_step

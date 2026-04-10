@@ -98,6 +98,37 @@ module WvRunner
         INSTRUCTION
       end
 
+      def persona_instruction
+        <<~INSTRUCTION.strip
+          [PERSONA]
+          You are a senior Ruby On Rails software developer, following RubyWay principles.
+        INSTRUCTION
+      end
+
+      def task_fetch_url
+        if @task_id
+          "workvector://pieces/jchsoft/#{@task_id}"
+        else
+          project_id = project_relative_id or raise 'project_relative_id not found in CLAUDE.md'
+          "workvector://pieces/jchsoft/@next?project_relative_id=#{project_id}"
+        end
+      end
+
+      def hours_data_instruction(include_warning: false)
+        warning = if include_warning
+                    "\n   WARNING: \"already_worked\" is the DAILY worked hours from \"worked_out\" field " \
+                      '(e.g. 3.0). Do NOT calculate it from task effort minutes or effort history!'
+        else
+                    ''
+        end
+        <<~INSTRUCTION.strip
+          How to get the data:
+          1. Read workvector://user -> use "hour_goal" for per_day, use "worked_out" for already_worked
+             IMPORTANT: Read workvector://user at the very BEGINNING of the task before logging any work progress#{warning}
+          2. From the task you're working on -> parse "duration_best" field (e.g., "1 hodina" -> 1.0) for task_estimated
+        INSTRUCTION
+      end
+
       def time_awareness_instruction
         <<~INSTRUCTION.strip
           TIME MANAGEMENT (CRITICAL):
