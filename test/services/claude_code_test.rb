@@ -414,6 +414,12 @@ class ClaudeCodeAutoSquashBaseTest < Minitest::Test
     assert_includes steps, '/code-review:code-review'
     assert_includes steps, 'review passes cleanly'
   end
+
+  def test_code_review_step_skips_for_test_only_changes
+    obj = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 1, task_id: 456)
+    steps = obj.send(:implementation_steps, start: 3)
+    assert_includes steps, 'SKIP this step if your changes ONLY touch test files'
+  end
 end
 
 class ClaudeCodeStoryAutoSquashTest < Minitest::Test

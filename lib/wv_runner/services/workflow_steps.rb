@@ -183,6 +183,7 @@ module WvRunner
       s = step_indent(step_num)
       <<~STEP.strip
         #{step_num}. CODE REVIEW: Review the PR using the code-review skill
+        #{s}- SKIP this step if your changes ONLY touch test files (no production code modified)
         #{s}- Use the "code-review:code-review" skill to review the pull request (invoke /code-review:code-review)
         #{s}- If the review finds issues:
         #{s}  * Fix all actionable feedback (bugs, missing tests, style issues)
