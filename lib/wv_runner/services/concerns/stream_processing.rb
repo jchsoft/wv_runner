@@ -55,6 +55,23 @@ module WvRunner
         ", waiting for: #{tools.join(', ')}"
       end
 
+      def check_for_mcp_server_status(line)
+        return unless line.include?('"subtype":"init"')
+
+        parsed = JSON.parse(line)
+        servers = parsed['mcp_servers']
+        return unless servers.is_a?(Array)
+
+        servers.each do |server|
+          next unless server['status'] == 'failed'
+
+          Logger.warn "[#{@log_tag}] MCP server '#{server['name']}' failed to initialize!"
+          Logger.info_stdout "[#{@log_tag}] WARNING: MCP server '#{server['name']}' is unavailable — agent will use fallback tools"
+        end
+      rescue JSON::ParserError
+        # Not valid JSON, ignore
+      end
+
       def check_for_api_overload(line)
         return if @api_overload_flag
 

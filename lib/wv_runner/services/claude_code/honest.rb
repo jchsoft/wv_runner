@@ -26,6 +26,8 @@ module WvRunner
           [TASK]
           Work on next task from: #{fetch_url}! Create PullRequest and RUN LOCAL CI. DO EACH STEP OF THE WORKFLOW!
 
+          #{context_optimization_instruction}
+
           #{time_awareness_instruction}
 
           #{coding_conventions_instruction}

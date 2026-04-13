@@ -42,14 +42,25 @@ module WvRunner
       STEP
     end
 
-    def story_task_discovery_steps(story_id:, task_id:)
+    def story_task_discovery_steps(story_id:, task_id:, skip_story_load: false)
+      story_step = if skip_story_load
+        <<~STEP.chomp
+          1. STORY CONTEXT: Story ##{story_id} was already loaded in a previous task iteration.
+             Skip loading the story — go directly to step 2. Your task is ##{task_id}.
+        STEP
+      else
+        <<~STEP.chomp
+          1. LOAD STORY CONTEXT: Read the story to understand the bigger picture
+             - Read: workvector://pieces/jchsoft/#{story_id}
+             - Review the story name, description, and subtasks list
+             - Understand the overall goal and how subtasks relate to each other
+             - Note which subtasks are already completed for context
+             - You will work on task ##{task_id} (pre-selected by triage)
+        STEP
+      end
+
       <<~STEPS.chomp
-        1. LOAD STORY CONTEXT: Read the story to understand the bigger picture
-           - Read: workvector://pieces/jchsoft/#{story_id}
-           - Review the story name, description, and subtasks list
-           - Understand the overall goal and how subtasks relate to each other
-           - Note which subtasks are already completed for context
-           - You will work on task ##{task_id} (pre-selected by triage)
+        #{story_step}
 
         2. LOAD TASK DETAILS: Get full task information
            - Read: workvector://pieces/jchsoft/#{task_id}

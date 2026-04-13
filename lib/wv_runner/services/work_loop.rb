@@ -121,7 +121,7 @@ module WvRunner
       loop do
         iteration_count += 1
         Logger.debug("[WorkLoop] [run_story_manual] Starting iteration ##{iteration_count}...")
-        result = triage_and_execute(ClaudeCode::StoryManual, story_id: @story_id)
+        result = triage_and_execute(ClaudeCode::StoryManual, story_id: @story_id, skip_story_load: iteration_count > 1)
         results << result
         Logger.info_stdout("[WorkLoop] Task ##{iteration_count} completed with status: #{result['status']}")
 
@@ -149,7 +149,7 @@ module WvRunner
       loop do
         iteration_count += 1
         Logger.debug("[WorkLoop] [run_story_auto_squash] Starting iteration ##{iteration_count}...")
-        result = triage_and_execute(ClaudeCode::StoryAutoSquash, story_id: @story_id)
+        result = triage_and_execute(ClaudeCode::StoryAutoSquash, story_id: @story_id, skip_story_load: iteration_count > 1)
         results << result
         status = result['status']
         Logger.info_stdout("[WorkLoop] Task ##{iteration_count} completed with status: #{status}")
@@ -550,11 +550,11 @@ module WvRunner
         Logger.debug("[WorkLoop] [run_story_loop] Story ##{story_id}, iteration ##{iteration_count}...")
 
         # First iteration — triage already found the subtask, execute directly
-        # Subsequent iterations — re-triage to find next incomplete subtask
+        # Subsequent iterations — re-triage to find next incomplete subtask, skip story re-fetch
         result = if iteration_count == 1 && first_task_id
           story_executor.new(story_id: story_id, task_id: first_task_id, verbose: @verbose, model_override: model_override).run
         else
-          triage_and_execute(story_executor, story_id: story_id)
+          triage_and_execute(story_executor, story_id: story_id, skip_story_load: true)
         end
 
         results << result

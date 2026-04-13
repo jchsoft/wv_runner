@@ -9,10 +9,11 @@ module WvRunner
     class StoryManual < ClaudeCodeBase
       include WorkflowSteps
 
-      def initialize(story_id:, task_id:, verbose: false, model_override: nil, resuming: false)
-        super(verbose: verbose, model_override: model_override, resuming: resuming)
+      def initialize(story_id:, task_id:, skip_story_load: false, **options)
+        super(**options)
         @story_id = story_id
         @task_id = task_id
+        @skip_story_load = skip_story_load
       end
 
       def model_name = "opus"
@@ -26,12 +27,14 @@ module WvRunner
           [TASK]
           Work on task ##{@task_id} from Story ##{@story_id}.
 
+          #{context_optimization_instruction}
+
           #{time_awareness_instruction}
 
           #{coding_conventions_instruction}
 
           WORKFLOW:
-          #{story_task_discovery_steps(story_id: @story_id, task_id: @task_id)}
+          #{story_task_discovery_steps(story_id: @story_id, task_id: @task_id, skip_story_load: @skip_story_load)}
 
           3. GIT STATE CHECK: Ensure you start from main branch
              - Run: git checkout main && git pull

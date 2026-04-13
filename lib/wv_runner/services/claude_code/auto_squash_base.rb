@@ -61,6 +61,7 @@ module WvRunner
       def implementation_steps(start:)
         n = start
         [
+          context_optimization_instruction,
           time_awareness_instruction,
           coding_conventions_instruction,
           preexisting_test_errors_instruction,

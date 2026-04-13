@@ -37,7 +37,7 @@ module WvRunner
     INACTIVITY_TIMEOUT = 1200 # 20 minutes - kill only if stream_line_count stops changing
     HEARTBEAT_INTERVAL = 120 # 2 minutes between heartbeat messages
 
-    def initialize(verbose: false, model_override: nil, resuming: false)
+    def initialize(verbose: false, model_override: nil, resuming: false, **)
       @verbose = verbose
       @model_override = model_override
       @resuming = resuming
@@ -159,6 +159,7 @@ module WvRunner
             @stream_line_count += 1
             @text_content << extract_text_from_line(line)
             track_tool_event(line)
+            check_for_mcp_server_status(line)
             check_for_api_overload(line)
             check_for_result_message(line)
             if OutputFormatter.should_log_to_stdout?(line)

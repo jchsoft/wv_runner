@@ -129,6 +129,21 @@ module WvRunner
         INSTRUCTION
       end
 
+      def context_optimization_instruction
+        <<~INSTRUCTION.strip
+          CONTEXT OPTIMIZATION (MANDATORY):
+          - ALWAYS call independent tools in parallel (multiple Read/Grep/Glob in one turn, not sequentially)
+          - Use CodeGraph (`codegraph_context`, `codegraph_search`) and LSP (`findReferences`, `documentSymbol`) BEFORE Read/Grep for code exploration
+          - If CodeGraph is unavailable, use LSP as PRIMARY exploration tool:
+            * `documentSymbol` — file structure (classes, methods) in one call
+            * `findReferences` — who calls this method/class
+            * `definition` — jump to symbol definition
+            * `incomingCalls` — call graph without file scanning
+          - Never re-read the same file more than twice. After reading, note key line numbers — use offset+limit for targeted re-reads
+          - Do NOT summarize what you just did after each step — the user sees the diff. Save output tokens.
+        INSTRUCTION
+      end
+
       def time_awareness_instruction
         <<~INSTRUCTION.strip
           TIME MANAGEMENT (CRITICAL):

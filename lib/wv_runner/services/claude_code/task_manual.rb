@@ -25,6 +25,8 @@ module WvRunner
           [TASK]
           Work on the specific task ##{@task_id}.
 
+          #{context_optimization_instruction}
+
           #{time_awareness_instruction}
 
           #{coding_conventions_instruction}

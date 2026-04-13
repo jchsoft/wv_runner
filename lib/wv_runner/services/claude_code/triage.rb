@@ -28,6 +28,7 @@ module WvRunner
       def build_story_triage_instructions
         <<~INSTRUCTIONS
           You are a task triage agent. Your ONLY job is to find the next incomplete subtask from a Story and recommend which AI model should execute it.
+          OUTPUT ONLY the final JSON result block. No explanations, no analysis, no commentary before or after the JSON.
 
           #{daily_quota_check_step}
 
@@ -66,6 +67,7 @@ module WvRunner
 
         <<~INSTRUCTIONS
           You are a task triage agent. Your ONLY job is to analyze a task and recommend which AI model should execute it.
+          OUTPUT ONLY the final JSON result block. No explanations, no analysis, no commentary before or after the JSON.
 
           #{daily_quota_check_step}
 

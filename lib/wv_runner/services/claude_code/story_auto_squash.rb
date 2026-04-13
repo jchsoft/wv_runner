@@ -7,10 +7,11 @@ module WvRunner
     # Processes tasks from a specific Story with automatic PR squash-merge after CI passes
     # Creates PRs for each task and automatically merges them after local CI passes
     class StoryAutoSquash < AutoSquashBase
-      def initialize(story_id:, task_id:, verbose: false, model_override: nil, resuming: false)
-        super(verbose: verbose, model_override: model_override, resuming: resuming)
+      def initialize(story_id:, task_id:, skip_story_load: false, **options)
+        super(**options)
         @story_id = story_id
         @task_id = task_id
+        @skip_story_load = skip_story_load
       end
 
       def model_name = "opus"
@@ -25,7 +26,7 @@ module WvRunner
           Work on task ##{@task_id} from Story ##{@story_id} with AUTOMATIC PR merge after CI passes.
 
           WORKFLOW:
-          #{story_task_discovery_steps(story_id: @story_id, task_id: @task_id)}
+          #{story_task_discovery_steps(story_id: @story_id, task_id: @task_id, skip_story_load: @skip_story_load)}
 
           3. GIT STATE CHECK: Ensure you start from main branch
              - Run: git checkout main && git pull
