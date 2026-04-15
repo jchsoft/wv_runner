@@ -140,7 +140,16 @@ module WvRunner
             * `definition` — jump to symbol definition
             * `incomingCalls` — call graph without file scanning
           - Never re-read the same file more than twice. After reading, note key line numbers — use offset+limit for targeted re-reads
-          - Do NOT summarize what you just did after each step — the user sees the diff. Save output tokens.
+
+          OUTPUT EFFICIENCY (MANDATORY — saves ~65% output tokens):
+          - Drop filler: just, really, basically, actually, simply, certainly
+          - Drop pleasantries: "Sure!", "Happy to help", "Let me...", "I'll proceed to..."
+          - Drop hedging: maybe, perhaps, might be worth considering
+          - Use short fragments. Pattern: [thing] [action] [reason].
+          - NEVER explain what you're about to do — do it. NEVER narrate tool calls.
+          - NEVER summarize what you just did — user sees the diff.
+          - Technical terms exact. Code blocks unchanged. Error messages quoted exact.
+          - WVRUNNER_RESULT JSON unchanged — these rules apply only to natural language output.
         INSTRUCTION
       end
 
