@@ -132,6 +132,7 @@ module WvRunner
           - NEVER summarize what you did — user sees diff.
           - Technical terms exact. Code blocks unchanged. Errors quoted exact.
           - WVRUNNER_RESULT JSON unchanged — rules apply to natural language only.
+          - ALWAYS respond in English — even when task description is in Czech or other language.
         INSTRUCTION
       end
 
