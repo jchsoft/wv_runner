@@ -1,4 +1,3 @@
-
 ## Finding Information
 
 | Information type | Tool | Example |
@@ -9,30 +8,36 @@
 | **Who calls/references a symbol** | **LSP** `findReferences` / `incomingCalls` | precise references from known position |
 | **Architecture, patterns, lessons learned** | `/memory-search` skill | "how does triage work?" |
 
-**LSP tool is available** (ruby-lsp plugin) — sees modules, concerns, everything CodeGraph misses. Requires file:line position, so first find the file via CodeGraph/Grep, then analyze via LSP.
-**CodeGraph limitation for Ruby:** Does not index `module` definitions (concerns, namespace modules).
+**LSP tool available** (ruby-lsp plugin) — sees modules, concerns, everything CodeGraph misses. Needs file:line position, so find file via CodeGraph/Grep first, then analyze via LSP.
+**CodeGraph Ruby limitation:** No `module` indexing (concerns, namespace modules).
 
 ## LLM Memory Notes MCP Usage
-- Memory identifier for this project: `wv-runner` (contains architecture, patterns, commands, testing info)
-- **Search**: Use `/memory-search` skill (runs on Haiku, returns compact filtered results)
-- **Do NOT use direct `ReadMcpResourceTool`** for searching — returns too verbose data into context
+- Memory identifier: `wv-runner` (architecture, patterns, commands, testing info)
+- **Search**: `/memory-search` skill (Haiku, compact filtered results)
+- **No direct `ReadMcpResourceTool`** for search — too verbose in context
 
 ## WorkVector
 - Project name is: WorkVector
 - project_relative_id=7
 
+## Large File Token Cost Prevention
+- **Read big file (>200 lines) once.** Then `offset`+`limit` only.
+- **Batch edits.** All changes to same file = one turn. Each turn re-sends full conversation history.
+- **File >500 lines?** Split first, edit smaller parts.
+- **$2 → $17 disaster:** repeated large-file edits = re-sent file content each turn = 8× cost.
+
 ## CI & Quality Checks
-- **Full CI**: `ruby bin/ci` runs all checks (tests, RuboCop, Reek, Flay)
-- **Tests only**: `ruby test_runner.rb` runs all tests
+- **Full CI**: `ruby bin/ci` — all checks (tests, RuboCop, Reek, Flay)
+- **Tests only**: `ruby test_runner.rb`
 - **Individual tests**: `ruby -I lib -I test test/services/<test_file>.rb`
-- **All checks must pass before committing changes**
+- **All checks must pass before commit**
 
 ## Version Management
-**Important**: After successfully completing this wv_runner task (when code is committed and ready):
-- Run: `ruby bin/increment_version.rb` to increment the wv_runner version by 0.1
-- This ONLY increments the wv_runner version itself, not projects where runner is used
+**Important**: After completing wv_runner task (code committed and ready):
+- Run: `ruby bin/increment_version.rb` to increment wv_runner version by 0.1
+- Only increments wv_runner version, not projects where runner used
 - Version file: `lib/wv_runner/version.rb`
-- Current version is displayed at startup with every run
-- Versions follow pattern: 0.1.0 → 0.1.1 → 0.1.2 → ... → 0.1.9 → 0.2.0 → 0.2.1 → etc
-- Run this command AFTER you've committed your code changes
-- Example: After implementing a feature, commit your code, then run `ruby bin/increment_version.rb` before ending the task
+- Current version displayed at startup
+- Pattern: 0.1.0 → 0.1.1 → 0.1.2 → ... → 0.1.9 → 0.2.0 → 0.2.1 → etc
+- Run AFTER code changes committed
+- Example: implement feature, commit code, then run `ruby bin/increment_version.rb` before ending task
