@@ -23,8 +23,7 @@ module WvRunner
 
         <<~INSTRUCTIONS
           #{persona_instruction}
-          [TASK]
-          Work on next task from: #{fetch_url}! Create PullRequest and RUN LOCAL CI. DO EACH STEP OF THE WORKFLOW!
+          [TASK] Work on next task from: #{fetch_url}. Create PR, run CI. Follow ALL workflow steps.
 
           #{context_optimization_instruction}
 

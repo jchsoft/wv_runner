@@ -10,12 +10,7 @@ module WvRunner
       private
 
       def task_section
-        <<~TASK
-          [TASK]
-          Find the NEXT Pull Request that has an unaddressed review from the project lead.
-          Check out its branch, fix the review feedback, and return.
-          This will be called repeatedly in a loop until no more reviews exist.
-        TASK
+        "[TASK] Find next PR with unaddressed review. Checkout branch, fix, return. Loops until no reviews.\n"
       end
 
       def workflow_section
@@ -42,73 +37,48 @@ module WvRunner
 
       def find_next_pr_with_review_step
         <<~STEP.strip
-          1. FIND NEXT PR WITH REVIEW: Search for the first open PR with human reviews
-             - Run: gh pr list --json number,title,headRefName,url --state open
-             - For each PR, check if it has reviews: gh api repos/{owner}/{repo}/pulls/{pr_number}/reviews
-             - Filter for reviews from humans (not bots/automated)
-             - Find the FIRST PR that has an unaddressed human review
-             - If no PRs with reviews found: output status "no_reviews" and STOP immediately
+          1. FIND PR WITH REVIEW:
+             - gh pr list --json number,title,headRefName,url --state open
+             - For each: gh api repos/{owner}/{repo}/pulls/{pr_number}/reviews
+             - Filter humans. First unaddressed review.
+             - None found → status "no_reviews", STOP.
         STEP
       end
 
       def checkout_branch_step
-        <<~STEP.strip
-          2. CHECKOUT BRANCH: Switch to the PR's branch
-             - Run: git fetch origin {branch_name}
-             - Run: git checkout {branch_name}
-             - Run: git pull origin {branch_name}
-        STEP
+        "2. CHECKOUT: git fetch origin {branch} && git checkout {branch} && git pull origin {branch}"
       end
 
       def load_review_comments_step
         <<~STEP.strip
-          4. LOAD REVIEW COMMENTS: Get the latest human review for current PR
-             - Run: gh api repos/{owner}/{repo}/pulls/{pr_number}/reviews
-             - Get the most recent human review
-             - Also run: gh api repos/{owner}/{repo}/pulls/{pr_number}/comments for inline comments
+          4. LOAD REVIEWS:
+             - gh api repos/{owner}/{repo}/pulls/{pr_number}/reviews
+             - gh api repos/{owner}/{repo}/pulls/{pr_number}/comments
+             - Most recent human review.
         STEP
       end
 
       def create_subtask_step
         <<~STEP.strip
-          5. CREATE SUBTASK: Create subtask for the review work
-             - Use mcp__workvector-production__CreatePieceTool to create subtask under the original task
-             - Include summarized review feedback in description
-             - LOG work progress to this subtask
+          5. CREATE SUBTASK: CreatePieceTool under original task
+             - Summarize review feedback. Log progress.
         STEP
       end
 
       def run_unit_tests_step
-        <<~STEP.strip
-          8. RUN UNIT TESTS: Execute all unit tests
-             - Run the test suite
-             - If failures: fix them and commit fixes
-             - Repeat until all pass
-        STEP
+        "8. UNIT TESTS: Run suite. Fix failures, repeat until pass."
       end
 
       def run_system_tests_step
-        <<~STEP.strip
-          9. RUN SYSTEM TESTS: Execute all system tests
-             - Run system tests (may take up to 5 minutes)
-             - If failures: fix them and commit fixes
-             - Repeat until all pass
-        STEP
+        "9. SYSTEM TESTS: Run (~5 min). Fix failures, repeat until pass."
       end
 
       def run_local_ci_step
-        <<~STEP.strip
-          12. RUN LOCAL CI: If exists "bin/ci" file, run it
-        STEP
+        "12. LOCAL CI: bin/ci exists → run it"
       end
 
       def status_values_section
-        <<~STATUS.strip
-          Status values:
-          - "success" if review addressed and changes pushed
-          - "no_reviews" if no PRs with human reviews found
-          - "failure" for errors during processing
-        STATUS
+        "Status: \"success\"=fixed+pushed, \"no_reviews\"=none found, \"failure\"=error"
       end
     end
   end

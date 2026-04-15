@@ -18,9 +18,8 @@ module WvRunner
 
       def build_instructions
         build_next_task_instructions(
-          task_description: "Work on the next available task with AUTOMATIC PR merge after CI passes.",
-          workflow_notice: "IMPORTANT: This is an AUTO-SQUASH workflow - PR is automatically merged after CI passes!\n" \
-                          "If CI fails twice, the PR stays open for manual review."
+          task_description: "Next task, auto-merge after CI.",
+          workflow_notice: "AUTO-SQUASH: auto-merge after CI. CI fails 2× → PR stays open."
         )
       end
     end

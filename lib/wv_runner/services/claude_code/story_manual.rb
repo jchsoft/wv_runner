@@ -36,9 +36,7 @@ module WvRunner
           WORKFLOW:
           #{story_task_discovery_steps(story_id: @story_id, task_id: @task_id, skip_story_load: @skip_story_load)}
 
-          3. GIT STATE CHECK: Ensure you start from main branch
-             - Run: git checkout main && git pull
-             - This ensures you start from a clean, stable state
+          3. GIT: git checkout main && git pull
 
           #{create_branch_step(step_num: 4)}
 
@@ -62,8 +60,7 @@ module WvRunner
 
           #{run_local_ci_step(step_num: 14, verify_step_ref: 10)}
 
-          IMPORTANT: This is a MANUAL workflow - PR is created but NOT merged!
-          Human will review and merge the PR manually.
+          MANUAL: PR created, NOT merged. Human reviews.
 
           #{result_format_instruction(
             %("status": "success", "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}, "story_id": #{@story_id}, "task_id": Z)

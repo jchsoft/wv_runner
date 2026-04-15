@@ -542,7 +542,7 @@ class ClaudeCodeBaseTest < Minitest::Test
     base = WvRunner::ClaudeCodeBase.new
     instruction = base.send(:time_awareness_instruction)
     assert_includes instruction, 'TIME MANAGEMENT'
-    assert_includes instruction, 'inactive for 20 minutes'
+    assert_includes instruction, '20 min inactive'
     assert_includes instruction, 'WVRUNNER_RESULT'
   end
 
@@ -565,7 +565,7 @@ class ClaudeCodeBaseTest < Minitest::Test
     base = WvRunner::ClaudeCodeBase.new
     step = base.send(:branch_resume_check_step, project_id: 7)
     assert_includes step, 'git branch --show-current'
-    assert_includes step, 'GIT STATE AND RESUME CHECK'
+    assert_includes step, 'GIT STATE + RESUME CHECK'
   end
 
   def test_branch_resume_check_step_contains_resume_logic

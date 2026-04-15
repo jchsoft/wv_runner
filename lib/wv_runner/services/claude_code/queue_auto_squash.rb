@@ -18,10 +18,8 @@ module WvRunner
 
       def build_instructions
         build_next_task_instructions(
-          task_description: "Work on the next available task with AUTOMATIC PR merge after CI passes.\n" \
-                            "This is QUEUE mode - runs continuously 24/7 without quota checks.",
-          workflow_notice: "IMPORTANT: This is QUEUE AUTO-SQUASH workflow - no quota checks, runs 24/7!\n" \
-                          "PR is automatically merged after CI passes. If CI fails twice, PR stays open and runner stops."
+          task_description: "Next task, auto-merge after CI. QUEUE mode — 24/7, no quota checks.",
+          workflow_notice: "QUEUE AUTO-SQUASH: 24/7, no quota. Auto-merge after CI. CI fails 2× → PR stays open, runner stops."
         )
       end
     end

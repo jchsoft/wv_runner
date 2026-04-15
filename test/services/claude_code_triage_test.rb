@@ -77,12 +77,12 @@ class ClaudeCodeTriageTest < Minitest::Test
         triage = WvRunner::ClaudeCode::Triage.new
         instructions = triage.send(:build_instructions)
 
-        branch_pos = instructions.index('BRANCH & RESUME DETECTION')
-        fetch_pos = instructions.index('FETCH TASK')
+        branch_pos = instructions.index('RESUME DETECTION')
+        fetch_pos = instructions.index('STEP 2 - FETCH')
         analyze_pos = instructions.index('ANALYZE')
 
-        assert branch_pos, 'Instructions must include BRANCH & RESUME DETECTION step'
-        assert fetch_pos, 'Instructions must include FETCH TASK step'
+        assert branch_pos, 'Instructions must include RESUME DETECTION step'
+        assert fetch_pos, 'Instructions must include FETCH step'
         assert analyze_pos, 'Instructions must include ANALYZE step'
         assert branch_pos < fetch_pos, 'Branch check must come before task fetch'
         assert fetch_pos < analyze_pos, 'Task fetch must come before analyze'
@@ -108,8 +108,8 @@ class ClaudeCodeTriageTest < Minitest::Test
         triage = WvRunner::ClaudeCode::Triage.new
         instructions = triage.send(:build_instructions)
 
-        assert_includes instructions, 'recommended_model MUST be exactly "opus", "sonnet", or "haiku"'
-        assert_includes instructions, '"haiku" for trivial changes'
+        assert_includes instructions, 'opus'
+        assert_includes instructions, '"haiku": trivial'
       end
     end
   end
@@ -121,9 +121,9 @@ class ClaudeCodeTriageTest < Minitest::Test
         instructions = triage.send(:build_instructions)
 
         assert_includes instructions, 'Story'
-        assert_includes instructions, 'UI improvements'
-        assert_includes instructions, 'Standard CRUD'
-        assert_includes instructions, 'Refactoring'
+        assert_includes instructions, 'improvements'
+        assert_includes instructions, 'CRUD'
+        assert_includes instructions, 'refactoring'
         assert_includes instructions, 'attachment'
       end
     end
@@ -135,7 +135,7 @@ class ClaudeCodeTriageTest < Minitest::Test
         triage = WvRunner::ClaudeCode::Triage.new
         instructions = triage.send(:build_instructions)
 
-        assert_includes instructions, 'DEFAULT: "sonnet"'
+        assert_includes instructions, '"sonnet" (DEFAULT)'
         assert_includes instructions, 'DURATION HINT'
       end
     end
@@ -145,7 +145,7 @@ class ClaudeCodeTriageTest < Minitest::Test
     triage = WvRunner::ClaudeCode::Triage.new(story_id: 8965)
     instructions = triage.send(:build_instructions)
 
-    assert_includes instructions, 'DEFAULT: "sonnet"'
+    assert_includes instructions, '"sonnet" (DEFAULT)'
     assert_includes instructions, 'DURATION HINT'
   end
 
@@ -158,7 +158,7 @@ class ClaudeCodeTriageTest < Minitest::Test
     assert_includes instructions, 'LOAD STORY'
     assert_includes instructions, 'workvector://pieces/jchsoft/8965'
     assert_includes instructions, 'subtask'
-    refute_includes instructions, 'BRANCH & RESUME DETECTION'
+    refute_includes instructions, 'RESUME DETECTION'
   end
 
   def test_story_triage_includes_model_selection_rules
@@ -176,7 +176,7 @@ class ClaudeCodeTriageTest < Minitest::Test
     instructions = triage.send(:build_instructions)
 
     refute_includes instructions, 'git branch --show-current'
-    refute_includes instructions, 'BRANCH & RESUME DETECTION'
+    refute_includes instructions, 'RESUME DETECTION'
   end
 
   def test_story_triage_finds_incomplete_subtasks
@@ -185,7 +185,7 @@ class ClaudeCodeTriageTest < Minitest::Test
 
     assert_includes instructions, 'Schváleno'
     assert_includes instructions, 'Hotovo?'
-    assert_includes instructions, 'progress < 100'
+    assert_includes instructions, 'progress<100'
   end
 
   def test_standard_triage_without_story_id
@@ -194,7 +194,7 @@ class ClaudeCodeTriageTest < Minitest::Test
         triage = WvRunner::ClaudeCode::Triage.new
         instructions = triage.send(:build_instructions)
 
-        assert_includes instructions, 'BRANCH & RESUME DETECTION'
+        assert_includes instructions, 'RESUME DETECTION'
         refute_includes instructions, 'LOAD STORY'
       end
     end
@@ -208,7 +208,7 @@ class ClaudeCodeTriageTest < Minitest::Test
         triage = WvRunner::ClaudeCode::Triage.new
         instructions = triage.send(:build_instructions)
 
-        assert_includes instructions, 'STORY HANDLING'
+        assert_includes instructions, 'STEP 2b - STORY'
         assert_includes instructions, 'piece_type'
         assert_includes instructions, 'story_id'
       end
@@ -223,7 +223,7 @@ class ClaudeCodeTriageTest < Minitest::Test
 
         assert_includes instructions, '"piece_type": "Task"'
         assert_includes instructions, '"story_id": null'
-        assert_includes instructions, 'piece_type MUST be "Task" or "Story"'
+        assert_includes instructions, 'piece_type: "Task" or "Story"'
       end
     end
   end
@@ -238,7 +238,7 @@ class ClaudeCodeTriageTest < Minitest::Test
         assert step_2b_pos, 'Instructions must include STEP 2b for Story handling'
         assert_includes instructions, 'Schváleno'
         assert_includes instructions, 'Hotovo?'
-        assert_includes instructions, 'progress < 100'
+        assert_includes instructions, 'progress<100'
       end
     end
   end

@@ -18,10 +18,8 @@ module WvRunner
 
       def build_instructions
         build_next_task_instructions(
-          task_description: "Work on the next available task with AUTOMATIC PR merge after CI passes.\n" \
-                            "This is ONCE mode - runs exactly once and exits after completing one task.",
-          workflow_notice: "IMPORTANT: This is ONCE AUTO-SQUASH workflow - runs exactly once and exits!\n" \
-                          "PR is automatically merged after CI passes. If CI fails twice, PR stays open."
+          task_description: "Next task, auto-merge after CI. ONCE mode — one task, then exit.",
+          workflow_notice: "ONCE AUTO-SQUASH: one task, auto-merge after CI. CI fails 2× → PR stays open."
         )
       end
     end

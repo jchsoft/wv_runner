@@ -31,8 +31,7 @@ module WvRunner
           #{ci_run_and_merge_step(step_num: 14, next_step: 15)}
           15. FINAL OUTPUT: Generate the result JSON
 
-          IMPORTANT: This is an AUTO-SQUASH workflow - PR is automatically merged after CI passes!
-          If CI fails twice, the PR stays open for manual review.
+          AUTO-SQUASH: PR auto-merged after CI. CI fails 2× → PR stays open.
 
           #{result_format_instruction(
             %("status": "success", "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}, "task_id": #{@task_id})

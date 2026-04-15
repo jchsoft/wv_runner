@@ -40,7 +40,7 @@ class ClaudeCodeHonestTest < Minitest::Test
         honest = WvRunner::ClaudeCode::Honest.new
         instructions = honest.send(:build_instructions)
         assert_includes instructions, 'git checkout main'
-        assert_includes instructions, 'GIT STATE AND RESUME CHECK'
+        assert_includes instructions, 'GIT STATE + RESUME CHECK'
       end
     end
   end
@@ -59,7 +59,7 @@ class ClaudeCodeHonestTest < Minitest::Test
       File.stub :read, "project_relative_id=7\n" do
         honest = WvRunner::ClaudeCode::Honest.new
         instructions = honest.send(:build_instructions)
-        assert_includes instructions, 'NOT already started or completed'
+        assert_includes instructions, 'not started/completed'
       end
     end
   end
@@ -71,11 +71,11 @@ class ClaudeCodeHonestTest < Minitest::Test
         instructions = honest.send(:build_instructions)
         assert_includes instructions, 'CREATE BRANCH'
         assert_includes instructions, 'IMPLEMENT TASK'
-        assert_includes instructions, 'incremental commits'
-        assert_includes instructions, 'RUN UNIT TESTS'
-        assert_includes instructions, 'RUN SYSTEM TESTS'
+        assert_includes instructions, 'Incremental commits'
+        assert_includes instructions, 'UNIT TESTS'
+        assert_includes instructions, 'SYSTEM TESTS'
         assert_includes instructions, 'PUSH'
-        assert_includes instructions, 'CREATE PULL REQUEST'
+        assert_includes instructions, 'CREATE PR'
       end
     end
   end
@@ -109,7 +109,7 @@ class ClaudeCodeHonestTest < Minitest::Test
       File.stub :read, 'project_relative_id=99' do
         honest = WvRunner::ClaudeCode::Honest.new
         instructions = honest.send(:build_instructions)
-        assert_includes instructions, 'GIT STATE AND RESUME CHECK'
+        assert_includes instructions, 'GIT STATE + RESUME CHECK'
       end
     end
   end
@@ -144,7 +144,7 @@ class ClaudeCodeDryTest < Minitest::Test
         assert_includes instructions, 'workvector://pieces/jchsoft/@next'
         assert_includes instructions, 'WVRUNNER_RESULT'
         assert_includes instructions, 'DRY RUN'
-        assert_includes instructions, 'DO NOT create a branch'
+        assert_includes instructions, 'NO branch'
       end
     end
   end
@@ -191,9 +191,9 @@ class ClaudeCodeDryTest < Minitest::Test
       File.stub :read, 'project_relative_id=77' do
         dry = WvRunner::ClaudeCode::Dry.new
         instructions = dry.send(:build_instructions)
-        assert_includes instructions, 'DO NOT create a branch'
-        assert_includes instructions, 'DO NOT modify any code'
-        assert_includes instructions, 'DO NOT create a pull request'
+        assert_includes instructions, 'NO branch'
+        assert_includes instructions, 'NO code changes'
+        assert_includes instructions, 'NO PR'
       end
     end
   end
@@ -203,7 +203,7 @@ class ClaudeCodeDryTest < Minitest::Test
       File.stub :read, 'project_relative_id=77' do
         dry = WvRunner::ClaudeCode::Dry.new
         instructions = dry.send(:build_instructions)
-        assert_includes instructions, 'STORY DETECTED'
+        assert_includes instructions, 'STORY'
         assert_includes instructions, 'piece_type'
         assert_includes instructions, 'story_id'
         assert_includes instructions, '"piece_type": "Task"'
@@ -235,23 +235,23 @@ class ClaudeCodeReviewTest < Minitest::Test
   def test_review_instructions_includes_git_state_check
     review = WvRunner::ClaudeCode::Review.new
     instructions = review.send(:build_instructions)
-    assert_includes instructions, 'GIT STATE CHECK'
-    assert_includes instructions, 'NOT on main/master branch'
+    assert_includes instructions, 'GIT CHECK'
+    assert_includes instructions, 'main/master'
     assert_includes instructions, 'git branch --show-current'
   end
 
   def test_review_instructions_includes_pr_check
     review = WvRunner::ClaudeCode::Review.new
     instructions = review.send(:build_instructions)
-    assert_includes instructions, 'PR EXISTENCE CHECK'
+    assert_includes instructions, 'PR CHECK'
     assert_includes instructions, 'gh pr view'
   end
 
   def test_review_instructions_includes_review_loading
     review = WvRunner::ClaudeCode::Review.new
     instructions = review.send(:build_instructions)
-    assert_includes instructions, 'LOAD REVIEW COMMENTS'
-    assert_includes instructions, 'human review'
+    assert_includes instructions, 'LOAD REVIEWS'
+    assert_includes instructions, 'humans only'
     assert_includes instructions, 'pulls/{pr_number}/reviews'
     assert_includes instructions, 'pulls/{pr_number}/comments'
   end
@@ -259,10 +259,10 @@ class ClaudeCodeReviewTest < Minitest::Test
   def test_review_instructions_includes_fix_workflow
     review = WvRunner::ClaudeCode::Review.new
     instructions = review.send(:build_instructions)
-    assert_includes instructions, 'FIX REVIEW ISSUES'
-    assert_includes instructions, 'COMMIT CHANGES'
-    assert_includes instructions, 'RUN UNIT TESTS'
-    assert_includes instructions, 'RUN SYSTEM TESTS'
+    assert_includes instructions, 'FIX ISSUES'
+    assert_includes instructions, 'COMMIT'
+    assert_includes instructions, 'UNIT TESTS'
+    assert_includes instructions, 'SYSTEM TESTS'
     assert_includes instructions, 'PUSH'
   end
 
@@ -287,7 +287,7 @@ class ClaudeCodeReviewTest < Minitest::Test
   def test_review_instructions_includes_workvector_task_extraction
     review = WvRunner::ClaudeCode::Review.new
     instructions = review.send(:build_instructions)
-    assert_includes instructions, 'EXTRACT TASK INFO'
+    assert_includes instructions, 'TASK ID'
     assert_includes instructions, 'workvector.com'
   end
 
@@ -337,7 +337,7 @@ class ClaudeCodeReviewsTest < Minitest::Test
   def test_reviews_instructions_includes_find_next_pr_step
     reviews = WvRunner::ClaudeCode::Reviews.new
     instructions = reviews.send(:build_instructions)
-    assert_includes instructions, 'FIND NEXT PR WITH REVIEW'
+    assert_includes instructions, 'FIND PR WITH REVIEW'
     assert_includes instructions, 'gh pr list'
     assert_includes instructions, '--state open'
   end
@@ -345,7 +345,7 @@ class ClaudeCodeReviewsTest < Minitest::Test
   def test_reviews_instructions_includes_checkout_branch
     reviews = WvRunner::ClaudeCode::Reviews.new
     instructions = reviews.send(:build_instructions)
-    assert_includes instructions, 'CHECKOUT BRANCH'
+    assert_includes instructions, 'CHECKOUT'
     assert_includes instructions, 'git fetch'
     assert_includes instructions, 'git checkout'
   end
@@ -353,16 +353,16 @@ class ClaudeCodeReviewsTest < Minitest::Test
   def test_reviews_mentions_called_repeatedly_in_loop
     reviews = WvRunner::ClaudeCode::Reviews.new
     instructions = reviews.send(:build_instructions)
-    assert_includes instructions, 'called repeatedly in a loop'
+    assert_includes instructions, 'Loops until no reviews'
   end
 
   def test_reviews_instructions_includes_fix_workflow
     reviews = WvRunner::ClaudeCode::Reviews.new
     instructions = reviews.send(:build_instructions)
-    assert_includes instructions, 'FIX REVIEW ISSUES'
-    assert_includes instructions, 'COMMIT CHANGES'
-    assert_includes instructions, 'RUN UNIT TESTS'
-    assert_includes instructions, 'RUN SYSTEM TESTS'
+    assert_includes instructions, 'FIX ISSUES'
+    assert_includes instructions, 'COMMIT'
+    assert_includes instructions, 'UNIT TESTS'
+    assert_includes instructions, 'SYSTEM TESTS'
     assert_includes instructions, 'PUSH'
   end
 
@@ -382,7 +382,7 @@ class ClaudeCodeReviewsTest < Minitest::Test
     reviews_task = reviews.send(:task_section)
 
     refute_equal review_task, reviews_task
-    assert_includes reviews_task, 'NEXT Pull Request'
+    assert_includes reviews_task, 'next PR with unaddressed review'
   end
 
   def test_reviews_handles_single_pr_per_call
@@ -391,7 +391,7 @@ class ClaudeCodeReviewsTest < Minitest::Test
     # Reviews now handles single PR per call, loop is in WorkLoop
     refute_includes instructions, 'not_on_branch'  # Does not check current branch
     refute_includes instructions, 'no_pr'  # Does not check current PR existence
-    assert_includes instructions, 'FIRST PR'  # Finds first PR with reviews
+    assert_includes instructions, 'First unaddressed'  # Finds first PR with reviews
   end
 end
 
@@ -405,20 +405,20 @@ class ClaudeCodeAutoSquashBaseTest < Minitest::Test
     steps = obj.send(:implementation_steps, start: 3)
     assert_includes steps, 'CODE REVIEW'
     assert_includes steps, 'code-review:code-review'
-    assert_includes steps, 'actionable feedback'
+    assert_includes steps, 'fix, commit, push, re-review'
   end
 
   def test_code_review_step_uses_skill_invocation
     obj = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 1, task_id: 456)
     steps = obj.send(:implementation_steps, start: 3)
     assert_includes steps, '/code-review:code-review'
-    assert_includes steps, 'review passes cleanly'
+    assert_includes steps, 'Repeat until clean'
   end
 
   def test_code_review_step_skips_for_test_only_changes
     obj = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 1, task_id: 456)
     steps = obj.send(:implementation_steps, start: 3)
-    assert_includes steps, 'SKIP this step if your changes ONLY touch test files'
+    assert_includes steps, 'SKIP if changes only touch test files'
   end
 end
 
@@ -458,8 +458,8 @@ class ClaudeCodeStoryAutoSquashTest < Minitest::Test
   def test_story_auto_squash_instructions_includes_load_story_context_step
     story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123, task_id: 456)
     instructions = story_auto_squash.send(:build_instructions)
-    assert_includes instructions, 'LOAD STORY CONTEXT'
-    assert_includes instructions, 'subtasks list'
+    assert_includes instructions, 'LOAD STORY'
+    assert_includes instructions, 'subtasks'
     assert_includes instructions, 'pre-selected by triage'
     assert_includes instructions, 'workvector://pieces/jchsoft/123'
   end
@@ -467,15 +467,15 @@ class ClaudeCodeStoryAutoSquashTest < Minitest::Test
   def test_story_auto_squash_instructions_includes_workflow_steps
     story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123, task_id: 456)
     instructions = story_auto_squash.send(:build_instructions)
-    assert_includes instructions, 'GIT STATE CHECK'
+    assert_includes instructions, '3. GIT:'
     assert_includes instructions, 'git checkout main'
     assert_includes instructions, 'CREATE BRANCH'
     assert_includes instructions, 'IMPLEMENT TASK'
-    assert_includes instructions, 'RUN UNIT TESTS'
-    assert_includes instructions, 'RUN SYSTEM TESTS'
+    assert_includes instructions, 'UNIT TESTS'
+    assert_includes instructions, 'SYSTEM TESTS'
     assert_includes instructions, 'REFACTOR'
     assert_includes instructions, 'PUSH'
-    assert_includes instructions, 'CREATE PULL REQUEST'
+    assert_includes instructions, 'CREATE PR'
   end
 
   def test_story_auto_squash_instructions_includes_auto_merge
@@ -483,16 +483,16 @@ class ClaudeCodeStoryAutoSquashTest < Minitest::Test
     instructions = story_auto_squash.send(:build_instructions)
     assert_includes instructions, 'AUTO-SQUASH'
     assert_includes instructions, 'gh pr merge --squash --delete-branch'
-    assert_includes instructions, 'automatically merged after CI passes'
+    assert_includes instructions, 'auto-merge'
   end
 
   def test_story_auto_squash_instructions_includes_ci_retry_logic
     story_auto_squash = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123, task_id: 456)
     instructions = story_auto_squash.send(:build_instructions)
     assert_includes instructions, 'bin/ci'
-    assert_includes instructions, 'IF CI FAILS (first attempt)'
-    assert_includes instructions, 'Retry CI'
-    assert_includes instructions, 'IF RETRY FAILS'
+    assert_includes instructions, 'CI FAILS'
+    assert_includes instructions, 'Retry bin/ci'
+    assert_includes instructions, 'Retry fails'
     assert_includes instructions, 'ci_failed'
   end
 
@@ -526,7 +526,7 @@ class ClaudeCodeStoryAutoSquashTest < Minitest::Test
     instructions = story_auto_squash.send(:build_instructions)
     assert_includes instructions, 'CODE REVIEW'
     assert_includes instructions, '/code-review:code-review'
-    assert_includes instructions, 'actionable feedback'
+    assert_includes instructions, 'fix, commit, push, re-review'
   end
 
   def test_story_auto_squash_instructions_uses_test_runner_skill
@@ -585,7 +585,7 @@ class ClaudeCodeTodayAutoSquashTest < Minitest::Test
         today_auto_squash = WvRunner::ClaudeCode::TodayAutoSquash.new
         instructions = today_auto_squash.send(:build_instructions)
         assert_includes instructions, 'git checkout main'
-        assert_includes instructions, 'GIT STATE AND RESUME CHECK'
+        assert_includes instructions, 'GIT STATE + RESUME CHECK'
       end
     end
   end
@@ -597,11 +597,11 @@ class ClaudeCodeTodayAutoSquashTest < Minitest::Test
         instructions = today_auto_squash.send(:build_instructions)
         assert_includes instructions, 'CREATE BRANCH'
         assert_includes instructions, 'IMPLEMENT TASK'
-        assert_includes instructions, 'RUN UNIT TESTS'
-        assert_includes instructions, 'RUN SYSTEM TESTS'
+        assert_includes instructions, 'UNIT TESTS'
+        assert_includes instructions, 'SYSTEM TESTS'
         assert_includes instructions, 'REFACTOR'
         assert_includes instructions, 'PUSH'
-        assert_includes instructions, 'CREATE PULL REQUEST'
+        assert_includes instructions, 'CREATE PR'
       end
     end
   end
@@ -613,7 +613,7 @@ class ClaudeCodeTodayAutoSquashTest < Minitest::Test
         instructions = today_auto_squash.send(:build_instructions)
         assert_includes instructions, 'AUTO-SQUASH'
         assert_includes instructions, 'gh pr merge --squash --delete-branch'
-        assert_includes instructions, 'automatically merged after CI passes'
+        assert_includes instructions, 'auto-merge'
       end
     end
   end
@@ -624,9 +624,9 @@ class ClaudeCodeTodayAutoSquashTest < Minitest::Test
         today_auto_squash = WvRunner::ClaudeCode::TodayAutoSquash.new
         instructions = today_auto_squash.send(:build_instructions)
         assert_includes instructions, 'bin/ci'
-        assert_includes instructions, 'IF CI FAILS (first attempt)'
-        assert_includes instructions, 'Retry CI'
-        assert_includes instructions, 'IF RETRY FAILS'
+        assert_includes instructions, 'CI FAILS'
+        assert_includes instructions, 'Retry bin/ci'
+        assert_includes instructions, 'Retry fails'
         assert_includes instructions, 'ci_failed'
       end
     end
@@ -675,7 +675,7 @@ class ClaudeCodeTodayAutoSquashTest < Minitest::Test
         instructions = today_auto_squash.send(:build_instructions)
         assert_includes instructions, 'CODE REVIEW'
         assert_includes instructions, '/code-review:code-review'
-        assert_includes instructions, 'actionable feedback'
+        assert_includes instructions, 'fix, commit, push, re-review'
       end
     end
   end
@@ -694,7 +694,7 @@ class ClaudeCodeTodayAutoSquashTest < Minitest::Test
       File.stub :read, 'project_relative_id=99' do
         today_auto_squash = WvRunner::ClaudeCode::TodayAutoSquash.new
         instructions = today_auto_squash.send(:build_instructions)
-        assert_includes instructions, 'GIT STATE AND RESUME CHECK'
+        assert_includes instructions, 'GIT STATE + RESUME CHECK'
       end
     end
   end
@@ -736,8 +736,8 @@ class ClaudeCodeStoryManualTest < Minitest::Test
   def test_story_manual_instructions_includes_load_story_context_step
     story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123, task_id: 456)
     instructions = story_manual.send(:build_instructions)
-    assert_includes instructions, 'LOAD STORY CONTEXT'
-    assert_includes instructions, 'subtasks list'
+    assert_includes instructions, 'LOAD STORY'
+    assert_includes instructions, 'subtasks'
     assert_includes instructions, 'pre-selected by triage'
     assert_includes instructions, 'workvector://pieces/jchsoft/123'
   end
@@ -745,7 +745,7 @@ class ClaudeCodeStoryManualTest < Minitest::Test
   def test_story_manual_instructions_includes_load_task_details_step
     story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123, task_id: 456)
     instructions = story_manual.send(:build_instructions)
-    assert_includes instructions, 'LOAD TASK DETAILS'
+    assert_includes instructions, 'LOAD TASK'
     assert_includes instructions, 'workvector://pieces/jchsoft/456'
     assert_includes instructions, 'WVRUNNER_TASK_INFO'
   end
@@ -753,24 +753,24 @@ class ClaudeCodeStoryManualTest < Minitest::Test
   def test_story_manual_instructions_includes_workflow_steps
     story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123, task_id: 456)
     instructions = story_manual.send(:build_instructions)
-    assert_includes instructions, 'GIT STATE CHECK'
+    assert_includes instructions, '3. GIT:'
     assert_includes instructions, 'git checkout main'
     assert_includes instructions, 'CREATE BRANCH'
     assert_includes instructions, 'IMPLEMENT TASK'
-    assert_includes instructions, 'RUN UNIT TESTS'
-    assert_includes instructions, 'RUN SYSTEM TESTS'
+    assert_includes instructions, 'UNIT TESTS'
+    assert_includes instructions, 'SYSTEM TESTS'
     assert_includes instructions, 'REFACTOR'
     assert_includes instructions, 'PUSH'
-    assert_includes instructions, 'CREATE PULL REQUEST'
+    assert_includes instructions, 'CREATE PR'
   end
 
   def test_story_manual_instructions_emphasizes_no_merge
     story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123, task_id: 456)
     instructions = story_manual.send(:build_instructions)
     assert_includes instructions, 'NO MERGE'
-    assert_includes instructions, 'MANUAL workflow'
-    assert_includes instructions, 'leave it open for human review'
-    assert_includes instructions, 'Human will review and merge'
+    assert_includes instructions, 'MANUAL'
+    assert_includes instructions, 'NOT merged. Human reviews'
+    assert_includes instructions, 'Human reviews'
   end
 
   def test_story_manual_instructions_includes_wvrunner_result
@@ -793,7 +793,7 @@ class ClaudeCodeStoryManualTest < Minitest::Test
   def test_story_manual_instructions_includes_ci_step
     story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123, task_id: 456)
     instructions = story_manual.send(:build_instructions)
-    assert_includes instructions, 'RUN LOCAL CI'
+    assert_includes instructions, 'LOCAL CI'
     assert_includes instructions, 'bin/ci'
     assert_includes instructions, 'ci-runner'
     refute_includes instructions, 'run_in_background'
@@ -810,8 +810,8 @@ class ClaudeCodeStoryManualTest < Minitest::Test
   def test_story_manual_instructions_includes_screenshot_steps
     story_manual = WvRunner::ClaudeCode::StoryManual.new(story_id: 123, task_id: 456)
     instructions = story_manual.send(:build_instructions)
-    assert_includes instructions, 'PREPARE SCREENSHOTS'
-    assert_includes instructions, 'ADD SCREENSHOTS TO PR'
+    assert_includes instructions, 'SCREENSHOTS'
+    assert_includes instructions, 'PR SCREENSHOTS'
     assert_includes instructions, 'pr-screenshot'
   end
 end
@@ -857,7 +857,7 @@ class ClaudeCodeQueueAutoSquashTest < Minitest::Test
         queue_auto_squash = WvRunner::ClaudeCode::QueueAutoSquash.new
         instructions = queue_auto_squash.send(:build_instructions)
         assert_includes instructions, 'git checkout main'
-        assert_includes instructions, 'GIT STATE AND RESUME CHECK'
+        assert_includes instructions, 'GIT STATE + RESUME CHECK'
       end
     end
   end
@@ -869,11 +869,11 @@ class ClaudeCodeQueueAutoSquashTest < Minitest::Test
         instructions = queue_auto_squash.send(:build_instructions)
         assert_includes instructions, 'CREATE BRANCH'
         assert_includes instructions, 'IMPLEMENT TASK'
-        assert_includes instructions, 'RUN UNIT TESTS'
-        assert_includes instructions, 'RUN SYSTEM TESTS'
+        assert_includes instructions, 'UNIT TESTS'
+        assert_includes instructions, 'SYSTEM TESTS'
         assert_includes instructions, 'REFACTOR'
         assert_includes instructions, 'PUSH'
-        assert_includes instructions, 'CREATE PULL REQUEST'
+        assert_includes instructions, 'CREATE PR'
       end
     end
   end
@@ -885,7 +885,7 @@ class ClaudeCodeQueueAutoSquashTest < Minitest::Test
         instructions = queue_auto_squash.send(:build_instructions)
         assert_includes instructions, 'AUTO-SQUASH'
         assert_includes instructions, 'gh pr merge --squash --delete-branch'
-        assert_includes instructions, 'automatically merged after CI passes'
+        assert_includes instructions, 'auto-merge'
       end
     end
   end
@@ -897,7 +897,7 @@ class ClaudeCodeQueueAutoSquashTest < Minitest::Test
         instructions = queue_auto_squash.send(:build_instructions)
         assert_includes instructions, 'QUEUE mode'
         assert_includes instructions, '24/7'
-        assert_includes instructions, 'without quota checks'
+        assert_includes instructions, 'no quota'
       end
     end
   end
@@ -908,9 +908,9 @@ class ClaudeCodeQueueAutoSquashTest < Minitest::Test
         queue_auto_squash = WvRunner::ClaudeCode::QueueAutoSquash.new
         instructions = queue_auto_squash.send(:build_instructions)
         assert_includes instructions, 'bin/ci'
-        assert_includes instructions, 'IF CI FAILS (first attempt)'
-        assert_includes instructions, 'Retry CI'
-        assert_includes instructions, 'IF RETRY FAILS'
+        assert_includes instructions, 'CI FAILS'
+        assert_includes instructions, 'Retry bin/ci'
+        assert_includes instructions, 'Retry fails'
         assert_includes instructions, 'ci_failed'
       end
     end
@@ -959,7 +959,7 @@ class ClaudeCodeQueueAutoSquashTest < Minitest::Test
         instructions = queue_auto_squash.send(:build_instructions)
         assert_includes instructions, 'CODE REVIEW'
         assert_includes instructions, '/code-review:code-review'
-        assert_includes instructions, 'actionable feedback'
+        assert_includes instructions, 'fix, commit, push, re-review'
       end
     end
   end
@@ -978,7 +978,7 @@ class ClaudeCodeQueueAutoSquashTest < Minitest::Test
       File.stub :read, 'project_relative_id=99' do
         queue_auto_squash = WvRunner::ClaudeCode::QueueAutoSquash.new
         instructions = queue_auto_squash.send(:build_instructions)
-        assert_includes instructions, 'GIT STATE AND RESUME CHECK'
+        assert_includes instructions, 'GIT STATE + RESUME CHECK'
       end
     end
   end
@@ -1025,7 +1025,7 @@ class ClaudeCodeOnceAutoSquashTest < Minitest::Test
         once_auto_squash = WvRunner::ClaudeCode::OnceAutoSquash.new
         instructions = once_auto_squash.send(:build_instructions)
         assert_includes instructions, 'git checkout main'
-        assert_includes instructions, 'GIT STATE AND RESUME CHECK'
+        assert_includes instructions, 'GIT STATE + RESUME CHECK'
       end
     end
   end
@@ -1037,11 +1037,11 @@ class ClaudeCodeOnceAutoSquashTest < Minitest::Test
         instructions = once_auto_squash.send(:build_instructions)
         assert_includes instructions, 'CREATE BRANCH'
         assert_includes instructions, 'IMPLEMENT TASK'
-        assert_includes instructions, 'RUN UNIT TESTS'
-        assert_includes instructions, 'RUN SYSTEM TESTS'
+        assert_includes instructions, 'UNIT TESTS'
+        assert_includes instructions, 'SYSTEM TESTS'
         assert_includes instructions, 'REFACTOR'
         assert_includes instructions, 'PUSH'
-        assert_includes instructions, 'CREATE PULL REQUEST'
+        assert_includes instructions, 'CREATE PR'
       end
     end
   end
@@ -1053,7 +1053,7 @@ class ClaudeCodeOnceAutoSquashTest < Minitest::Test
         instructions = once_auto_squash.send(:build_instructions)
         assert_includes instructions, 'AUTO-SQUASH'
         assert_includes instructions, 'gh pr merge --squash --delete-branch'
-        assert_includes instructions, 'automatically merged after CI passes'
+        assert_includes instructions, 'auto-merge'
       end
     end
   end
@@ -1064,7 +1064,7 @@ class ClaudeCodeOnceAutoSquashTest < Minitest::Test
         once_auto_squash = WvRunner::ClaudeCode::OnceAutoSquash.new
         instructions = once_auto_squash.send(:build_instructions)
         assert_includes instructions, 'ONCE mode'
-        assert_includes instructions, 'exactly once'
+        assert_includes instructions, 'one task, then exit'
       end
     end
   end
@@ -1075,9 +1075,9 @@ class ClaudeCodeOnceAutoSquashTest < Minitest::Test
         once_auto_squash = WvRunner::ClaudeCode::OnceAutoSquash.new
         instructions = once_auto_squash.send(:build_instructions)
         assert_includes instructions, 'bin/ci'
-        assert_includes instructions, 'IF CI FAILS (first attempt)'
-        assert_includes instructions, 'Retry CI'
-        assert_includes instructions, 'IF RETRY FAILS'
+        assert_includes instructions, 'CI FAILS'
+        assert_includes instructions, 'Retry bin/ci'
+        assert_includes instructions, 'Retry fails'
         assert_includes instructions, 'ci_failed'
       end
     end
@@ -1126,7 +1126,7 @@ class ClaudeCodeOnceAutoSquashTest < Minitest::Test
         instructions = once_auto_squash.send(:build_instructions)
         assert_includes instructions, 'CODE REVIEW'
         assert_includes instructions, '/code-review:code-review'
-        assert_includes instructions, 'actionable feedback'
+        assert_includes instructions, 'fix, commit, push, re-review'
       end
     end
   end
@@ -1146,7 +1146,7 @@ class ClaudeCodeOnceAutoSquashTest < Minitest::Test
         once_auto_squash = WvRunner::ClaudeCode::OnceAutoSquash.new
         instructions = once_auto_squash.send(:build_instructions)
         assert_includes instructions, 'TIME MANAGEMENT'
-        assert_includes instructions, 'inactive for 20 minutes'
+        assert_includes instructions, '20 min inactive'
       end
     end
   end
@@ -1156,7 +1156,7 @@ class ClaudeCodeOnceAutoSquashTest < Minitest::Test
       File.stub :read, 'project_relative_id=99' do
         once_auto_squash = WvRunner::ClaudeCode::OnceAutoSquash.new
         instructions = once_auto_squash.send(:build_instructions)
-        assert_includes instructions, 'GIT STATE AND RESUME CHECK'
+        assert_includes instructions, 'GIT STATE + RESUME CHECK'
       end
     end
   end
@@ -1169,7 +1169,7 @@ class TimeAwarenessInstructionsTest < Minitest::Test
         obj = WvRunner::ClaudeCode::TodayAutoSquash.new
         instructions = obj.send(:build_instructions)
         assert_includes instructions, 'TIME MANAGEMENT'
-        assert_includes instructions, 'inactive for 20 minutes'
+        assert_includes instructions, '20 min inactive'
       end
     end
   end
@@ -1180,7 +1180,7 @@ class TimeAwarenessInstructionsTest < Minitest::Test
         obj = WvRunner::ClaudeCode::QueueAutoSquash.new
         instructions = obj.send(:build_instructions)
         assert_includes instructions, 'TIME MANAGEMENT'
-        assert_includes instructions, 'inactive for 20 minutes'
+        assert_includes instructions, '20 min inactive'
       end
     end
   end
@@ -1189,7 +1189,7 @@ class TimeAwarenessInstructionsTest < Minitest::Test
     obj = WvRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123, task_id: 456)
     instructions = obj.send(:build_instructions)
     assert_includes instructions, 'TIME MANAGEMENT'
-    assert_includes instructions, 'inactive for 20 minutes'
+    assert_includes instructions, '20 min inactive'
   end
 
   def test_honest_instructions_includes_time_management
@@ -1198,7 +1198,7 @@ class TimeAwarenessInstructionsTest < Minitest::Test
         obj = WvRunner::ClaudeCode::Honest.new
         instructions = obj.send(:build_instructions)
         assert_includes instructions, 'TIME MANAGEMENT'
-        assert_includes instructions, 'inactive for 20 minutes'
+        assert_includes instructions, '20 min inactive'
       end
     end
   end
@@ -1207,14 +1207,14 @@ class TimeAwarenessInstructionsTest < Minitest::Test
     obj = WvRunner::ClaudeCode::Review.new
     instructions = obj.send(:build_instructions)
     assert_includes instructions, 'TIME MANAGEMENT'
-    assert_includes instructions, 'inactive for 20 minutes'
+    assert_includes instructions, '20 min inactive'
   end
 
   def test_story_manual_instructions_includes_time_management
     obj = WvRunner::ClaudeCode::StoryManual.new(story_id: 123, task_id: 456)
     instructions = obj.send(:build_instructions)
     assert_includes instructions, 'TIME MANAGEMENT'
-    assert_includes instructions, 'inactive for 20 minutes'
+    assert_includes instructions, '20 min inactive'
   end
 
   def test_dry_instructions_does_not_include_time_management
@@ -1275,17 +1275,17 @@ class ClaudeCodeTaskManualTest < Minitest::Test
     assert_includes instructions, 'git checkout main'
     assert_includes instructions, 'CREATE BRANCH'
     assert_includes instructions, 'IMPLEMENT TASK'
-    assert_includes instructions, 'RUN UNIT TESTS'
-    assert_includes instructions, 'RUN SYSTEM TESTS'
+    assert_includes instructions, 'UNIT TESTS'
+    assert_includes instructions, 'SYSTEM TESTS'
     assert_includes instructions, 'REFACTOR'
     assert_includes instructions, 'PUSH'
-    assert_includes instructions, 'CREATE PULL REQUEST'
+    assert_includes instructions, 'CREATE PR'
   end
 
   def test_task_manual_instructions_uses_resume_step_when_resuming
     task_manual = WvRunner::ClaudeCode::TaskManual.new(task_id: 123, resuming: true)
     instructions = task_manual.send(:build_instructions)
-    assert_includes instructions, 'RESUME IN-PROGRESS TASK'
+    assert_includes instructions, 'RESUME TASK'
     assert_includes instructions, 'SKIP steps 2-3'
     refute_includes instructions, 'GIT SETUP'
   end
@@ -1294,9 +1294,9 @@ class ClaudeCodeTaskManualTest < Minitest::Test
     task_manual = WvRunner::ClaudeCode::TaskManual.new(task_id: 123)
     instructions = task_manual.send(:build_instructions)
     assert_includes instructions, 'NO MERGE'
-    assert_includes instructions, 'MANUAL workflow'
-    assert_includes instructions, 'leave it open for human review'
-    assert_includes instructions, 'Human will review and merge'
+    assert_includes instructions, 'MANUAL'
+    assert_includes instructions, 'NOT merged. Human reviews'
+    assert_includes instructions, 'Human reviews'
   end
 
   def test_task_manual_instructions_includes_wvrunner_result
@@ -1317,7 +1317,7 @@ class ClaudeCodeTaskManualTest < Minitest::Test
   def test_task_manual_instructions_includes_ci_step
     task_manual = WvRunner::ClaudeCode::TaskManual.new(task_id: 123)
     instructions = task_manual.send(:build_instructions)
-    assert_includes instructions, 'RUN LOCAL CI'
+    assert_includes instructions, 'LOCAL CI'
     assert_includes instructions, 'bin/ci'
     assert_includes instructions, 'ci-runner'
   end
@@ -1332,8 +1332,8 @@ class ClaudeCodeTaskManualTest < Minitest::Test
   def test_task_manual_instructions_includes_screenshot_steps
     task_manual = WvRunner::ClaudeCode::TaskManual.new(task_id: 123)
     instructions = task_manual.send(:build_instructions)
-    assert_includes instructions, 'PREPARE SCREENSHOTS'
-    assert_includes instructions, 'ADD SCREENSHOTS TO PR'
+    assert_includes instructions, 'SCREENSHOTS'
+    assert_includes instructions, 'PR SCREENSHOTS'
     assert_includes instructions, 'pr-screenshot'
   end
 end
@@ -1378,17 +1378,17 @@ class ClaudeCodeTaskAutoSquashTest < Minitest::Test
     assert_includes instructions, 'git checkout main'
     assert_includes instructions, 'CREATE BRANCH'
     assert_includes instructions, 'IMPLEMENT TASK'
-    assert_includes instructions, 'RUN UNIT TESTS'
-    assert_includes instructions, 'RUN SYSTEM TESTS'
+    assert_includes instructions, 'UNIT TESTS'
+    assert_includes instructions, 'SYSTEM TESTS'
     assert_includes instructions, 'REFACTOR'
     assert_includes instructions, 'PUSH'
-    assert_includes instructions, 'CREATE PULL REQUEST'
+    assert_includes instructions, 'CREATE PR'
   end
 
   def test_task_auto_squash_instructions_uses_resume_step_when_resuming
     task_auto_squash = WvRunner::ClaudeCode::TaskAutoSquash.new(task_id: 123, resuming: true)
     instructions = task_auto_squash.send(:build_instructions)
-    assert_includes instructions, 'RESUME IN-PROGRESS TASK'
+    assert_includes instructions, 'RESUME TASK'
     assert_includes instructions, 'SKIP steps 2-3'
     refute_includes instructions, 'GIT SETUP'
   end
@@ -1398,16 +1398,16 @@ class ClaudeCodeTaskAutoSquashTest < Minitest::Test
     instructions = task_auto_squash.send(:build_instructions)
     assert_includes instructions, 'AUTO-SQUASH'
     assert_includes instructions, 'gh pr merge --squash --delete-branch'
-    assert_includes instructions, 'automatically merged after CI passes'
+    assert_includes instructions, 'auto-merge'
   end
 
   def test_task_auto_squash_instructions_includes_ci_retry_logic
     task_auto_squash = WvRunner::ClaudeCode::TaskAutoSquash.new(task_id: 123)
     instructions = task_auto_squash.send(:build_instructions)
     assert_includes instructions, 'bin/ci'
-    assert_includes instructions, 'IF CI FAILS (first attempt)'
-    assert_includes instructions, 'Retry CI'
-    assert_includes instructions, 'IF RETRY FAILS'
+    assert_includes instructions, 'CI FAILS'
+    assert_includes instructions, 'Retry bin/ci'
+    assert_includes instructions, 'Retry fails'
     assert_includes instructions, 'ci_failed'
   end
 
@@ -1439,7 +1439,7 @@ class ClaudeCodeTaskAutoSquashTest < Minitest::Test
     instructions = task_auto_squash.send(:build_instructions)
     assert_includes instructions, 'CODE REVIEW'
     assert_includes instructions, '/code-review:code-review'
-    assert_includes instructions, 'actionable feedback'
+    assert_includes instructions, 'fix, commit, push, re-review'
   end
 
   def test_task_auto_squash_instructions_uses_test_runner_skill

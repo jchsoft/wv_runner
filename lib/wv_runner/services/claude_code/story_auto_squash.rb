@@ -28,16 +28,13 @@ module WvRunner
           WORKFLOW:
           #{story_task_discovery_steps(story_id: @story_id, task_id: @task_id, skip_story_load: @skip_story_load)}
 
-          3. GIT STATE CHECK: Ensure you start from main branch
-             - Run: git checkout main && git pull
-             - This ensures you start from a clean, stable state
+          3. GIT: git checkout main && git pull
 
           #{implementation_steps(start: 4)}
           #{ci_run_and_merge_step(step_num: 15, next_step: 16)}
           16. FINAL OUTPUT: Generate the result JSON
 
-          IMPORTANT: This is an AUTO-SQUASH workflow - PR is automatically merged after CI passes!
-          If CI fails twice, the PR stays open for manual review.
+          AUTO-SQUASH: PR auto-merged after CI. CI fails 2× → PR stays open.
 
           #{result_format_instruction(
             %("status": "success", "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}, "story_id": #{@story_id}, "task_id": Z)

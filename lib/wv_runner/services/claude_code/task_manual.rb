@@ -58,8 +58,7 @@ module WvRunner
 
           #{run_local_ci_step(step_num: 13, verify_step_ref: 9)}
 
-          IMPORTANT: This is a MANUAL workflow - PR is created but NOT merged!
-          Human will review and merge the PR manually.
+          MANUAL workflow — PR created, NOT merged. Human reviews.
 
           #{result_format_instruction(
             %("status": "success", "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}, "task_id": #{@task_id})

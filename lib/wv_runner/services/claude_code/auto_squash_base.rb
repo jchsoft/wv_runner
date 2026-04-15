@@ -84,28 +84,19 @@ module WvRunner
       # next_step: the final output step number to skip to when bin/ci is absent
       def ci_run_and_merge_step(step_num:, next_step:)
         <<~STEP
-          #{step_num}. RUN LOCAL CI AND AUTO-MERGE: Run CI and merge on success
-              - If "bin/ci" does NOT exist: skip to step #{next_step} with status "success"
-              - Use the "ci-runner" skill to run bin/ci (invoke /ci-runner)
-              - IMPORTANT: bin/ci itself calls `gh` to post a "signoff" status check to GitHub
-                when all steps pass. This is what satisfies any GitHub branch protection rule
-                requiring a "signoff" check. No GitHub Actions workflow is needed for this.
-                Even if a CI workflow file appears disabled (e.g. ci.yml.disabled), the branch
-                protection "signoff" check is fulfilled by bin/ci running locally and posting
-                the result via gh. Do NOT conclude the PR is unmergeable because of a disabled
-                GitHub Actions workflow.
-              - CI RESULT HANDLING:
-                a) IF CI PASSES:
-                   - Run: gh pr merge --squash --delete-branch
-                   - Run: git checkout main && git pull
-                   - Output status "success"
-                b) IF CI FAILS (first attempt):
-                   - Analyze the failure output
-                   - Fix the issues
-                   - Commit and push fixes
-                   - Retry CI: bin/ci
-                   - IF RETRY PASSES: merge as in (a)
-                   - IF RETRY FAILS: output status "ci_failed" (PR stays open)
+          #{step_num}. CI + AUTO-MERGE:
+              - No bin/ci → skip to step #{next_step}, status "success"
+              - Invoke /ci-runner
+              - NOTE: bin/ci posts "signoff" status to GitHub via gh. Satisfies branch protection.
+                Disabled CI workflow (ci.yml.disabled) irrelevant — signoff is local. PR IS mergeable.
+              - CI PASSES:
+                → gh pr merge --squash --delete-branch
+                → git checkout main && git pull → status "success"
+              - CI FAILS:
+                → Analyze, fix, commit, push
+                → Retry bin/ci
+                → Retry passes → merge (above)
+                → Retry fails → status "ci_failed" (PR stays open)
         STEP
       end
     end
