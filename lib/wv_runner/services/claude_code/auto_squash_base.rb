@@ -48,7 +48,7 @@ module WvRunner
       def next_task_auto_squash_status_options
         <<~STATUS.strip
           - "success" if task completed and PR merged successfully
-          - "no_more_tasks" if no tasks available (workvector returns "No available tasks found")
+          - "no_more_tasks" if no tasks available (mcptask returns "No available tasks found")
           - "ci_failed" if CI failed after retry (PR stays open)
           - "preexisting_test_errors" if tests were already failing before your changes (urgent bug task created)
           - "failure" for other errors

@@ -36,7 +36,7 @@ module WvRunner
              - IF main/master: #{pull_cmd} → step 2
              - IF feature branch:
                a) Extract task ID from branch name (e.g. "feature/9508-contact-page" → 9508)
-                  Found → read workvector://pieces/jchsoft/{task_id}
+                  Found → read mcptask://pieces/jchsoft/{task_id}
                b) No ID → check PR: gh pr list --head $(git branch --show-current) --json body --jq '.[0].body'
                   Look for mcptask.online link → extract task ID → load task
                c) Still nothing → #{pull_cmd} → step 2
@@ -90,10 +90,10 @@ module WvRunner
 
       def task_fetch_url
         if @task_id
-          "workvector://pieces/jchsoft/#{@task_id}"
+          "mcptask://pieces/jchsoft/#{@task_id}"
         else
           project_id = project_relative_id or raise 'project_relative_id not found in CLAUDE.md'
-          "workvector://pieces/jchsoft/@next?project_relative_id=#{project_id}"
+          "mcptask://pieces/jchsoft/@next?project_relative_id=#{project_id}"
         end
       end
 
@@ -105,7 +105,7 @@ module WvRunner
         end
         <<~INSTRUCTION.strip
           Hours data:
-          1. workvector://user → "hour_goal"=per_day, "worked_out"=already_worked
+          1. mcptask://user → "hour_goal"=per_day, "worked_out"=already_worked
              Read BEFORE logging work progress#{warning}
           2. Task "duration_best" → task_estimated (e.g. "1 hodina" → 1.0)
         INSTRUCTION

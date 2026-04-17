@@ -67,7 +67,7 @@ module WvRunner
           #{hours_data_instruction(include_warning: true)}
           3. Set status:
              - "success" if task completed successfully
-             - "no_more_tasks" if no tasks available (workvector returns "No available tasks found")
+             - "no_more_tasks" if no tasks available (mcptask returns "No available tasks found")
              - "failure" for other errors
         INSTRUCTIONS
       end

@@ -1,6 +1,6 @@
 # WvRunner
 
-A gem that adds rake tasks to Rails applications for automated Claude Code execution of WorkVector tasks.
+A gem that adds rake tasks to Rails applications for automated Claude Code execution of mcptask.online tasks.
 
 ## Installation
 

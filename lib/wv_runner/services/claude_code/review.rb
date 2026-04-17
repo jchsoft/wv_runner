@@ -65,7 +65,7 @@ module WvRunner
       end
 
       def extract_task_info_step
-        "3. TASK ID: Extract from PR body (workvector.com/{account}/tasks/{id})"
+        "3. TASK ID: Extract from PR body (mcptask.online/{account}/tasks/{id})"
       end
 
       def load_review_comments_step
@@ -133,7 +133,7 @@ module WvRunner
       def hours_data_section
         <<~HOURS.strip
           Hours:
-          1. workvector://user → "hour_goal"=per_day, "worked_out"=already_worked
+          1. mcptask://user → "hour_goal"=per_day, "worked_out"=already_worked
              Read BEFORE logging work. WARNING: already_worked = daily "worked_out", NOT from effort history!
           2. task_estimated = 0.5 (reviews short)
         HOURS

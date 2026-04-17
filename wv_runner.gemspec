@@ -5,7 +5,7 @@ Gem::Specification.new do |spec|
   spec.version       = WvRunner::VERSION
   spec.authors       = ["Josef Chmel"]
   spec.email         = ["info@jchsoft.cz"]
-  spec.summary       = "Claude Code automation gem for WorkVector task execution"
+  spec.summary       = "Claude Code automation gem for mcptask.online task execution"
   spec.description   = "Adds rake tasks to Rails app for automated Claude Code execution"
   spec.homepage      = "https://github.com/jchsoft/wv_runner"
   spec.license       = "MIT"

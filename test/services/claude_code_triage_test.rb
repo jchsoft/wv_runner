@@ -53,7 +53,7 @@ class ClaudeCodeTriageTest < Minitest::Test
         triage = WvRunner::ClaudeCode::Triage.new(task_id: 456)
         instructions = triage.send(:build_instructions)
 
-        assert_includes instructions, 'workvector://pieces/jchsoft/456'
+        assert_includes instructions, 'mcptask://pieces/jchsoft/456'
         refute_includes instructions, '@next'
       end
     end
@@ -156,7 +156,7 @@ class ClaudeCodeTriageTest < Minitest::Test
     instructions = triage.send(:build_instructions)
 
     assert_includes instructions, 'LOAD STORY'
-    assert_includes instructions, 'workvector://pieces/jchsoft/8965'
+    assert_includes instructions, 'mcptask://pieces/jchsoft/8965'
     assert_includes instructions, 'subtask'
     refute_includes instructions, 'RESUME DETECTION'
   end

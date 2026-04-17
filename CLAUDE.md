@@ -16,8 +16,8 @@
 - **Search**: `/memory-search` skill (Haiku, compact filtered results)
 - **No direct `ReadMcpResourceTool`** for search — too verbose in context
 
-## WorkVector
-- Project name is: WorkVector
+## mcptask.online
+- Project name is: mcptask.online
 - project_relative_id=7
 - account_code: `jchsoft`
 

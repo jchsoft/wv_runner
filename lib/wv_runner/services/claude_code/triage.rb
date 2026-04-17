@@ -33,13 +33,13 @@ module WvRunner
           #{daily_quota_check_step}
 
           STEP 1 - LOAD STORY:
-          1. Read workvector://pieces/jchsoft/#{@story_id}
+          1. Read mcptask://pieces/jchsoft/#{@story_id}
           2. Find subtasks
           3. First task: NOT "Schváleno"/"Hotovo?", progress<100
           4. None found → status "no_more_tasks", recommended_model="opus"
           5. Remember task relative_id
 
-          STEP 2 - FETCH TASK: Read workvector://pieces/jchsoft/<task_relative_id>
+          STEP 2 - FETCH TASK: Read mcptask://pieces/jchsoft/<task_relative_id>
 
           STEP 3 - ANALYZE: Read title, description, piece_type, attachment filenames (no downloads). Apply model rules below.
 
@@ -51,7 +51,7 @@ module WvRunner
               'recommended_model: "opus"/"sonnet"/"haiku" (lowercase)',
               'task_id = subtask relative_id (NOT story)',
               'resuming = false (story triage = fresh tasks)',
-              'already_worked = exact "worked_out" from workvector://user — never 0 unless API returned 0'
+              'already_worked = exact "worked_out" from mcptask://user — never 0 unless API returned 0'
             ]
           )}
 
@@ -79,7 +79,7 @@ module WvRunner
           1. story_id = Story's relative_id
           2. First subtask: NOT "Schváleno"/"Hotovo?", progress<100
           3. None → status "no_more_tasks", recommended_model="opus", piece_type="Story"
-          4. Fetch workvector://pieces/jchsoft/<subtask_id>
+          4. Fetch mcptask://pieces/jchsoft/<subtask_id>
           5. STEP 3 with SUBTASK data
           6. Result: piece_type="Story", story_id=Story's relative_id, task_id=subtask's relative_id
 
@@ -118,7 +118,7 @@ module WvRunner
       def daily_quota_check_step
         <<~STEP.strip
           STEP 0 - DAILY QUOTA (FIRST):
-          1. Read workvector://user → extract "hour_goal" + "worked_out"
+          1. Read mcptask://user → extract "hour_goal" + "worked_out"
           2. worked_out >= hour_goal → STOP. WVRUNNER_RESULT:
              status="quota_exceeded", recommended_model="opus", task_id=0, resuming=false
              hours: {per_day: <hour_goal>, task_estimated: 0, already_worked: <worked_out>}
@@ -173,7 +173,7 @@ module WvRunner
                a. Extract 4+ digit task ID from branch (e.g. "feature/9508-..." → 9508)
                b. No ID → check PR: gh pr list --head $(git branch --show-current) --json body --jq '.[0].body'
                   Look for mcptask.online link → extract task ID
-               c. Found → workvector://pieces/jchsoft/{task_id}, resuming=true
+               c. Found → mcptask://pieces/jchsoft/{task_id}, resuming=true
                d. Not found → STEP 2, resuming=false
           STEP
         end

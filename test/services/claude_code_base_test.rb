@@ -43,7 +43,7 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_project_relative_id_loaded_from_claude_md
     File.stub :exist?, true do
-      File.stub :read, "## WorkVector\n- project_relative_id=42" do
+      File.stub :read, "## mcptask.online\n- project_relative_id=42" do
         base = WvRunner::ClaudeCodeBase.new
         project_id = base.send(:project_relative_id)
         assert_equal 42, project_id

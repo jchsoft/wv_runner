@@ -31,7 +31,7 @@ module WvRunner
     def load_task_step(step_num:, task_id:)
       s = step_indent(step_num)
       <<~STEP.strip
-        #{step_num}. LOAD TASK: Read workvector://pieces/jchsoft/#{task_id}
+        #{step_num}. LOAD TASK: Read mcptask://pieces/jchsoft/#{task_id}
         #{s}- Output:
         #{s}  WVRUNNER_TASK_INFO:
         #{s}  ID: <relative_id>
@@ -48,7 +48,7 @@ module WvRunner
         STEP
       else
         <<~STEP.chomp
-          1. LOAD STORY: Read workvector://pieces/jchsoft/#{story_id}
+          1. LOAD STORY: Read mcptask://pieces/jchsoft/#{story_id}
              - Review name, description, subtasks
              - Note completed subtasks for context
              - Work on task ##{task_id} (pre-selected by triage)
@@ -58,7 +58,7 @@ module WvRunner
       <<~STEPS.chomp
         #{story_step}
 
-        2. LOAD TASK: Read workvector://pieces/jchsoft/#{task_id}
+        2. LOAD TASK: Read mcptask://pieces/jchsoft/#{task_id}
            - progress > 0: CONTINUATION → skip steps 3-4, go to step 5
            - progress = 0: proceed normally
            - Output:
@@ -151,7 +151,7 @@ module WvRunner
       lines = []
       lines << "#{step_num}. CREATE PR:#{title_suffix}"
       lines << "#{s}- Use .github/pull_request_template.md if exists"
-      lines << "#{s}- Clear summary + WorkVector task link"
+      lines << "#{s}- Clear summary + mcptask.online task link"
       lines << "#{s}- Do NOT merge — human review only" if no_merge_warning
       lines << "#{s}- Auto-merge after CI passes" if auto_merge_note
       lines.join("\n")
@@ -186,7 +186,7 @@ module WvRunner
         1. Verify: git stash → run tests on main → git stash pop
         2. Fail without your changes = PREEXISTING
         3. Create URGENT bug task:
-           - workvector://user → get relative_id
+           - mcptask://user → get relative_id
            - CreatePieceTool: account_code="jchsoft", piece_type="Task", task_type_code="bug",
              priority_code="urgent", project_id=<from CLAUDE.md>, assigned_user_id=<relative_id>
              name="Fix: Padající testy - <description>"
