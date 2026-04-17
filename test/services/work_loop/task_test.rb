@@ -8,7 +8,7 @@ class WorkLoopTaskTest < Minitest::Test
 
   # task_manual
   def test_execute_with_task_manual_requires_task_id
-    loop_instance = WvRunner::WorkLoop.new
+    loop_instance = McptaskRunner::WorkLoop.new
     error = assert_raises(ArgumentError) { loop_instance.execute(:task_manual) }
     assert_includes error.message, 'task_id is required'
   end
@@ -20,8 +20,8 @@ class WorkLoopTaskTest < Minitest::Test
     end
 
     with_triage_stub(task_id: 456) do
-      WvRunner::ClaudeCode::TaskManual.stub(:new, mock) do
-        loop_instance = WvRunner::WorkLoop.new(task_id: 456)
+      McptaskRunner::ClaudeCode::TaskManual.stub(:new, mock) do
+        loop_instance = McptaskRunner::WorkLoop.new(task_id: 456)
         result = loop_instance.execute(:task_manual)
 
         assert_equal 'success', result['status']
@@ -37,8 +37,8 @@ class WorkLoopTaskTest < Minitest::Test
     end
 
     with_triage_stub(task_id: 456) do
-      WvRunner::ClaudeCode::TaskManual.stub(:new, mock) do
-        loop_instance = WvRunner::WorkLoop.new(task_id: 456)
+      McptaskRunner::ClaudeCode::TaskManual.stub(:new, mock) do
+        loop_instance = McptaskRunner::WorkLoop.new(task_id: 456)
         result = loop_instance.execute(:task_manual)
 
         assert_equal 'failure', result['status']
@@ -48,7 +48,7 @@ class WorkLoopTaskTest < Minitest::Test
 
   # task_auto_squash
   def test_execute_with_task_auto_squash_requires_task_id
-    loop_instance = WvRunner::WorkLoop.new
+    loop_instance = McptaskRunner::WorkLoop.new
     error = assert_raises(ArgumentError) { loop_instance.execute(:task_auto_squash) }
     assert_includes error.message, 'task_id is required'
   end
@@ -60,8 +60,8 @@ class WorkLoopTaskTest < Minitest::Test
     end
 
     with_triage_stub(task_id: 456) do
-      WvRunner::ClaudeCode::TaskAutoSquash.stub(:new, mock) do
-        loop_instance = WvRunner::WorkLoop.new(task_id: 456)
+      McptaskRunner::ClaudeCode::TaskAutoSquash.stub(:new, mock) do
+        loop_instance = McptaskRunner::WorkLoop.new(task_id: 456)
         result = loop_instance.execute(:task_auto_squash)
 
         assert_equal 'success', result['status']
@@ -77,8 +77,8 @@ class WorkLoopTaskTest < Minitest::Test
     end
 
     with_triage_stub(task_id: 456) do
-      WvRunner::ClaudeCode::TaskAutoSquash.stub(:new, mock) do
-        loop_instance = WvRunner::WorkLoop.new(task_id: 456)
+      McptaskRunner::ClaudeCode::TaskAutoSquash.stub(:new, mock) do
+        loop_instance = McptaskRunner::WorkLoop.new(task_id: 456)
         result = loop_instance.execute(:task_auto_squash)
 
         assert_equal 'failure', result['status']
@@ -93,8 +93,8 @@ class WorkLoopTaskTest < Minitest::Test
     end
 
     with_triage_stub(task_id: 456) do
-      WvRunner::ClaudeCode::TaskAutoSquash.stub(:new, mock) do
-        loop_instance = WvRunner::WorkLoop.new(task_id: 456)
+      McptaskRunner::ClaudeCode::TaskAutoSquash.stub(:new, mock) do
+        loop_instance = McptaskRunner::WorkLoop.new(task_id: 456)
         result = loop_instance.execute(:task_auto_squash)
 
         assert_equal 'ci_failed', result['status']

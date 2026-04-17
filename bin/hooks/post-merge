@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Post-merge hook: auto-increment wv_runner version after merge
+# Post-merge hook: auto-increment mcptask_runner version after merge
 set -euo pipefail
 
 # Only bump if lib/ files were changed in the merge
@@ -11,6 +11,6 @@ fi
 
 echo "[post-merge] lib/ changed, incrementing version..."
 ruby bin/increment_version.rb
-git add lib/wv_runner/version.rb
+git add lib/mcptask_runner/version.rb
 git commit -m "chore: bump version after merge"
 echo "[post-merge] Version bumped."

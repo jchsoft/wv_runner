@@ -23,9 +23,9 @@ class WorkLoopQuotaPrecheckTest < Minitest::Test
       { 'status' => 'success' }
     end
 
-    WvRunner::ClaudeCode::Triage.stub(:new, quota_exceeded_triage_mock) do
-      WvRunner::ClaudeCode::Honest.stub(:new, executor_mock) do
-        loop_instance = WvRunner::WorkLoop.new
+    McptaskRunner::ClaudeCode::Triage.stub(:new, quota_exceeded_triage_mock) do
+      McptaskRunner::ClaudeCode::Honest.stub(:new, executor_mock) do
+        loop_instance = McptaskRunner::WorkLoop.new
         result = loop_instance.execute(:once)
 
         assert_equal 'quota_exceeded', result['status']
@@ -40,9 +40,9 @@ class WorkLoopQuotaPrecheckTest < Minitest::Test
       { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2 } }
     end
 
-    WvRunner::ClaudeCode::Triage.stub(:new, quota_exceeded_triage_mock) do
-      WvRunner::ClaudeCode::Honest.stub(:new, executor_mock) do
-        loop_instance = WvRunner::WorkLoop.new(ignore_quota: true)
+    McptaskRunner::ClaudeCode::Triage.stub(:new, quota_exceeded_triage_mock) do
+      McptaskRunner::ClaudeCode::Honest.stub(:new, executor_mock) do
+        loop_instance = McptaskRunner::WorkLoop.new(ignore_quota: true)
         result = loop_instance.execute(:once)
 
         assert_equal 'success', result['status']
@@ -57,8 +57,8 @@ class WorkLoopQuotaPrecheckTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::Honest.stub(:new, executor_mock) do
-        loop_instance = WvRunner::WorkLoop.new
+      McptaskRunner::ClaudeCode::Honest.stub(:new, executor_mock) do
+        loop_instance = McptaskRunner::WorkLoop.new
         result = loop_instance.execute(:once)
 
         assert_equal 'success', result['status']
@@ -67,27 +67,27 @@ class WorkLoopQuotaPrecheckTest < Minitest::Test
   end
 
   def test_triage_quota_exceeded_returns_false_when_no_hours
-    loop_instance = WvRunner::WorkLoop.new
+    loop_instance = McptaskRunner::WorkLoop.new
     result = loop_instance.send(:triage_quota_exceeded?, { 'status' => 'success' })
     refute result
   end
 
   def test_triage_quota_exceeded_returns_true_when_already_worked_exceeds_per_day
-    loop_instance = WvRunner::WorkLoop.new
+    loop_instance = McptaskRunner::WorkLoop.new
     result = loop_instance.send(:triage_quota_exceeded?,
                                 { 'hours' => { 'per_day' => 8, 'already_worked' => 10 } })
     assert result
   end
 
   def test_triage_quota_exceeded_returns_true_when_exactly_equal
-    loop_instance = WvRunner::WorkLoop.new
+    loop_instance = McptaskRunner::WorkLoop.new
     result = loop_instance.send(:triage_quota_exceeded?,
                                 { 'hours' => { 'per_day' => 8, 'already_worked' => 8 } })
     assert result
   end
 
   def test_triage_quota_exceeded_returns_false_when_under_quota
-    loop_instance = WvRunner::WorkLoop.new
+    loop_instance = McptaskRunner::WorkLoop.new
     result = loop_instance.send(:triage_quota_exceeded?,
                                 { 'hours' => { 'per_day' => 8, 'already_worked' => 5 } })
     refute result
@@ -112,10 +112,10 @@ class WorkLoopQuotaPrecheckTest < Minitest::Test
       { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2 } }
     end
 
-    WvRunner::ClaudeCode::Triage.stub(:new, triage) do
-      WvRunner::ClaudeCode::QueueAutoSquash.stub(:new, executor_mock) do
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage) do
+      McptaskRunner::ClaudeCode::QueueAutoSquash.stub(:new, executor_mock) do
         Kernel.stub(:sleep, nil) do
-          loop_instance = WvRunner::WorkLoop.new
+          loop_instance = McptaskRunner::WorkLoop.new
           results = loop_instance.execute(:queue_auto_squash)
 
           assert_equal 2, results.length

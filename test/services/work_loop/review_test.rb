@@ -9,8 +9,8 @@ class WorkLoopReviewTest < Minitest::Test
       { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 0.5 } }
     end
 
-    WvRunner::ClaudeCode::Review.stub(:new, mock) do
-      loop_instance = WvRunner::WorkLoop.new
+    McptaskRunner::ClaudeCode::Review.stub(:new, mock) do
+      loop_instance = McptaskRunner::WorkLoop.new
       result = loop_instance.execute(:review)
 
       assert_equal 'success', result['status']
@@ -24,8 +24,8 @@ class WorkLoopReviewTest < Minitest::Test
       { 'status' => 'no_reviews', 'message' => 'No human reviews found to address' }
     end
 
-    WvRunner::ClaudeCode::Review.stub(:new, mock) do
-      loop_instance = WvRunner::WorkLoop.new
+    McptaskRunner::ClaudeCode::Review.stub(:new, mock) do
+      loop_instance = McptaskRunner::WorkLoop.new
       result = loop_instance.execute(:review)
 
       assert_equal 'no_reviews', result['status']
@@ -38,8 +38,8 @@ class WorkLoopReviewTest < Minitest::Test
       { 'status' => 'not_on_branch', 'message' => 'Cannot review on main/master branch' }
     end
 
-    WvRunner::ClaudeCode::Review.stub(:new, mock) do
-      loop_instance = WvRunner::WorkLoop.new
+    McptaskRunner::ClaudeCode::Review.stub(:new, mock) do
+      loop_instance = McptaskRunner::WorkLoop.new
       result = loop_instance.execute(:review)
 
       assert_equal 'not_on_branch', result['status']
@@ -52,8 +52,8 @@ class WorkLoopReviewTest < Minitest::Test
       { 'status' => 'no_pr', 'message' => 'No PR found for current branch' }
     end
 
-    WvRunner::ClaudeCode::Review.stub(:new, mock) do
-      loop_instance = WvRunner::WorkLoop.new
+    McptaskRunner::ClaudeCode::Review.stub(:new, mock) do
+      loop_instance = McptaskRunner::WorkLoop.new
       result = loop_instance.execute(:review)
 
       assert_equal 'no_pr', result['status']
@@ -68,9 +68,9 @@ class WorkLoopReviewTest < Minitest::Test
       call_count[0] == 1 ? { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 1.5 } } : { 'status' => 'no_reviews' }
     end
 
-    WvRunner::ClaudeCode::Reviews.stub(:new, mock) do
+    McptaskRunner::ClaudeCode::Reviews.stub(:new, mock) do
       Kernel.stub(:sleep, nil) do
-        loop_instance = WvRunner::WorkLoop.new
+        loop_instance = McptaskRunner::WorkLoop.new
         results = loop_instance.execute(:reviews)
 
         assert_instance_of Array, results
@@ -87,8 +87,8 @@ class WorkLoopReviewTest < Minitest::Test
       { 'status' => 'no_reviews', 'message' => 'No PRs with human reviews found' }
     end
 
-    WvRunner::ClaudeCode::Reviews.stub(:new, mock) do
-      loop_instance = WvRunner::WorkLoop.new
+    McptaskRunner::ClaudeCode::Reviews.stub(:new, mock) do
+      loop_instance = McptaskRunner::WorkLoop.new
       results = loop_instance.execute(:reviews)
 
       assert_instance_of Array, results
@@ -108,9 +108,9 @@ class WorkLoopReviewTest < Minitest::Test
       true
     end
 
-    WvRunner::ClaudeCode::Reviews.stub(:new, mock) do
-      WvRunner::Decider.stub(:new, decider_mock) do
-        loop_instance = WvRunner::WorkLoop.new
+    McptaskRunner::ClaudeCode::Reviews.stub(:new, mock) do
+      McptaskRunner::Decider.stub(:new, decider_mock) do
+        loop_instance = McptaskRunner::WorkLoop.new
         results = loop_instance.execute(:reviews)
 
         assert_instance_of Array, results
@@ -128,9 +128,9 @@ class WorkLoopReviewTest < Minitest::Test
       call_count[0] == 1 ? { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 8 } } : { 'status' => 'no_reviews' }
     end
 
-    WvRunner::ClaudeCode::Reviews.stub(:new, mock) do
+    McptaskRunner::ClaudeCode::Reviews.stub(:new, mock) do
       Kernel.stub(:sleep, nil) do
-        loop_instance = WvRunner::WorkLoop.new(ignore_quota: true)
+        loop_instance = McptaskRunner::WorkLoop.new(ignore_quota: true)
         results = loop_instance.execute(:reviews)
 
         assert_instance_of Array, results
@@ -145,8 +145,8 @@ class WorkLoopReviewTest < Minitest::Test
       { 'status' => 'failure', 'message' => 'Error processing reviews' }
     end
 
-    WvRunner::ClaudeCode::Reviews.stub(:new, mock) do
-      loop_instance = WvRunner::WorkLoop.new
+    McptaskRunner::ClaudeCode::Reviews.stub(:new, mock) do
+      loop_instance = McptaskRunner::WorkLoop.new
       results = loop_instance.execute(:reviews)
 
       assert_instance_of Array, results

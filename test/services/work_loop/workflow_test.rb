@@ -18,9 +18,9 @@ class WorkLoopWorkflowTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::Reviews.stub(:new, reviews_mock) do
-        WvRunner::ClaudeCode::Honest.stub(:new, honest_mock) do
-          loop_instance = WvRunner::WorkLoop.new
+      McptaskRunner::ClaudeCode::Reviews.stub(:new, reviews_mock) do
+        McptaskRunner::ClaudeCode::Honest.stub(:new, honest_mock) do
+          loop_instance = McptaskRunner::WorkLoop.new
           result = loop_instance.execute(:workflow)
 
           assert_instance_of Hash, result
@@ -49,9 +49,9 @@ class WorkLoopWorkflowTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::Reviews.stub(:new, reviews_mock) do
-        WvRunner::ClaudeCode::Honest.stub(:new, honest_mock) do
-          loop_instance = WvRunner::WorkLoop.new
+      McptaskRunner::ClaudeCode::Reviews.stub(:new, reviews_mock) do
+        McptaskRunner::ClaudeCode::Honest.stub(:new, honest_mock) do
+          loop_instance = McptaskRunner::WorkLoop.new
           loop_instance.execute(:workflow)
 
           assert_equal :reviews, reviews_call_order.first
@@ -74,10 +74,10 @@ class WorkLoopWorkflowTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::Reviews.stub(:new, reviews_mock) do
-        WvRunner::ClaudeCode::Honest.stub(:new, honest_mock) do
+      McptaskRunner::ClaudeCode::Reviews.stub(:new, reviews_mock) do
+        McptaskRunner::ClaudeCode::Honest.stub(:new, honest_mock) do
           Kernel.stub(:sleep, nil) do
-            loop_instance = WvRunner::WorkLoop.new
+            loop_instance = McptaskRunner::WorkLoop.new
             result = loop_instance.execute(:workflow)
 
             assert_equal 2, result['reviews'].length
@@ -101,9 +101,9 @@ class WorkLoopWorkflowTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::Reviews.stub(:new, reviews_mock) do
-        WvRunner::ClaudeCode::Honest.stub(:new, honest_mock) do
-          loop_instance = WvRunner::WorkLoop.new
+      McptaskRunner::ClaudeCode::Reviews.stub(:new, reviews_mock) do
+        McptaskRunner::ClaudeCode::Honest.stub(:new, honest_mock) do
+          loop_instance = McptaskRunner::WorkLoop.new
           result = loop_instance.execute(:workflow)
 
           assert_equal 1, result['tasks'].length
@@ -120,8 +120,8 @@ class WorkLoopWorkflowTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::Honest.stub(:new, mock) do
-        loop_instance = WvRunner::WorkLoop.new
+      McptaskRunner::ClaudeCode::Honest.stub(:new, mock) do
+        loop_instance = McptaskRunner::WorkLoop.new
         results = loop_instance.execute(:today)
 
         assert_equal 1, results.length

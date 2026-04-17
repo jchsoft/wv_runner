@@ -4,7 +4,7 @@ require 'test_helper'
 
 class DeciderTest < Minitest::Test
   def test_decider_responds_to_should_continue
-    decider = WvRunner::Decider.new
+    decider = McptaskRunner::Decider.new
     assert_respond_to decider, :should_continue?
   end
 
@@ -13,7 +13,7 @@ class DeciderTest < Minitest::Test
       'status' => 'success',
       'hours' => { 'per_day' => 8, 'task_estimated' => 2, 'task_worked' => 0.5 }
     }
-    decider = WvRunner::Decider.new(task_results: [task_result])
+    decider = McptaskRunner::Decider.new(task_results: [task_result])
 
     assert decider.should_continue?
     assert !decider.should_stop?
@@ -25,7 +25,7 @@ class DeciderTest < Minitest::Test
       { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 5.0, 'task_worked' => 5.5 } },
       { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 4.0, 'task_worked' => 3.0 } }
     ]
-    decider = WvRunner::Decider.new(task_results: results)
+    decider = McptaskRunner::Decider.new(task_results: results)
 
     assert decider.should_stop?
     assert !decider.should_continue?
@@ -36,7 +36,7 @@ class DeciderTest < Minitest::Test
       { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2, 'task_worked' => 1.0 } },
       { 'status' => 'error', 'message' => 'Failed' }
     ]
-    decider = WvRunner::Decider.new(task_results: results)
+    decider = McptaskRunner::Decider.new(task_results: results)
 
     assert decider.should_stop?
   end
@@ -46,7 +46,7 @@ class DeciderTest < Minitest::Test
       'status' => 'success',
       'hours' => { 'per_day' => 8, 'task_estimated' => 3.5, 'task_worked' => 3.5 }
     }
-    decider = WvRunner::Decider.new(task_results: [task_result])
+    decider = McptaskRunner::Decider.new(task_results: [task_result])
 
     assert_equal 4.5, decider.remaining_hours
   end
@@ -57,7 +57,7 @@ class DeciderTest < Minitest::Test
       { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2.0, 'task_worked' => 2.0 } },
       { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 1.5, 'task_worked' => 1.5 } }
     ]
-    decider = WvRunner::Decider.new(task_results: results)
+    decider = McptaskRunner::Decider.new(task_results: results)
 
     assert_equal 4.5, decider.remaining_hours
   end
@@ -66,7 +66,7 @@ class DeciderTest < Minitest::Test
     results = [
       { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 8.0, 'task_worked' => 8.0 } }
     ]
-    decider = WvRunner::Decider.new(task_results: results)
+    decider = McptaskRunner::Decider.new(task_results: results)
 
     assert_equal 0, decider.remaining_hours
   end
@@ -75,7 +75,7 @@ class DeciderTest < Minitest::Test
     results = [
       { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2, 'task_worked' => 2.0 } }
     ]
-    decider = WvRunner::Decider.new(task_results: results)
+    decider = McptaskRunner::Decider.new(task_results: results)
 
     summary = decider.summary
 
@@ -99,7 +99,7 @@ class DeciderTest < Minitest::Test
       'status' => 'success',
       'hours' => { 'per_day' => 8, 'task_estimated' => 1, 'task_worked' => 1.0 }
     }
-    decider = WvRunner::Decider.new(task_results: task_result)
+    decider = McptaskRunner::Decider.new(task_results: task_result)
 
     assert decider.should_continue?
     assert_equal 7.0, decider.remaining_hours
@@ -111,7 +111,7 @@ class DeciderTest < Minitest::Test
       'status' => 'success',
       'hours' => { 'per_day' => 8, 'task_estimated' => 2.0, 'task_worked' => 2.0, 'already_worked' => 5.0 }
     }
-    decider = WvRunner::Decider.new(task_results: [task_result])
+    decider = McptaskRunner::Decider.new(task_results: [task_result])
 
     assert_equal 1.0, decider.remaining_hours
   end
@@ -122,7 +122,7 @@ class DeciderTest < Minitest::Test
       { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 1.0, 'task_worked' => 1.0, 'already_worked' => 5.0 } },
       { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 1.0, 'task_worked' => 1.0, 'already_worked' => 99.0 } }
     ]
-    decider = WvRunner::Decider.new(task_results: results)
+    decider = McptaskRunner::Decider.new(task_results: results)
 
     # 8 - 5 (already) - 1 - 1 (session tasks) = 1h
     assert_equal 1.0, decider.remaining_hours
@@ -134,7 +134,7 @@ class DeciderTest < Minitest::Test
       'status' => 'success',
       'hours' => { 'per_day' => 8, 'task_estimated' => 0, 'task_worked' => 0, 'already_worked' => 8.0 }
     }
-    decider = WvRunner::Decider.new(task_results: [task_result])
+    decider = McptaskRunner::Decider.new(task_results: [task_result])
 
     assert decider.should_stop?
   end
@@ -145,7 +145,7 @@ class DeciderTest < Minitest::Test
       'status' => 'success',
       'hours' => { 'per_day' => 8, 'task_estimated' => 3.0, 'task_worked' => 3.0 }
     }
-    decider = WvRunner::Decider.new(task_results: [task_result])
+    decider = McptaskRunner::Decider.new(task_results: [task_result])
 
     assert_equal 5.0, decider.remaining_hours
   end
@@ -154,13 +154,13 @@ class DeciderTest < Minitest::Test
     results = [
       { 'status' => 'success', 'hours' => { 'per_day' => '8', 'task_estimated' => '2.5', 'task_worked' => '2.5' } }
     ]
-    decider = WvRunner::Decider.new(task_results: results)
+    decider = McptaskRunner::Decider.new(task_results: results)
 
     assert_equal 5.5, decider.remaining_hours
   end
 
   def test_empty_results_returns_zero_hours
-    decider = WvRunner::Decider.new(task_results: [])
+    decider = McptaskRunner::Decider.new(task_results: [])
 
     assert_equal 0, decider.remaining_hours
     assert_equal 0, decider.send(:daily_hour_goal)
@@ -172,7 +172,7 @@ class DeciderTest < Minitest::Test
       { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2, 'task_worked' => 1.0 } },
       { 'status' => 'success', 'hours' => { 'per_day' => 10, 'task_estimated' => 1, 'task_worked' => 0.5 } }
     ]
-    decider = WvRunner::Decider.new(task_results: results)
+    decider = McptaskRunner::Decider.new(task_results: results)
 
     # Should use per_day from FIRST result (8, not 10)
     assert_equal 8.0, decider.send(:daily_hour_goal)
@@ -184,7 +184,7 @@ class DeciderTest < Minitest::Test
       { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 1, 'task_worked' => 1.5 } },
       { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2, 'task_worked' => 2.25 } }
     ]
-    decider = WvRunner::Decider.new(task_results: results)
+    decider = McptaskRunner::Decider.new(task_results: results)
 
     assert_equal 4.75, decider.send(:total_hours_worked)
   end
@@ -195,7 +195,7 @@ class DeciderTest < Minitest::Test
       { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 1.5, 'task_worked' => 1.5 } },
       { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 3.25, 'task_worked' => 2.25 } }
     ]
-    decider = WvRunner::Decider.new(task_results: results)
+    decider = McptaskRunner::Decider.new(task_results: results)
 
     assert_equal 6.75, decider.send(:total_hours_estimated)
   end

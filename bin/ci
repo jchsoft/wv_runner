@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-puts "CI Runner - wv_runner"
+puts "CI Runner - mcptask_runner"
 puts "=" * 80
 puts
 

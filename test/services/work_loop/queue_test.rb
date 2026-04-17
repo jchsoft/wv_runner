@@ -16,9 +16,9 @@ class WorkLoopQueueTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::QueueAutoSquash.stub(:new, mock) do
+      McptaskRunner::ClaudeCode::QueueAutoSquash.stub(:new, mock) do
         Kernel.stub(:sleep, nil) do
-          loop_instance = WvRunner::WorkLoop.new
+          loop_instance = McptaskRunner::WorkLoop.new
           results = loop_instance.execute(:queue_auto_squash)
 
           assert_instance_of Array, results
@@ -37,8 +37,8 @@ class WorkLoopQueueTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::QueueAutoSquash.stub(:new, mock) do
-        loop_instance = WvRunner::WorkLoop.new
+      McptaskRunner::ClaudeCode::QueueAutoSquash.stub(:new, mock) do
+        loop_instance = McptaskRunner::WorkLoop.new
         results = loop_instance.execute(:queue_auto_squash)
 
         assert_instance_of Array, results
@@ -55,8 +55,8 @@ class WorkLoopQueueTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::QueueAutoSquash.stub(:new, mock) do
-        loop_instance = WvRunner::WorkLoop.new
+      McptaskRunner::ClaudeCode::QueueAutoSquash.stub(:new, mock) do
+        loop_instance = McptaskRunner::WorkLoop.new
         results = loop_instance.execute(:queue_auto_squash)
 
         assert_instance_of Array, results
@@ -73,8 +73,8 @@ class WorkLoopQueueTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::QueueAutoSquash.stub(:new, mock) do
-        loop_instance = WvRunner::WorkLoop.new
+      McptaskRunner::ClaudeCode::QueueAutoSquash.stub(:new, mock) do
+        loop_instance = McptaskRunner::WorkLoop.new
         results = loop_instance.execute(:queue_auto_squash)
 
         assert_instance_of Array, results
@@ -97,9 +97,9 @@ class WorkLoopQueueTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::QueueAutoSquash.stub(:new, mock) do
+      McptaskRunner::ClaudeCode::QueueAutoSquash.stub(:new, mock) do
         Kernel.stub(:sleep, nil) do
-          loop_instance = WvRunner::WorkLoop.new
+          loop_instance = McptaskRunner::WorkLoop.new
           results = loop_instance.execute(:queue_auto_squash)
 
           assert_equal 2, results.length
@@ -122,9 +122,9 @@ class WorkLoopQueueTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::QueueAutoSquash.stub(:new, mock) do
-        WvRunner::Decider.stub(:new, decider_mock) do
-          loop_instance = WvRunner::WorkLoop.new
+      McptaskRunner::ClaudeCode::QueueAutoSquash.stub(:new, mock) do
+        McptaskRunner::Decider.stub(:new, decider_mock) do
+          loop_instance = McptaskRunner::WorkLoop.new
           results = loop_instance.execute(:queue_auto_squash)
 
           assert_instance_of Array, results
@@ -144,9 +144,9 @@ class WorkLoopQueueTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::QueueAutoSquash.stub(:new, mock) do
+      McptaskRunner::ClaudeCode::QueueAutoSquash.stub(:new, mock) do
         Kernel.stub(:sleep, nil) do
-          loop_instance = WvRunner::WorkLoop.new(ignore_quota: true)
+          loop_instance = McptaskRunner::WorkLoop.new(ignore_quota: true)
           results = loop_instance.execute(:queue_auto_squash)
 
           assert_instance_of Array, results
@@ -166,9 +166,9 @@ class WorkLoopQueueTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::Honest.stub(:new, mock) do
+      McptaskRunner::ClaudeCode::Honest.stub(:new, mock) do
         Kernel.stub(:sleep, nil) do
-          loop_instance = WvRunner::WorkLoop.new
+          loop_instance = McptaskRunner::WorkLoop.new
           results = loop_instance.execute(:queue_manual)
 
           assert_instance_of Array, results
@@ -187,8 +187,8 @@ class WorkLoopQueueTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::Honest.stub(:new, mock) do
-        loop_instance = WvRunner::WorkLoop.new
+      McptaskRunner::ClaudeCode::Honest.stub(:new, mock) do
+        loop_instance = McptaskRunner::WorkLoop.new
         results = loop_instance.execute(:queue_manual)
 
         assert_instance_of Array, results
@@ -205,8 +205,8 @@ class WorkLoopQueueTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::Honest.stub(:new, mock) do
-        loop_instance = WvRunner::WorkLoop.new
+      McptaskRunner::ClaudeCode::Honest.stub(:new, mock) do
+        loop_instance = McptaskRunner::WorkLoop.new
         results = loop_instance.execute(:queue_manual)
 
         assert_instance_of Array, results
@@ -228,9 +228,9 @@ class WorkLoopQueueTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::Honest.stub(:new, mock) do
-        WvRunner::Decider.stub(:new, decider_mock) do
-          loop_instance = WvRunner::WorkLoop.new
+      McptaskRunner::ClaudeCode::Honest.stub(:new, mock) do
+        McptaskRunner::Decider.stub(:new, decider_mock) do
+          loop_instance = McptaskRunner::WorkLoop.new
           results = loop_instance.execute(:queue_manual)
 
           assert_instance_of Array, results
@@ -250,9 +250,9 @@ class WorkLoopQueueTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::Honest.stub(:new, mock) do
+      McptaskRunner::ClaudeCode::Honest.stub(:new, mock) do
         Kernel.stub(:sleep, nil) do
-          loop_instance = WvRunner::WorkLoop.new(ignore_quota: true)
+          loop_instance = McptaskRunner::WorkLoop.new(ignore_quota: true)
           results = loop_instance.execute(:queue_manual)
 
           assert_instance_of Array, results

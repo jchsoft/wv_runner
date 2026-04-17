@@ -15,6 +15,6 @@ module TriageTestHelper
   end
 
   def with_triage_stub(**kwargs, &block)
-    WvRunner::ClaudeCode::Triage.stub(:new, triage_mock(**kwargs), &block)
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_mock(**kwargs), &block)
   end
 end

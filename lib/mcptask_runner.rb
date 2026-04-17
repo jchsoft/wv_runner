@@ -1,0 +1,29 @@
+$stdout.sync = true
+
+require "mcptask_runner/version"
+require "mcptask_runner/version_manager"
+require "mcptask_runner/logger"
+require "mcptask_runner/services/workflow_steps"
+require "mcptask_runner/services/claude_code_base"
+require "mcptask_runner/services/claude_code/honest"
+require "mcptask_runner/services/claude_code/dry"
+require "mcptask_runner/services/claude_code/triage"
+require "mcptask_runner/services/claude_code/review"
+require "mcptask_runner/services/claude_code/reviews"
+require "mcptask_runner/services/claude_code/story_manual"
+require "mcptask_runner/services/claude_code/story_auto_squash"
+require "mcptask_runner/services/claude_code/today_auto_squash"
+require "mcptask_runner/services/claude_code/queue_auto_squash"
+require "mcptask_runner/services/claude_code/once_auto_squash"
+require "mcptask_runner/services/claude_code/task_manual"
+require "mcptask_runner/services/claude_code/task_auto_squash"
+require "mcptask_runner/services/approval_collector"
+require "mcptask_runner/services/work_loop"
+require "mcptask_runner/services/decider"
+require "mcptask_runner/services/daily_scheduler"
+require "mcptask_runner/services/waiting_strategy"
+require "mcptask_runner/railtie"
+
+module McptaskRunner
+  class Error < StandardError; end
+end

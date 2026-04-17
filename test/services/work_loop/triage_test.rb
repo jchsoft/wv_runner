@@ -7,31 +7,31 @@ class WorkLoopTriageTest < Minitest::Test
   include TriageTestHelper
 
   def test_extract_triage_model_passes_opus_through
-    loop_instance = WvRunner::WorkLoop.new
+    loop_instance = McptaskRunner::WorkLoop.new
     result = loop_instance.send(:extract_triage_model, { 'recommended_model' => 'opus' })
     assert_equal 'opus', result
   end
 
   def test_extract_triage_model_maps_sonnet_to_sonnet
-    loop_instance = WvRunner::WorkLoop.new
+    loop_instance = McptaskRunner::WorkLoop.new
     result = loop_instance.send(:extract_triage_model, { 'recommended_model' => 'sonnet' })
     assert_equal 'sonnet', result
   end
 
   def test_extract_triage_model_accepts_haiku
-    loop_instance = WvRunner::WorkLoop.new
+    loop_instance = McptaskRunner::WorkLoop.new
     result = loop_instance.send(:extract_triage_model, { 'recommended_model' => 'haiku' })
     assert_equal 'haiku', result
   end
 
   def test_extract_triage_model_defaults_to_opus_for_unknown
-    loop_instance = WvRunner::WorkLoop.new
+    loop_instance = McptaskRunner::WorkLoop.new
     result = loop_instance.send(:extract_triage_model, { 'recommended_model' => 'gpt4' })
     assert_equal 'opus', result
   end
 
   def test_extract_triage_model_defaults_to_opus_for_nil
-    loop_instance = WvRunner::WorkLoop.new
+    loop_instance = McptaskRunner::WorkLoop.new
     result = loop_instance.send(:extract_triage_model, { 'recommended_model' => nil })
     assert_equal 'opus', result
   end
@@ -49,9 +49,9 @@ class WorkLoopTriageTest < Minitest::Test
       { 'status' => 'success' }
     end
 
-    WvRunner::ClaudeCode::Triage.stub(:new, no_tasks_mock) do
-      WvRunner::ClaudeCode::Honest.stub(:new, executor_mock) do
-        loop_instance = WvRunner::WorkLoop.new
+    McptaskRunner::ClaudeCode::Triage.stub(:new, no_tasks_mock) do
+      McptaskRunner::ClaudeCode::Honest.stub(:new, executor_mock) do
+        loop_instance = McptaskRunner::WorkLoop.new
         result = loop_instance.execute(:once)
 
         assert_equal 'no_more_tasks', result['status']
@@ -61,20 +61,20 @@ class WorkLoopTriageTest < Minitest::Test
   end
 
   def test_detect_task_id_from_branch_returns_nil_on_main
-    loop_instance = WvRunner::WorkLoop.new
+    loop_instance = McptaskRunner::WorkLoop.new
     # We're on main in this repo
     assert_nil loop_instance.send(:detect_task_id_from_branch)
   end
 
   def test_detect_task_id_from_branch_extracts_id_from_feature_branch
-    loop_instance = WvRunner::WorkLoop.new
+    loop_instance = McptaskRunner::WorkLoop.new
     loop_instance.stub(:`, "feature/9508-contact-page\n") do
       assert_equal 9508, loop_instance.send(:detect_task_id_from_branch)
     end
   end
 
   def test_detect_task_id_from_branch_returns_nil_for_branch_without_id
-    loop_instance = WvRunner::WorkLoop.new
+    loop_instance = McptaskRunner::WorkLoop.new
     loop_instance.stub(:`, "fix/typo\n") do
       assert_nil loop_instance.send(:detect_task_id_from_branch)
     end
@@ -93,9 +93,9 @@ class WorkLoopTriageTest < Minitest::Test
       { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2 } }
     end
 
-    WvRunner::ClaudeCode::Triage.stub(:new, ->(**kwargs) { triage_kwargs = kwargs; mock }) do
-      WvRunner::ClaudeCode::Honest.stub(:new, executor_mock) do
-        loop_instance = WvRunner::WorkLoop.new
+    McptaskRunner::ClaudeCode::Triage.stub(:new, ->(**kwargs) { triage_kwargs = kwargs; mock }) do
+      McptaskRunner::ClaudeCode::Honest.stub(:new, executor_mock) do
+        loop_instance = McptaskRunner::WorkLoop.new
         loop_instance.stub(:detect_task_id_from_branch, 9508) do
           loop_instance.execute(:once)
         end
@@ -118,9 +118,9 @@ class WorkLoopTriageTest < Minitest::Test
       { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 1 } }
     end
 
-    WvRunner::ClaudeCode::Triage.stub(:new, triage_result_mock) do
-      WvRunner::ClaudeCode::OnceAutoSquash.stub(:new, ->(** kwargs) { received_kwargs = kwargs; executor_mock }) do
-        loop_instance = WvRunner::WorkLoop.new
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_result_mock) do
+      McptaskRunner::ClaudeCode::OnceAutoSquash.stub(:new, ->(** kwargs) { received_kwargs = kwargs; executor_mock }) do
+        loop_instance = McptaskRunner::WorkLoop.new
         loop_instance.execute(:once_auto_squash)
 
         assert_equal 'sonnet', received_kwargs[:model_override]
@@ -143,9 +143,9 @@ class WorkLoopTriageTest < Minitest::Test
       { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2 } }
     end
 
-    WvRunner::ClaudeCode::Triage.stub(:new, triage_result_mock) do
-      WvRunner::ClaudeCode::TaskAutoSquash.stub(:new, ->(**kwargs) { received_kwargs = kwargs; executor_mock }) do
-        loop_instance = WvRunner::WorkLoop.new(task_id: 9901)
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_result_mock) do
+      McptaskRunner::ClaudeCode::TaskAutoSquash.stub(:new, ->(**kwargs) { received_kwargs = kwargs; executor_mock }) do
+        loop_instance = McptaskRunner::WorkLoop.new(task_id: 9901)
         loop_instance.execute(:task_auto_squash)
 
         assert_equal 9901, received_kwargs[:task_id],
@@ -167,9 +167,9 @@ class WorkLoopTriageTest < Minitest::Test
       { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2 } }
     end
 
-    WvRunner::ClaudeCode::Triage.stub(:new, triage_result_mock) do
-      WvRunner::ClaudeCode::Honest.stub(:new, ->(**kwargs) { received_kwargs = kwargs; executor_mock }) do
-        loop_instance = WvRunner::WorkLoop.new
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_result_mock) do
+      McptaskRunner::ClaudeCode::Honest.stub(:new, ->(**kwargs) { received_kwargs = kwargs; executor_mock }) do
+        loop_instance = McptaskRunner::WorkLoop.new
         loop_instance.execute(:once)
 
         assert_equal true, received_kwargs[:resuming]
@@ -181,23 +181,23 @@ class WorkLoopTriageTest < Minitest::Test
   # Story detection from @next tests
 
   def test_story_executor_mapping
-    loop_instance = WvRunner::WorkLoop.new
+    loop_instance = McptaskRunner::WorkLoop.new
 
-    assert_equal WvRunner::ClaudeCode::StoryManual,
-                 loop_instance.send(:story_executor_for, WvRunner::ClaudeCode::Honest)
-    assert_equal WvRunner::ClaudeCode::StoryAutoSquash,
-                 loop_instance.send(:story_executor_for, WvRunner::ClaudeCode::TodayAutoSquash)
-    assert_equal WvRunner::ClaudeCode::StoryAutoSquash,
-                 loop_instance.send(:story_executor_for, WvRunner::ClaudeCode::OnceAutoSquash)
-    assert_equal WvRunner::ClaudeCode::StoryAutoSquash,
-                 loop_instance.send(:story_executor_for, WvRunner::ClaudeCode::QueueAutoSquash)
+    assert_equal McptaskRunner::ClaudeCode::StoryManual,
+                 loop_instance.send(:story_executor_for, McptaskRunner::ClaudeCode::Honest)
+    assert_equal McptaskRunner::ClaudeCode::StoryAutoSquash,
+                 loop_instance.send(:story_executor_for, McptaskRunner::ClaudeCode::TodayAutoSquash)
+    assert_equal McptaskRunner::ClaudeCode::StoryAutoSquash,
+                 loop_instance.send(:story_executor_for, McptaskRunner::ClaudeCode::OnceAutoSquash)
+    assert_equal McptaskRunner::ClaudeCode::StoryAutoSquash,
+                 loop_instance.send(:story_executor_for, McptaskRunner::ClaudeCode::QueueAutoSquash)
   end
 
   def test_story_executor_mapping_defaults_to_story_manual
-    loop_instance = WvRunner::WorkLoop.new
+    loop_instance = McptaskRunner::WorkLoop.new
 
-    assert_equal WvRunner::ClaudeCode::StoryManual,
-                 loop_instance.send(:story_executor_for, WvRunner::ClaudeCode::Review)
+    assert_equal McptaskRunner::ClaudeCode::StoryManual,
+                 loop_instance.send(:story_executor_for, McptaskRunner::ClaudeCode::Review)
   end
 
   def test_story_detected_switches_to_story_loop
@@ -220,9 +220,9 @@ class WorkLoopTriageTest < Minitest::Test
       { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2 } }
     end
 
-    WvRunner::ClaudeCode::Triage.stub(:new, story_triage_mock) do
-      WvRunner::ClaudeCode::StoryManual.stub(:new, ->(**kwargs) { story_executor_kwargs = kwargs; executor_mock }) do
-        loop_instance = WvRunner::WorkLoop.new
+    McptaskRunner::ClaudeCode::Triage.stub(:new, story_triage_mock) do
+      McptaskRunner::ClaudeCode::StoryManual.stub(:new, ->(**kwargs) { story_executor_kwargs = kwargs; executor_mock }) do
+        loop_instance = McptaskRunner::WorkLoop.new
         result = loop_instance.execute(:once)
 
         # Should have used StoryManual (not Honest)
@@ -248,9 +248,9 @@ class WorkLoopTriageTest < Minitest::Test
       { 'status' => 'no_more_tasks' }
     end
 
-    WvRunner::ClaudeCode::Triage.stub(:new, story_triage_mock) do
-      WvRunner::ClaudeCode::StoryAutoSquash.stub(:new, ->(**_kwargs) { executor_mock }) do
-        loop_instance = WvRunner::WorkLoop.new
+    McptaskRunner::ClaudeCode::Triage.stub(:new, story_triage_mock) do
+      McptaskRunner::ClaudeCode::StoryAutoSquash.stub(:new, ->(**_kwargs) { executor_mock }) do
+        loop_instance = McptaskRunner::WorkLoop.new
         loop_instance.execute(:once_auto_squash)
 
         assert story_executor_called, 'StoryAutoSquash should have been called'
@@ -283,9 +283,9 @@ class WorkLoopTriageTest < Minitest::Test
       { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 1 } }
     end
 
-    WvRunner::ClaudeCode::Triage.stub(:new, triage_mock_obj) do
-      WvRunner::ClaudeCode::StoryManual.stub(:new, ->(**_kwargs) { executor_mock }) do
-        loop_instance = WvRunner::WorkLoop.new
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_mock_obj) do
+      McptaskRunner::ClaudeCode::StoryManual.stub(:new, ->(**_kwargs) { executor_mock }) do
+        loop_instance = McptaskRunner::WorkLoop.new
         loop_instance.execute(:once)
 
         assert_equal 2, executor_call_count, 'Should have processed 2 subtasks before no_more_tasks'
@@ -308,9 +308,9 @@ class WorkLoopTriageTest < Minitest::Test
       { 'status' => 'no_more_tasks' }
     end
 
-    WvRunner::ClaudeCode::Triage.stub(:new, triage_result_mock) do
-      WvRunner::ClaudeCode::StoryManual.stub(:new, ->(**kwargs) { story_manual_kwargs = kwargs; executor_mock }) do
-        loop_instance = WvRunner::WorkLoop.new(story_id: 8965)
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_result_mock) do
+      McptaskRunner::ClaudeCode::StoryManual.stub(:new, ->(**kwargs) { story_manual_kwargs = kwargs; executor_mock }) do
+        loop_instance = McptaskRunner::WorkLoop.new(story_id: 8965)
         loop_instance.execute(:story_manual)
 
         # Should call StoryManual directly (not enter story_loop again)

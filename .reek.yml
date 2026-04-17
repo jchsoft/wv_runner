@@ -40,7 +40,7 @@ detectors:
     max_calls: 5
   DataClump:
     exclude:
-      - WvRunner::ClaudeCodeBase
+      - McptaskRunner::ClaudeCodeBase
   NestedIterators:
     max_allowed_nesting: 2
   UnusedParameters:

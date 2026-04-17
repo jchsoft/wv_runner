@@ -9,7 +9,7 @@ class WorkLoopStoryTest < Minitest::Test
   # Story modes now go through triage_and_execute for model selection
 
   def test_execute_with_story_manual_requires_story_id
-    loop_instance = WvRunner::WorkLoop.new
+    loop_instance = McptaskRunner::WorkLoop.new
     error = assert_raises(ArgumentError) { loop_instance.execute(:story_manual) }
     assert_includes error.message, 'story_id is required'
   end
@@ -34,10 +34,10 @@ class WorkLoopStoryTest < Minitest::Test
       end
     end
 
-    WvRunner::ClaudeCode::Triage.stub(:new, triage_mock_obj) do
-      WvRunner::ClaudeCode::StoryManual.stub(:new, executor_mock) do
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_mock_obj) do
+      McptaskRunner::ClaudeCode::StoryManual.stub(:new, executor_mock) do
         Kernel.stub(:sleep, nil) do
-          loop_instance = WvRunner::WorkLoop.new(story_id: 123)
+          loop_instance = McptaskRunner::WorkLoop.new(story_id: 123)
           results = loop_instance.execute(:story_manual)
 
           assert_instance_of Array, results
@@ -55,8 +55,8 @@ class WorkLoopStoryTest < Minitest::Test
       { 'status' => 'no_more_tasks', 'recommended_model' => 'opus' }
     end
 
-    WvRunner::ClaudeCode::Triage.stub(:new, triage_no_tasks) do
-      loop_instance = WvRunner::WorkLoop.new(story_id: 123)
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_no_tasks) do
+      loop_instance = McptaskRunner::WorkLoop.new(story_id: 123)
       results = loop_instance.execute(:story_manual)
 
       assert_instance_of Array, results
@@ -71,9 +71,9 @@ class WorkLoopStoryTest < Minitest::Test
       { 'status' => 'failure', 'message' => 'Error processing task' }
     end
 
-    WvRunner::ClaudeCode::Triage.stub(:new, triage_mock) do
-      WvRunner::ClaudeCode::StoryManual.stub(:new, executor_mock) do
-        loop_instance = WvRunner::WorkLoop.new(story_id: 123)
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_mock) do
+      McptaskRunner::ClaudeCode::StoryManual.stub(:new, executor_mock) do
+        loop_instance = McptaskRunner::WorkLoop.new(story_id: 123)
         results = loop_instance.execute(:story_manual)
 
         assert_instance_of Array, results
@@ -84,7 +84,7 @@ class WorkLoopStoryTest < Minitest::Test
   end
 
   def test_execute_with_story_auto_squash_requires_story_id
-    loop_instance = WvRunner::WorkLoop.new
+    loop_instance = McptaskRunner::WorkLoop.new
     error = assert_raises(ArgumentError) { loop_instance.execute(:story_auto_squash) }
     assert_includes error.message, 'story_id is required'
   end
@@ -109,10 +109,10 @@ class WorkLoopStoryTest < Minitest::Test
       end
     end
 
-    WvRunner::ClaudeCode::Triage.stub(:new, triage_mock_obj) do
-      WvRunner::ClaudeCode::StoryAutoSquash.stub(:new, executor_mock) do
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_mock_obj) do
+      McptaskRunner::ClaudeCode::StoryAutoSquash.stub(:new, executor_mock) do
         Kernel.stub(:sleep, nil) do
-          loop_instance = WvRunner::WorkLoop.new(story_id: 123)
+          loop_instance = McptaskRunner::WorkLoop.new(story_id: 123)
           results = loop_instance.execute(:story_auto_squash)
 
           assert_instance_of Array, results
@@ -130,8 +130,8 @@ class WorkLoopStoryTest < Minitest::Test
       { 'status' => 'no_more_tasks', 'recommended_model' => 'opus' }
     end
 
-    WvRunner::ClaudeCode::Triage.stub(:new, triage_no_tasks) do
-      loop_instance = WvRunner::WorkLoop.new(story_id: 123)
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_no_tasks) do
+      loop_instance = McptaskRunner::WorkLoop.new(story_id: 123)
       results = loop_instance.execute(:story_auto_squash)
 
       assert_instance_of Array, results
@@ -146,9 +146,9 @@ class WorkLoopStoryTest < Minitest::Test
       { 'status' => 'failure', 'message' => 'Error processing task' }
     end
 
-    WvRunner::ClaudeCode::Triage.stub(:new, triage_mock) do
-      WvRunner::ClaudeCode::StoryAutoSquash.stub(:new, executor_mock) do
-        loop_instance = WvRunner::WorkLoop.new(story_id: 123)
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_mock) do
+      McptaskRunner::ClaudeCode::StoryAutoSquash.stub(:new, executor_mock) do
+        loop_instance = McptaskRunner::WorkLoop.new(story_id: 123)
         results = loop_instance.execute(:story_auto_squash)
 
         assert_instance_of Array, results
@@ -170,10 +170,10 @@ class WorkLoopStoryTest < Minitest::Test
       end
     end
 
-    WvRunner::ClaudeCode::Triage.stub(:new, triage_mock) do
-      WvRunner::ClaudeCode::StoryAutoSquash.stub(:new, executor_mock) do
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_mock) do
+      McptaskRunner::ClaudeCode::StoryAutoSquash.stub(:new, executor_mock) do
         Kernel.stub(:sleep, nil) do
-          loop_instance = WvRunner::WorkLoop.new(story_id: 123)
+          loop_instance = McptaskRunner::WorkLoop.new(story_id: 123)
           results = loop_instance.execute(:story_auto_squash)
 
           assert_equal 2, results.length
@@ -190,9 +190,9 @@ class WorkLoopStoryTest < Minitest::Test
       { 'status' => 'ci_failed', 'message' => 'CI failed after retry' }
     end
 
-    WvRunner::ClaudeCode::Triage.stub(:new, triage_mock) do
-      WvRunner::ClaudeCode::StoryAutoSquash.stub(:new, executor_mock) do
-        loop_instance = WvRunner::WorkLoop.new(story_id: 123)
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_mock) do
+      McptaskRunner::ClaudeCode::StoryAutoSquash.stub(:new, executor_mock) do
+        loop_instance = McptaskRunner::WorkLoop.new(story_id: 123)
         results = loop_instance.execute(:story_auto_squash)
 
         assert_instance_of Array, results
@@ -215,9 +215,9 @@ class WorkLoopStoryTest < Minitest::Test
       { 'status' => 'no_more_tasks' }
     end
 
-    WvRunner::ClaudeCode::Triage.stub(:new, ->(**kwargs) { triage_kwargs = kwargs; triage_mock_obj }) do
-      WvRunner::ClaudeCode::StoryManual.stub(:new, executor_mock) do
-        loop_instance = WvRunner::WorkLoop.new(story_id: 555)
+    McptaskRunner::ClaudeCode::Triage.stub(:new, ->(**kwargs) { triage_kwargs = kwargs; triage_mock_obj }) do
+      McptaskRunner::ClaudeCode::StoryManual.stub(:new, executor_mock) do
+        loop_instance = McptaskRunner::WorkLoop.new(story_id: 555)
         loop_instance.execute(:story_manual)
 
         assert_equal 555, triage_kwargs[:story_id]
@@ -236,10 +236,10 @@ class WorkLoopStoryTest < Minitest::Test
       true
     end
 
-    WvRunner::ClaudeCode::Triage.stub(:new, triage_mock) do
-      WvRunner::ClaudeCode::StoryManual.stub(:new, executor_mock) do
-        WvRunner::Decider.stub(:new, decider_mock) do
-          loop_instance = WvRunner::WorkLoop.new(story_id: 123)
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_mock) do
+      McptaskRunner::ClaudeCode::StoryManual.stub(:new, executor_mock) do
+        McptaskRunner::Decider.stub(:new, decider_mock) do
+          loop_instance = McptaskRunner::WorkLoop.new(story_id: 123)
           results = loop_instance.execute(:story_manual)
 
           assert_instance_of Array, results
@@ -270,10 +270,10 @@ class WorkLoopStoryTest < Minitest::Test
       end
     end
 
-    WvRunner::ClaudeCode::Triage.stub(:new, triage_mock_obj) do
-      WvRunner::ClaudeCode::StoryManual.stub(:new, executor_mock) do
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_mock_obj) do
+      McptaskRunner::ClaudeCode::StoryManual.stub(:new, executor_mock) do
         Kernel.stub(:sleep, nil) do
-          loop_instance = WvRunner::WorkLoop.new(story_id: 123, ignore_quota: true)
+          loop_instance = McptaskRunner::WorkLoop.new(story_id: 123, ignore_quota: true)
           results = loop_instance.execute(:story_manual)
 
           assert_instance_of Array, results
@@ -294,10 +294,10 @@ class WorkLoopStoryTest < Minitest::Test
       true
     end
 
-    WvRunner::ClaudeCode::Triage.stub(:new, triage_mock) do
-      WvRunner::ClaudeCode::StoryAutoSquash.stub(:new, executor_mock) do
-        WvRunner::Decider.stub(:new, decider_mock) do
-          loop_instance = WvRunner::WorkLoop.new(story_id: 123)
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_mock) do
+      McptaskRunner::ClaudeCode::StoryAutoSquash.stub(:new, executor_mock) do
+        McptaskRunner::Decider.stub(:new, decider_mock) do
+          loop_instance = McptaskRunner::WorkLoop.new(story_id: 123)
           results = loop_instance.execute(:story_auto_squash)
 
           assert_instance_of Array, results
@@ -321,9 +321,9 @@ class WorkLoopStoryTest < Minitest::Test
       { 'status' => 'no_more_tasks' }
     end
 
-    WvRunner::ClaudeCode::Triage.stub(:new, triage_mock_obj) do
-      WvRunner::ClaudeCode::StoryManual.stub(:new, ->(**kwargs) { received_kwargs = kwargs; executor_mock }) do
-        loop_instance = WvRunner::WorkLoop.new(story_id: 555)
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_mock_obj) do
+      McptaskRunner::ClaudeCode::StoryManual.stub(:new, ->(**kwargs) { received_kwargs = kwargs; executor_mock }) do
+        loop_instance = McptaskRunner::WorkLoop.new(story_id: 555)
         loop_instance.execute(:story_manual)
 
         assert_equal 'sonnet', received_kwargs[:model_override]

@@ -13,8 +13,8 @@ class WorkLoopOnceTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::Honest.stub(:new, mock) do
-        loop_instance = WvRunner::WorkLoop.new
+      McptaskRunner::ClaudeCode::Honest.stub(:new, mock) do
+        loop_instance = McptaskRunner::WorkLoop.new
         result = loop_instance.execute(:once)
 
         assert_equal 'success', result['status']
@@ -30,8 +30,8 @@ class WorkLoopOnceTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::Honest.stub(:new, mock) do
-        loop_instance = WvRunner::WorkLoop.new
+      McptaskRunner::ClaudeCode::Honest.stub(:new, mock) do
+        loop_instance = McptaskRunner::WorkLoop.new
         result = loop_instance.execute(:once)
 
         assert_equal 'error', result['status']
@@ -46,8 +46,8 @@ class WorkLoopOnceTest < Minitest::Test
       { 'status' => 'success', 'task_info' => { 'name' => 'Test Task', 'id' => 123 }, 'hours' => { 'per_day' => 8, 'task_estimated' => 1 } }
     end
 
-    WvRunner::ClaudeCode::Dry.stub(:new, mock) do
-      loop_instance = WvRunner::WorkLoop.new
+    McptaskRunner::ClaudeCode::Dry.stub(:new, mock) do
+      loop_instance = McptaskRunner::WorkLoop.new
       result = loop_instance.execute(:once_dry)
 
       assert_equal 'success', result['status']
@@ -62,8 +62,8 @@ class WorkLoopOnceTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::OnceAutoSquash.stub(:new, mock) do
-        loop_instance = WvRunner::WorkLoop.new
+      McptaskRunner::ClaudeCode::OnceAutoSquash.stub(:new, mock) do
+        loop_instance = McptaskRunner::WorkLoop.new
         result = loop_instance.execute(:once_auto_squash)
 
         assert_equal 'success', result['status']
@@ -79,8 +79,8 @@ class WorkLoopOnceTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::OnceAutoSquash.stub(:new, mock) do
-        loop_instance = WvRunner::WorkLoop.new
+      McptaskRunner::ClaudeCode::OnceAutoSquash.stub(:new, mock) do
+        loop_instance = McptaskRunner::WorkLoop.new
         result = loop_instance.execute(:once_auto_squash)
 
         assert_equal 'no_more_tasks', result['status']
@@ -95,8 +95,8 @@ class WorkLoopOnceTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::OnceAutoSquash.stub(:new, mock) do
-        loop_instance = WvRunner::WorkLoop.new
+      McptaskRunner::ClaudeCode::OnceAutoSquash.stub(:new, mock) do
+        loop_instance = McptaskRunner::WorkLoop.new
         result = loop_instance.execute(:once_auto_squash)
 
         assert_equal 'ci_failed', result['status']
@@ -111,8 +111,8 @@ class WorkLoopOnceTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::OnceAutoSquash.stub(:new, mock) do
-        loop_instance = WvRunner::WorkLoop.new
+      McptaskRunner::ClaudeCode::OnceAutoSquash.stub(:new, mock) do
+        loop_instance = McptaskRunner::WorkLoop.new
         result = loop_instance.execute(:once_auto_squash)
 
         assert_equal 'failure', result['status']

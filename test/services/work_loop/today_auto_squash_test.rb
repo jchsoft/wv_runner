@@ -20,11 +20,11 @@ class WorkLoopTodayAutoSquashTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::TodayAutoSquash.stub(:new, mock) do
-        WvRunner::Decider.stub(:new, decider_mock) do
+      McptaskRunner::ClaudeCode::TodayAutoSquash.stub(:new, mock) do
+        McptaskRunner::Decider.stub(:new, decider_mock) do
           Kernel.stub(:sleep, nil) do
             Time.stub(:now, Time.new(2025, 1, 15, 19, 0)) do
-              loop_instance = WvRunner::WorkLoop.new
+              loop_instance = McptaskRunner::WorkLoop.new
               results = loop_instance.execute(:today_auto_squash)
 
               assert_instance_of Array, results
@@ -45,9 +45,9 @@ class WorkLoopTodayAutoSquashTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::TodayAutoSquash.stub(:new, mock) do
+      McptaskRunner::ClaudeCode::TodayAutoSquash.stub(:new, mock) do
         Time.stub(:now, Time.new(2025, 1, 15, 19, 0)) do
-          loop_instance = WvRunner::WorkLoop.new
+          loop_instance = McptaskRunner::WorkLoop.new
           results = loop_instance.execute(:today_auto_squash)
 
           assert_instance_of Array, results
@@ -65,9 +65,9 @@ class WorkLoopTodayAutoSquashTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::TodayAutoSquash.stub(:new, mock) do
+      McptaskRunner::ClaudeCode::TodayAutoSquash.stub(:new, mock) do
         Time.stub(:now, Time.new(2025, 1, 15, 18, 0)) do
-          loop_instance = WvRunner::WorkLoop.new
+          loop_instance = McptaskRunner::WorkLoop.new
           results = loop_instance.execute(:today_auto_squash)
 
           assert_equal 1, results.length
@@ -84,8 +84,8 @@ class WorkLoopTodayAutoSquashTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::TodayAutoSquash.stub(:new, mock) do
-        loop_instance = WvRunner::WorkLoop.new
+      McptaskRunner::ClaudeCode::TodayAutoSquash.stub(:new, mock) do
+        loop_instance = McptaskRunner::WorkLoop.new
         results = loop_instance.execute(:today_auto_squash)
 
         assert_instance_of Array, results
@@ -102,8 +102,8 @@ class WorkLoopTodayAutoSquashTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::TodayAutoSquash.stub(:new, mock) do
-        loop_instance = WvRunner::WorkLoop.new
+      McptaskRunner::ClaudeCode::TodayAutoSquash.stub(:new, mock) do
+        loop_instance = McptaskRunner::WorkLoop.new
         results = loop_instance.execute(:today_auto_squash)
 
         assert_instance_of Array, results
@@ -126,10 +126,10 @@ class WorkLoopTodayAutoSquashTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::TodayAutoSquash.stub(:new, mock) do
+      McptaskRunner::ClaudeCode::TodayAutoSquash.stub(:new, mock) do
         Kernel.stub(:sleep, nil) do
           Time.stub(:now, Time.new(2025, 1, 15, 19, 0)) do
-            loop_instance = WvRunner::WorkLoop.new
+            loop_instance = McptaskRunner::WorkLoop.new
             results = loop_instance.execute(:today_auto_squash)
 
             assert_equal 2, results.length
@@ -153,9 +153,9 @@ class WorkLoopTodayAutoSquashTest < Minitest::Test
     end
 
     with_triage_stub do
-      WvRunner::ClaudeCode::TodayAutoSquash.stub(:new, mock) do
-        WvRunner::Decider.stub(:new, decider_mock) do
-          loop_instance = WvRunner::WorkLoop.new
+      McptaskRunner::ClaudeCode::TodayAutoSquash.stub(:new, mock) do
+        McptaskRunner::Decider.stub(:new, decider_mock) do
+          loop_instance = McptaskRunner::WorkLoop.new
           results = loop_instance.execute(:today_auto_squash)
 
           assert_instance_of Array, results

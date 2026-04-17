@@ -12,26 +12,26 @@ class TestHelperTest < Minitest::Test
     mock.verify
   end
 
-  def test_wv_runner_is_loaded
-    assert defined?(WvRunner)
+  def test_mcptask_runner_is_loaded
+    assert defined?(McptaskRunner)
   end
 
   def test_all_services_are_available
-    assert defined?(WvRunner::ClaudeCode)
-    assert defined?(WvRunner::ClaudeCode::Honest)
-    assert defined?(WvRunner::ClaudeCode::Dry)
-    assert defined?(WvRunner::WorkLoop)
-    assert defined?(WvRunner::Decider)
+    assert defined?(McptaskRunner::ClaudeCode)
+    assert defined?(McptaskRunner::ClaudeCode::Honest)
+    assert defined?(McptaskRunner::ClaudeCode::Dry)
+    assert defined?(McptaskRunner::WorkLoop)
+    assert defined?(McptaskRunner::Decider)
   end
 
   def test_error_class_is_available
-    assert defined?(WvRunner::Error)
+    assert defined?(McptaskRunner::Error)
   end
 
   def test_can_create_service_instances
-    assert WvRunner::ClaudeCode::Honest.new.is_a?(WvRunner::ClaudeCodeBase)
-    assert WvRunner::ClaudeCode::Dry.new.is_a?(WvRunner::ClaudeCodeBase)
-    assert WvRunner::WorkLoop.new.is_a?(WvRunner::WorkLoop)
-    assert WvRunner::Decider.new.is_a?(WvRunner::Decider)
+    assert McptaskRunner::ClaudeCode::Honest.new.is_a?(McptaskRunner::ClaudeCodeBase)
+    assert McptaskRunner::ClaudeCode::Dry.new.is_a?(McptaskRunner::ClaudeCodeBase)
+    assert McptaskRunner::WorkLoop.new.is_a?(McptaskRunner::WorkLoop)
+    assert McptaskRunner::Decider.new.is_a?(McptaskRunner::Decider)
   end
 end

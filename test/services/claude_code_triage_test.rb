@@ -4,28 +4,28 @@ require 'test_helper'
 
 class ClaudeCodeTriageTest < Minitest::Test
   def test_triage_inherits_from_claude_code_base
-    assert WvRunner::ClaudeCode::Triage < WvRunner::ClaudeCodeBase
+    assert McptaskRunner::ClaudeCode::Triage < McptaskRunner::ClaudeCodeBase
   end
 
   def test_triage_uses_haiku_model
-    triage = WvRunner::ClaudeCode::Triage.new
+    triage = McptaskRunner::ClaudeCode::Triage.new
     assert_equal 'haiku', triage.send(:model_name)
   end
 
   def test_triage_does_not_accept_edits
-    triage = WvRunner::ClaudeCode::Triage.new
+    triage = McptaskRunner::ClaudeCode::Triage.new
     refute triage.send(:accept_edits?)
   end
 
   def test_triage_responds_to_run
-    triage = WvRunner::ClaudeCode::Triage.new
+    triage = McptaskRunner::ClaudeCode::Triage.new
     assert_respond_to triage, :run
   end
 
   def test_instructions_include_model_selection_rules
     File.stub :exist?, true do
       File.stub :read, 'project_relative_id=7' do
-        triage = WvRunner::ClaudeCode::Triage.new
+        triage = McptaskRunner::ClaudeCode::Triage.new
         instructions = triage.send(:build_instructions)
 
         assert_includes instructions, 'recommended_model'
@@ -39,7 +39,7 @@ class ClaudeCodeTriageTest < Minitest::Test
   def test_instructions_use_next_url_without_task_id
     File.stub :exist?, true do
       File.stub :read, 'project_relative_id=7' do
-        triage = WvRunner::ClaudeCode::Triage.new
+        triage = McptaskRunner::ClaudeCode::Triage.new
         instructions = triage.send(:build_instructions)
 
         assert_includes instructions, '@next?project_relative_id=7'
@@ -50,7 +50,7 @@ class ClaudeCodeTriageTest < Minitest::Test
   def test_instructions_use_direct_url_with_task_id
     File.stub :exist?, true do
       File.stub :read, 'project_relative_id=7' do
-        triage = WvRunner::ClaudeCode::Triage.new(task_id: 456)
+        triage = McptaskRunner::ClaudeCode::Triage.new(task_id: 456)
         instructions = triage.send(:build_instructions)
 
         assert_includes instructions, 'mcptask://pieces/jchsoft/456'
@@ -62,7 +62,7 @@ class ClaudeCodeTriageTest < Minitest::Test
   def test_instructions_include_resuming_field
     File.stub :exist?, true do
       File.stub :read, 'project_relative_id=7' do
-        triage = WvRunner::ClaudeCode::Triage.new
+        triage = McptaskRunner::ClaudeCode::Triage.new
         instructions = triage.send(:build_instructions)
 
         assert_includes instructions, 'resuming'
@@ -74,7 +74,7 @@ class ClaudeCodeTriageTest < Minitest::Test
   def test_branch_check_comes_before_task_fetch_in_instructions
     File.stub :exist?, true do
       File.stub :read, 'project_relative_id=7' do
-        triage = WvRunner::ClaudeCode::Triage.new
+        triage = McptaskRunner::ClaudeCode::Triage.new
         instructions = triage.send(:build_instructions)
 
         branch_pos = instructions.index('RESUME DETECTION')
@@ -93,7 +93,7 @@ class ClaudeCodeTriageTest < Minitest::Test
   def test_instructions_include_pr_fallback_for_branches_without_task_id
     File.stub :exist?, true do
       File.stub :read, 'project_relative_id=7' do
-        triage = WvRunner::ClaudeCode::Triage.new
+        triage = McptaskRunner::ClaudeCode::Triage.new
         instructions = triage.send(:build_instructions)
 
         assert_includes instructions, 'gh pr list'
@@ -105,7 +105,7 @@ class ClaudeCodeTriageTest < Minitest::Test
   def test_instructions_allow_opus_sonnet_or_haiku
     File.stub :exist?, true do
       File.stub :read, 'project_relative_id=7' do
-        triage = WvRunner::ClaudeCode::Triage.new
+        triage = McptaskRunner::ClaudeCode::Triage.new
         instructions = triage.send(:build_instructions)
 
         assert_includes instructions, 'opus'
@@ -117,7 +117,7 @@ class ClaudeCodeTriageTest < Minitest::Test
   def test_instructions_include_classification_criteria
     File.stub :exist?, true do
       File.stub :read, 'project_relative_id=7' do
-        triage = WvRunner::ClaudeCode::Triage.new
+        triage = McptaskRunner::ClaudeCode::Triage.new
         instructions = triage.send(:build_instructions)
 
         assert_includes instructions, 'Story'
@@ -132,7 +132,7 @@ class ClaudeCodeTriageTest < Minitest::Test
   def test_instructions_default_to_sonnet
     File.stub :exist?, true do
       File.stub :read, 'project_relative_id=7' do
-        triage = WvRunner::ClaudeCode::Triage.new
+        triage = McptaskRunner::ClaudeCode::Triage.new
         instructions = triage.send(:build_instructions)
 
         assert_includes instructions, '"sonnet" (DEFAULT)'
@@ -142,7 +142,7 @@ class ClaudeCodeTriageTest < Minitest::Test
   end
 
   def test_story_triage_defaults_to_sonnet
-    triage = WvRunner::ClaudeCode::Triage.new(story_id: 8965)
+    triage = McptaskRunner::ClaudeCode::Triage.new(story_id: 8965)
     instructions = triage.send(:build_instructions)
 
     assert_includes instructions, '"sonnet" (DEFAULT)'
@@ -152,7 +152,7 @@ class ClaudeCodeTriageTest < Minitest::Test
   # Story triage tests
 
   def test_story_triage_uses_story_instructions
-    triage = WvRunner::ClaudeCode::Triage.new(story_id: 8965)
+    triage = McptaskRunner::ClaudeCode::Triage.new(story_id: 8965)
     instructions = triage.send(:build_instructions)
 
     assert_includes instructions, 'LOAD STORY'
@@ -162,7 +162,7 @@ class ClaudeCodeTriageTest < Minitest::Test
   end
 
   def test_story_triage_includes_model_selection_rules
-    triage = WvRunner::ClaudeCode::Triage.new(story_id: 8965)
+    triage = McptaskRunner::ClaudeCode::Triage.new(story_id: 8965)
     instructions = triage.send(:build_instructions)
 
     assert_includes instructions, 'recommended_model'
@@ -172,7 +172,7 @@ class ClaudeCodeTriageTest < Minitest::Test
   end
 
   def test_story_triage_does_not_include_branch_detection
-    triage = WvRunner::ClaudeCode::Triage.new(story_id: 8965)
+    triage = McptaskRunner::ClaudeCode::Triage.new(story_id: 8965)
     instructions = triage.send(:build_instructions)
 
     refute_includes instructions, 'git branch --show-current'
@@ -180,7 +180,7 @@ class ClaudeCodeTriageTest < Minitest::Test
   end
 
   def test_story_triage_finds_incomplete_subtasks
-    triage = WvRunner::ClaudeCode::Triage.new(story_id: 8965)
+    triage = McptaskRunner::ClaudeCode::Triage.new(story_id: 8965)
     instructions = triage.send(:build_instructions)
 
     assert_includes instructions, 'Schváleno'
@@ -191,7 +191,7 @@ class ClaudeCodeTriageTest < Minitest::Test
   def test_standard_triage_without_story_id
     File.stub :exist?, true do
       File.stub :read, 'project_relative_id=7' do
-        triage = WvRunner::ClaudeCode::Triage.new
+        triage = McptaskRunner::ClaudeCode::Triage.new
         instructions = triage.send(:build_instructions)
 
         assert_includes instructions, 'RESUME DETECTION'
@@ -205,7 +205,7 @@ class ClaudeCodeTriageTest < Minitest::Test
   def test_standard_triage_includes_story_handling_step
     File.stub :exist?, true do
       File.stub :read, 'project_relative_id=7' do
-        triage = WvRunner::ClaudeCode::Triage.new
+        triage = McptaskRunner::ClaudeCode::Triage.new
         instructions = triage.send(:build_instructions)
 
         assert_includes instructions, 'STEP 2b - STORY'
@@ -218,7 +218,7 @@ class ClaudeCodeTriageTest < Minitest::Test
   def test_standard_triage_result_format_includes_piece_type_and_story_id
     File.stub :exist?, true do
       File.stub :read, 'project_relative_id=7' do
-        triage = WvRunner::ClaudeCode::Triage.new
+        triage = McptaskRunner::ClaudeCode::Triage.new
         instructions = triage.send(:build_instructions)
 
         assert_includes instructions, '"piece_type": "Task"'
@@ -231,7 +231,7 @@ class ClaudeCodeTriageTest < Minitest::Test
   def test_standard_triage_story_step_finds_incomplete_subtasks
     File.stub :exist?, true do
       File.stub :read, 'project_relative_id=7' do
-        triage = WvRunner::ClaudeCode::Triage.new
+        triage = McptaskRunner::ClaudeCode::Triage.new
         instructions = triage.send(:build_instructions)
 
         step_2b_pos = instructions.index('STEP 2b')

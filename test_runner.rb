@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-puts '🧪 Running all wv_runner tests...'
+puts '🧪 Running all mcptask_runner tests...'
 puts '=' * 80
 
 test_files = [
@@ -27,7 +27,7 @@ test_files = [
   'test/tasks_test.rb',
   'test/test_helper_test.rb',
   'test/version_manager_test.rb',
-  'test/wv_runner_test.rb'
+  'test/mcptask_runner_test.rb'
 ]
 
 total_runs = 0

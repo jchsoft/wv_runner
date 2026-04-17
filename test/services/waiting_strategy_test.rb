@@ -2,7 +2,7 @@ require 'test_helper'
 
 class WaitingStrategyTest < Minitest::Test
   def test_wait_one_hour_sleeps
-    strategy = WvRunner::WaitingStrategy.new
+    strategy = McptaskRunner::WaitingStrategy.new
     sleep_until_called = false
     strategy.stub :sleep_until, ->(target_time) { sleep_until_called = true } do
       assert_output(/Waiting 1 hour before retry/) { strategy.wait_one_hour }
@@ -11,7 +11,7 @@ class WaitingStrategyTest < Minitest::Test
   end
 
   def test_wait_until_next_day_calls_sleep
-    strategy = WvRunner::WaitingStrategy.new
+    strategy = McptaskRunner::WaitingStrategy.new
     sleep_until_called = false
 
     # Mock Time.now to a known time (Monday 9 PM)
@@ -25,7 +25,7 @@ class WaitingStrategyTest < Minitest::Test
   end
 
   def test_wait_until_next_day_skips_weekends
-    strategy = WvRunner::WaitingStrategy.new
+    strategy = McptaskRunner::WaitingStrategy.new
 
     # Mock Time.now to Friday
     mock_time = Time.new(2025, 11, 7, 21, 0, 0) # Friday 9 PM

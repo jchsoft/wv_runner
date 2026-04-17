@@ -34,10 +34,10 @@
 - **All checks must pass before commit**
 
 ## Version Management
-**Important**: After completing wv_runner task (code committed and ready):
-- Run: `ruby bin/increment_version.rb` to increment wv_runner version by 0.1
-- Only increments wv_runner version, not projects where runner used
-- Version file: `lib/wv_runner/version.rb`
+**Important**: After completing mcptask_runner task (code committed and ready):
+- Run: `ruby bin/increment_version.rb` to increment mcptask_runner version by 0.1
+- Only increments mcptask_runner version, not projects where runner used
+- Version file: `lib/mcptask_runner/version.rb`
 - Current version displayed at startup
 - Pattern: 0.1.0 → 0.1.1 → 0.1.2 → ... → 0.1.9 → 0.2.0 → 0.2.1 → etc
 - Run AFTER code changes committed

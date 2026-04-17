@@ -1,4 +1,4 @@
-# WvRunner
+# mcptask_runner
 
 A gem that adds rake tasks to Rails applications for automated Claude Code execution of mcptask.online tasks.
 
@@ -6,7 +6,7 @@ A gem that adds rake tasks to Rails applications for automated Claude Code execu
 
 Add to your Gemfile:
 ```ruby
-gem 'wv_runner', git: 'https://github.com/jchsoft/wv_runner.git'
+gem 'mcptask_runner', git: 'git@github.com:jchsoft/mcptask_runner.git'
 ```
 
 Then run:
@@ -20,17 +20,17 @@ bundle install
 
 #### Run a single task once
 ```bash
-rake wv_runner:run_once
+rake mcptask_runner:run_once
 ```
 
 #### Run tasks until end of today
 ```bash
-rake wv_runner:run_today
+rake mcptask_runner:run_today
 ```
 
 #### Run tasks continuously in a daily loop
 ```bash
-rake wv_runner:run_daily
+rake mcptask_runner:run_daily
 ```
 
 ### Environment Variables
@@ -38,11 +38,11 @@ rake wv_runner:run_daily
 | Variable | Values | Description |
 |----------|--------|-------------|
 | `verbose` | `true` | Show full JSON output instead of formatted messages |
-| `WV_RUNNER_ASCII` | `1` | Use ASCII icons instead of emoji (for terminals without emoji support) |
+| `MCPTASK_RUNNER_ASCII` | `1` | Use ASCII icons instead of emoji (for terminals without emoji support) |
 
 Example:
 ```bash
-WV_RUNNER_ASCII=1 rake wv_runner:run_once
+MCPTASK_RUNNER_ASCII=1 rake mcptask_runner:run_once
 ```
 
 ## Architecture
