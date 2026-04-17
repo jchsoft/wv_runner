@@ -19,6 +19,7 @@
 ## WorkVector
 - Project name is: WorkVector
 - project_relative_id=7
+- account_code: `jchsoft`
 
 ## Large File Token Cost Prevention
 - **Read big file (>200 lines) once.** Then `offset`+`limit` only.
