@@ -11,7 +11,7 @@
       "type": "sse",
       "url": "https://llm-memory.com/mcp/sse",
       "headers": {
-        "Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6ImNobWVsQGpjaHNvZnQuY3oiLCJhdXRoZW50aWNhdGlvbl90b2tlbiI6Imx2RGRJVF9BcWxMVzg3UnRxS2tsZGV3ODZvUDYxbGhrdmVjQl9tMEUyQTgifQ.kn0cReUeTk7HL6EBpWWM_jEknpmtjpQxMvQ3_p0p3oE"
+        "Authorization": "Bearer ${LLMMN_TOKEN}"
       }
     }
   }
