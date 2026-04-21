@@ -136,6 +136,11 @@ module McptaskRunner
           1. mcptask://user → "hour_goal"=per_day, "worked_out"=already_worked
              Read BEFORE logging work. WARNING: already_worked = daily "worked_out", NOT from effort history!
           2. task_estimated = 0.5 (reviews short)
+
+          PROGRESS LOGGING (MANDATORY — min 3× LogWorkProgressTool calls during run):
+          - Single 100% call at end = UNACCEPTABLE.
+          - Milestones: after subtask created (~25%), after tests pass (~70%), after push+CI (100%).
+          - duration_minutes = minutes since previous call; description = work since last log.
         HOURS
       end
     end

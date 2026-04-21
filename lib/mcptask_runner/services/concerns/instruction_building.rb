@@ -108,6 +108,16 @@ module McptaskRunner
           1. mcptask://user → "hour_goal"=per_day, "worked_out"=already_worked
              Read BEFORE logging work progress#{warning}
           2. Task "duration_best" → task_estimated (e.g. "1 hodina" → 1.0)
+
+          PROGRESS LOGGING (MANDATORY — min 3× LogWorkProgressTool calls during run):
+          - Single 100% call at end = UNACCEPTABLE. Caller sees no interim state.
+          - Milestones (minimum cadence, bump progress_percent each time):
+            a) After branch created + task understood → ~20%
+            b) After implementation + unit tests pass → ~60%
+            c) After PR/CI done → 100%
+          - Each call: duration_minutes = minutes since previous call (not cumulative);
+            description = what was done since last log.
+          - More calls OK for long tasks; 3× is floor, not target.
         INSTRUCTION
       end
 
