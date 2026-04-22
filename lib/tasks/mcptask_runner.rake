@@ -43,6 +43,14 @@ namespace :mcptask_runner do
     end
   end
 
+  namespace :prepare do
+    desc 'Merge mcptask_runner baseline permissions into this project\'s .claude/settings.local.json'
+    task permissions: :environment do
+      syncer = McptaskRunner::PermissionSyncer.sync(target_dir: Dir.pwd)
+      puts syncer.report
+    end
+  end
+
   namespace :auto do
     desc 'Run a single task once with automatic PR squash-merge after CI passes'
     task once: :environment do
