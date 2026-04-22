@@ -22,6 +22,10 @@ module McptaskRunner
   # Raised when Claude exits due to API overload (529 errors)
   class ApiOverloadError < StandardError; end
 
+  # Raised when Claude session context exceeds 1M token limit ("Prompt is too long").
+  # Terminal: session is unrecoverable, --continue on same session would re-trigger the error.
+  class ContextOverflowError < StandardError; end
+
   # Base class for Claude Code executors
   # Handles common execution, streaming, and JSON parsing logic
   # Subclasses must implement:
@@ -44,6 +48,7 @@ module McptaskRunner
       @stopping = false
       @retry_state = Concerns::RetryHandling::RetryState.initial
       @api_overload_flag = false
+      @context_overflow_flag = false
       @result_received = false
       @inactivity_timeout = false
       @child_pid = nil
@@ -88,6 +93,9 @@ module McptaskRunner
 
       result = parse_result(@accumulated_output, elapsed_hours)
 
+      # Detect context overflow BEFORE other errors - session is dead, --continue cannot recover
+      raise ContextOverflowError if context_overflow_detected?
+
       # Detect API overload - Claude crashed due to 529 errors, not a real failure
       raise ApiOverloadError if api_overload_detected?
 
@@ -96,8 +104,11 @@ module McptaskRunner
 
       result
     rescue Timeout::Error
+      raise ContextOverflowError if @context_overflow_flag
+
       handle_recoverable_error('Timeout', start_time)
     rescue StreamClosedError => e
+      raise ContextOverflowError if @context_overflow_flag
       raise ApiOverloadError if @api_overload_flag
 
       handle_recoverable_error("Stream closed: #{e.message}", start_time)
@@ -105,6 +116,8 @@ module McptaskRunner
       handle_marker_retry(start_time)
     rescue ApiOverloadError
       handle_api_overload(start_time)
+    rescue ContextOverflowError
+      handle_context_overflow(start_time)
     end
 
     def resolve_claude_path
@@ -137,6 +150,7 @@ module McptaskRunner
       @result_received = false
       @inactivity_timeout = false
       @api_overload_flag = false
+      @context_overflow_flag = false
       @stream_line_count = 0
       @active_tool_calls = {}
       @child_pid = nil
@@ -160,6 +174,7 @@ module McptaskRunner
             @text_content << extract_text_from_line(line)
             track_tool_event(line)
             check_for_mcp_server_status(line)
+            check_for_context_overflow(line)
             check_for_api_overload(line)
             check_for_result_message(line)
             if OutputFormatter.should_log_to_stdout?(line)
@@ -181,6 +196,7 @@ module McptaskRunner
           stream_lines(stderr) do |line|
             Logger.warn "\n[Claude STDERR] #{line}"
             stderr_content << line.dup
+            check_for_context_overflow(line)
           end
         rescue IOError, Errno::EBADF => e
           handle_stream_error(e, 'stderr') { |err| stream_error ||= err }

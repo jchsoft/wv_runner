@@ -416,6 +416,61 @@ class ClaudeCodeBaseTest < Minitest::Test
     end
   end
 
+  # Tests for context overflow detection — session exceeded 1M token limit, cannot --continue
+  def test_initialize_sets_context_overflow_flag_to_false
+    base = McptaskRunner::ClaudeCodeBase.new
+    refute base.instance_variable_get(:@context_overflow_flag)
+  end
+
+  def test_check_for_context_overflow_sets_flag_on_prompt_too_long
+    base = McptaskRunner::ClaudeCodeBase.new
+    base.send(:check_for_context_overflow, '[Claude] Prompt is too long')
+
+    assert base.instance_variable_get(:@context_overflow_flag), 'Should set flag on "Prompt is too long"'
+    assert base.instance_variable_get(:@stopping), 'Should mark stopping to treat stream closure as expected'
+  end
+
+  def test_check_for_context_overflow_matches_context_length_exceeded
+    base = McptaskRunner::ClaudeCodeBase.new
+    base.send(:check_for_context_overflow, '{"error":{"type":"context_length_exceeded"}}')
+
+    assert base.instance_variable_get(:@context_overflow_flag)
+  end
+
+  def test_check_for_context_overflow_does_not_set_flag_on_normal_output
+    base = McptaskRunner::ClaudeCodeBase.new
+    base.send(:check_for_context_overflow, '{"type":"assistant","message":"Hello"}')
+
+    refute base.instance_variable_get(:@context_overflow_flag)
+  end
+
+  def test_context_overflow_detected_via_flag
+    base = McptaskRunner::ClaudeCodeBase.new
+    base.instance_variable_set(:@accumulated_output, '')
+    base.instance_variable_set(:@context_overflow_flag, true)
+
+    assert base.send(:context_overflow_detected?), 'Should detect via flag even with empty accumulated_output'
+  end
+
+  def test_context_overflow_detected_via_accumulated_output
+    base = McptaskRunner::ClaudeCodeBase.new
+    base.instance_variable_set(:@accumulated_output, 'some output Prompt is too long some more')
+
+    assert base.send(:context_overflow_detected?)
+  end
+
+  def test_handle_context_overflow_returns_terminal_error_no_retry
+    base = McptaskRunner::ClaudeCodeBase.new
+    result = base.send(:handle_context_overflow, Time.now - 3600)
+
+    assert_equal 'error', result['status']
+    assert_equal 'context_overflow', result['reason']
+    assert_match(/Context overflow/, result['message'])
+    assert_match(/cannot resume/, result['message'])
+    assert_equal 0, base.instance_variable_get(:@retry_state).count,
+                 'Must NOT increment retry counter — session is dead, --continue cannot recover'
+  end
+
   # Tests for result_received flag and early stream termination
   def test_initialize_sets_result_received_to_false
     base = McptaskRunner::ClaudeCodeBase.new

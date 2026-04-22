@@ -75,6 +75,21 @@ module McptaskRunner
           @accumulated_output.include?('"error_status":529')
       end
 
+      def context_overflow_detected?
+        @context_overflow_flag ||
+          @accumulated_output.include?('Prompt is too long') ||
+          @accumulated_output.include?('prompt is too long') ||
+          @accumulated_output.include?('context_length_exceeded')
+      end
+
+      def handle_context_overflow(start_time)
+        elapsed_hours = ((Time.now - start_time) / 3600.0).round(2)
+        Logger.error "[#{@log_tag}] Context overflow — session unrecoverable after #{elapsed_hours}h, " \
+                     'emitting terminal error (no --continue retry — it would hit the same limit)'
+        error_result("Context overflow after #{elapsed_hours}h — session exceeded token limit, cannot resume with --continue")
+          .merge('reason' => 'context_overflow')
+      end
+
       def handle_api_overload(start_time)
         @retry_state.api_overload_count += 1
         elapsed_hours = ((Time.now - start_time) / 3600.0).round(2)

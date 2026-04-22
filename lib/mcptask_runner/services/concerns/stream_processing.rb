@@ -80,6 +80,17 @@ module McptaskRunner
                                      line.include?('Repeated 529 Overloaded')
       end
 
+      def check_for_context_overflow(line)
+        return if @context_overflow_flag
+        return unless line.include?('Prompt is too long') ||
+                      line.include?('prompt is too long') ||
+                      line.include?('context_length_exceeded')
+
+        @context_overflow_flag = true
+        @stopping = true
+        Logger.error "[#{@log_tag}] Context overflow detected ('Prompt is too long') — session is dead, marking terminal"
+      end
+
       def check_for_result_message(line)
         return if @result_received
 
