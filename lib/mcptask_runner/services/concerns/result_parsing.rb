@@ -2,7 +2,7 @@
 
 module McptaskRunner
   module Concerns
-    # Parses WVRUNNER_RESULT marker from Claude output (JSON key format and legacy prefix format)
+    # Parses TASKRUNNER_RESULT marker from Claude output (JSON key format and legacy prefix format)
     module ResultParsing
       # Tracks which text source is being searched for the result marker
       ParseSource = Struct.new(:text, :from_text_content, keyword_init: true)
@@ -17,13 +17,13 @@ module McptaskRunner
         source = ParseSource.new(text: text, from_text_content: text.equal?(@text_content))
         Logger.debug "[#{@log_tag}] [parse_result] Using #{source.from_text_content ? 'extracted text' : 'raw stream-json'} (#{source.text.length} chars)"
 
-        # Find WVRUNNER_RESULT marker - either as JSON key or legacy prefix
+        # Find TASKRUNNER_RESULT marker - either as JSON key or legacy prefix
         json_content, source = find_result_marker(source, stdout)
 
         unless json_content
           Logger.debug "[#{@log_tag}] [parse_result] ERROR: Marker not found in output!"
           Logger.debug "[#{@log_tag}] [parse_result] Last 500 chars: #{(source.from_text_content ? source.text : stdout).last(500)}"
-          return error_result('No WVRUNNER_RESULT found in output')
+          return error_result('No TASKRUNNER_RESULT found in output')
         end
 
         # Only unescape when parsing raw stream-json (text content is already clean)
@@ -36,7 +36,7 @@ module McptaskRunner
 
         begin
           result = JSON.parse(json_content).tap do |obj|
-            obj.delete('WVRUNNER_RESULT')
+            obj.delete('TASKRUNNER_RESULT')
             obj['hours'] ||= {}
             obj['hours']['task_worked'] = elapsed_hours
           end
@@ -50,12 +50,12 @@ module McptaskRunner
         end
       end
 
-      # Searches for WVRUNNER_RESULT in source text, trying JSON key format first, then legacy prefix.
+      # Searches for TASKRUNNER_RESULT in source text, trying JSON key format first, then legacy prefix.
       # Returns [json_string, source] or [nil, source].
       def find_result_marker(source, stdout)
         raw_source = ParseSource.new(text: stdout, from_text_content: false)
 
-        # Try JSON key format: {"WVRUNNER_RESULT": true, ...}
+        # Try JSON key format: {"TASKRUNNER_RESULT": true, ...}
         json = extract_json_with_marker(source) { |text| find_json_key_marker(text) }
         return [json, source] if json
 
@@ -64,7 +64,7 @@ module McptaskRunner
           return [json, raw_source] if json
         end
 
-        # Legacy prefix format: WVRUNNER_RESULT: {json}
+        # Legacy prefix format: TASKRUNNER_RESULT: {json}
         json = extract_json_with_marker(source) { |text| find_legacy_prefix_marker(text) }
         return [json, source] if json
 
@@ -87,7 +87,7 @@ module McptaskRunner
       end
 
       def find_json_key_marker(text)
-        key_index = text.index('"WVRUNNER_RESULT"')
+        key_index = text.index('"TASKRUNNER_RESULT"')
         return nil unless key_index
 
         # Walk backward to find opening brace
@@ -100,7 +100,7 @@ module McptaskRunner
       end
 
       def find_legacy_prefix_marker(text)
-        marker = 'WVRUNNER_RESULT: '
+        marker = 'TASKRUNNER_RESULT: '
         index = text.index(marker)
         return nil unless index
 

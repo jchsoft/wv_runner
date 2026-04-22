@@ -16,7 +16,7 @@ module McptaskRunner
   # Raised when IO stream unexpectedly closes during Claude execution
   class StreamClosedError < StandardError; end
 
-  # Raised when WVRUNNER_RESULT marker is not found in output
+  # Raised when TASKRUNNER_RESULT marker is not found in output
   class MissingMarkerError < StandardError; end
 
   # Raised when Claude exits due to API overload (529 errors)
@@ -92,7 +92,7 @@ module McptaskRunner
       raise ApiOverloadError if api_overload_detected?
 
       # If marker not found and Claude completed successfully, retry with marker-only instruction
-      raise MissingMarkerError if result['status'] == 'error' && result['message'].include?('WVRUNNER_RESULT')
+      raise MissingMarkerError if result['status'] == 'error' && result['message'].include?('TASKRUNNER_RESULT')
 
       result
     rescue Timeout::Error

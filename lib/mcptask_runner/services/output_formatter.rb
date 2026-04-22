@@ -159,7 +159,7 @@ module McptaskRunner
       text = text.gsub('\\n', "\n")
 
       # Detect and format task info block
-      if text.include?('WVRUNNER_TASK_INFO:')
+      if text.include?('TASKRUNNER_TASK_INFO:')
         formatted = format_task_info_block(text)
         return formatted if formatted
       end
@@ -249,7 +249,7 @@ module McptaskRunner
 
     # Task info block formatting
     def self.format_task_info_block(text)
-      return nil unless text.include?('WVRUNNER_TASK_INFO:')
+      return nil unless text.include?('TASKRUNNER_TASK_INFO:')
 
       # Extract data from the marker format
       id = text[/ID:\s*(.+)/, 1]&.strip

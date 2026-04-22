@@ -71,7 +71,7 @@ class ClaudeCodeBaseTest < Minitest::Test
   end
 
   def test_parse_result_returns_parsed_json_with_task_worked
-    mock_output = 'WVRUNNER_RESULT: {"status": "success", "hours": {"per_day": 8, "task_estimated": 2}}'
+    mock_output = 'TASKRUNNER_RESULT: {"status": "success", "hours": {"per_day": 8, "task_estimated": 2}}'
     base = McptaskRunner::ClaudeCodeBase.new
     result = base.send(:parse_result, mock_output, 1.5)
 
@@ -87,11 +87,11 @@ class ClaudeCodeBaseTest < Minitest::Test
     result = base.send(:parse_result, mock_output, 0.5)
 
     assert_equal 'error', result['status']
-    assert_equal 'No WVRUNNER_RESULT found in output', result['message']
+    assert_equal 'No TASKRUNNER_RESULT found in output', result['message']
   end
 
   def test_parse_result_handles_invalid_json
-    mock_output = 'WVRUNNER_RESULT: {invalid json}'
+    mock_output = 'TASKRUNNER_RESULT: {invalid json}'
     base = McptaskRunner::ClaudeCodeBase.new
     result = base.send(:parse_result, mock_output, 0.5)
 
@@ -101,7 +101,7 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_parse_result_handles_json_with_escaped_quotes_from_real_claude_output
     # Real-world case: Claude outputs JSON with escaped quotes in markdown code block
-    mock_output = "Perfect! I've loaded the task information. Let me parse and display the details:\n\n## Task Information\n\n**Task Name:** (ActionDispatch::MissingController) \"uninitialized constant Api::OfficesController\"\n\n```json\nWVRUNNER_RESULT: {\\\"status\\\": \\\"success\\\", \\\"task_info\\\": {\\\"name\\\": \\\"(ActionDispatch::MissingController) \\\\\\\"uninitialized constant Api::OfficesController\\\\\\\"\\\", \\\"id\\\": 9005, \\\"description\\\": \\\"Test description\\\", \\\"status\\\": \\\"Nove\\\", \\\"priority\\\": \\\"Urgentni\\\", \\\"assigned_user\\\": \\\"Karel Mracek\\\", \\\"scrum_points\\\": \\\"Mirne obtizne\\\"}, \\\"hours\\\": {\\\"per_day\\\": 8, \\\"task_estimated\\\": 1.0}}\n```"
+    mock_output = "Perfect! I've loaded the task information. Let me parse and display the details:\n\n## Task Information\n\n**Task Name:** (ActionDispatch::MissingController) \"uninitialized constant Api::OfficesController\"\n\n```json\nTASKRUNNER_RESULT: {\\\"status\\\": \\\"success\\\", \\\"task_info\\\": {\\\"name\\\": \\\"(ActionDispatch::MissingController) \\\\\\\"uninitialized constant Api::OfficesController\\\\\\\"\\\", \\\"id\\\": 9005, \\\"description\\\": \\\"Test description\\\", \\\"status\\\": \\\"Nove\\\", \\\"priority\\\": \\\"Urgentni\\\", \\\"assigned_user\\\": \\\"Karel Mracek\\\", \\\"scrum_points\\\": \\\"Mirne obtizne\\\"}, \\\"hours\\\": {\\\"per_day\\\": 8, \\\"task_estimated\\\": 1.0}}\n```"
 
     base = McptaskRunner::ClaudeCodeBase.new
     result = base.send(:parse_result, mock_output, 0.25)
@@ -275,7 +275,7 @@ class ClaudeCodeBaseTest < Minitest::Test
     result = base.send(:handle_marker_retry, start_time)
 
     assert_equal 'error', result['status']
-    assert_match(/Missing WVRUNNER_RESULT/, result['message'])
+    assert_match(/Missing TASKRUNNER_RESULT/, result['message'])
     assert_match(/retries exhausted/, result['message'])
   end
 
@@ -291,13 +291,13 @@ class ClaudeCodeBaseTest < Minitest::Test
     assert_includes instructions, 'git status'
     assert_includes instructions, 'Continue from where you left off'
     assert_includes instructions, 'Complete ALL remaining steps'
-    assert_includes instructions, 'WVRUNNER_RESULT'
+    assert_includes instructions, 'TASKRUNNER_RESULT'
     assert_includes instructions, 'Do NOT just output the marker'
   end
 
   def test_build_marker_retry_instructions_includes_original_instructions
     base = McptaskRunner::ClaudeCodeBase.new
-    original_instructions = 'Step 1: Do this\nStep 2: Do that\nWVRUNNER_RESULT: {"status": "success"}'
+    original_instructions = 'Step 1: Do this\nStep 2: Do that\nTASKRUNNER_RESULT: {"status": "success"}'
     base.define_singleton_method(:build_instructions) { original_instructions }
 
     instructions = base.send(:build_marker_retry_instructions)
@@ -324,7 +324,7 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_api_overload_not_detected_for_normal_output
     base = McptaskRunner::ClaudeCodeBase.new
-    base.instance_variable_set(:@accumulated_output, '{"type":"result","result":"WVRUNNER_RESULT: {}"}')
+    base.instance_variable_set(:@accumulated_output, '{"type":"result","result":"TASKRUNNER_RESULT: {}"}')
 
     refute base.send(:api_overload_detected?), 'Should not detect overload in normal output'
   end
@@ -434,7 +434,7 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_check_for_result_message_sets_flag_on_final_result_with_marker
     base = McptaskRunner::ClaudeCodeBase.new
-    result_line = '{"type": "result", "result": "{\"WVRUNNER_RESULT\": true, \"status\": \"success\"}"}'
+    result_line = '{"type": "result", "result": "{\"TASKRUNNER_RESULT\": true, \"status\": \"success\"}"}'
 
     base.send(:check_for_result_message, result_line)
 
@@ -543,7 +543,7 @@ class ClaudeCodeBaseTest < Minitest::Test
     instruction = base.send(:time_awareness_instruction)
     assert_includes instruction, 'TIME MANAGEMENT'
     assert_includes instruction, '20 min inactive'
-    assert_includes instruction, 'WVRUNNER_RESULT'
+    assert_includes instruction, 'TASKRUNNER_RESULT'
   end
 
   def test_initialize_sets_inactivity_timeout_to_false
@@ -735,7 +735,7 @@ class ClaudeCodeBaseTest < Minitest::Test
     base = McptaskRunner::ClaudeCodeBase.new
     # Simulate @text_content accumulated from stream-json extraction
     base.instance_variable_set(:@text_content,
-                               'I analyzed the task.\nWVRUNNER_RESULT: {"status": "success", "task_id": 9508, "recommended_model": "sonnet", "hours": {"per_day": 8}}')
+                               'I analyzed the task.\nTASKRUNNER_RESULT: {"status": "success", "task_id": 9508, "recommended_model": "sonnet", "hours": {"per_day": 8}}')
 
     result = base.send(:parse_result, 'raw stream json that does not contain marker', 1.0)
 
@@ -749,7 +749,7 @@ class ClaudeCodeBaseTest < Minitest::Test
     base = McptaskRunner::ClaudeCodeBase.new
     base.instance_variable_set(:@text_content, '')
 
-    raw = 'WVRUNNER_RESULT: {"status": "success", "hours": {"per_day": 4}}'
+    raw = 'TASKRUNNER_RESULT: {"status": "success", "hours": {"per_day": 4}}'
     result = base.send(:parse_result, raw, 0.5)
 
     assert_equal 'success', result['status']
@@ -760,16 +760,16 @@ class ClaudeCodeBaseTest < Minitest::Test
     base = McptaskRunner::ClaudeCodeBase.new
     base.instance_variable_set(:@text_content, 'Some text without the marker')
 
-    raw = 'WVRUNNER_RESULT: {"status": "success", "hours": {"per_day": 6}}'
+    raw = 'TASKRUNNER_RESULT: {"status": "success", "hours": {"per_day": 6}}'
     result = base.send(:parse_result, raw, 0.3)
 
     assert_equal 'success', result['status']
     assert_equal 6, result['hours']['per_day']
   end
 
-  # Tests for new JSON key marker format: {"WVRUNNER_RESULT": true, ...}
+  # Tests for new JSON key marker format: {"TASKRUNNER_RESULT": true, ...}
   def test_parse_result_with_json_key_marker
-    mock_output = '{"WVRUNNER_RESULT": true, "status": "success", "hours": {"per_day": 8, "task_estimated": 2}}'
+    mock_output = '{"TASKRUNNER_RESULT": true, "status": "success", "hours": {"per_day": 8, "task_estimated": 2}}'
     base = McptaskRunner::ClaudeCodeBase.new
     result = base.send(:parse_result, mock_output, 1.5)
 
@@ -777,11 +777,11 @@ class ClaudeCodeBaseTest < Minitest::Test
     assert_equal 8, result['hours']['per_day']
     assert_equal 2, result['hours']['task_estimated']
     assert_equal 1.5, result['hours']['task_worked']
-    refute result.key?('WVRUNNER_RESULT'), 'WVRUNNER_RESULT key should be removed from result'
+    refute result.key?('TASKRUNNER_RESULT'), 'TASKRUNNER_RESULT key should be removed from result'
   end
 
   def test_parse_result_with_json_key_marker_in_code_block
-    mock_output = "Here is the result:\n\n```json\n{\"WVRUNNER_RESULT\": true, \"status\": \"success\", \"hours\": {\"per_day\": 6}}\n```"
+    mock_output = "Here is the result:\n\n```json\n{\"TASKRUNNER_RESULT\": true, \"status\": \"success\", \"hours\": {\"per_day\": 6}}\n```"
     base = McptaskRunner::ClaudeCodeBase.new
     result = base.send(:parse_result, mock_output, 0.5)
 
@@ -792,7 +792,7 @@ class ClaudeCodeBaseTest < Minitest::Test
   def test_parse_result_with_json_key_marker_in_text_content
     base = McptaskRunner::ClaudeCodeBase.new
     base.instance_variable_set(:@text_content,
-                               "Analysis done.\n{\"WVRUNNER_RESULT\": true, \"status\": \"success\", \"task_id\": 9843, \"hours\": {\"per_day\": 8}}")
+                               "Analysis done.\n{\"TASKRUNNER_RESULT\": true, \"status\": \"success\", \"task_id\": 9843, \"hours\": {\"per_day\": 8}}")
 
     result = base.send(:parse_result, 'raw stream without marker', 1.0)
 
@@ -804,7 +804,7 @@ class ClaudeCodeBaseTest < Minitest::Test
     base = McptaskRunner::ClaudeCodeBase.new
     base.instance_variable_set(:@text_content, 'No marker here')
 
-    raw = '{"WVRUNNER_RESULT": true, "status": "success", "hours": {"per_day": 4}}'
+    raw = '{"TASKRUNNER_RESULT": true, "status": "success", "hours": {"per_day": 4}}'
     result = base.send(:parse_result, raw, 0.3)
 
     assert_equal 'success', result['status']
@@ -817,7 +817,7 @@ class ClaudeCodeBaseTest < Minitest::Test
     instruction = base.send(:result_format_instruction, '"status": "success"')
 
     assert_includes instruction, '```json'
-    assert_includes instruction, '"WVRUNNER_RESULT": true'
+    assert_includes instruction, '"TASKRUNNER_RESULT": true'
     assert_includes instruction, '"status": "success"'
     assert_includes instruction, 'CRITICAL FORMATTING'
   end

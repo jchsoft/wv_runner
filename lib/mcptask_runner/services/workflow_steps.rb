@@ -20,7 +20,7 @@ module McptaskRunner
         #{s}- No tasks → STOP, status "no_more_tasks"
         #{s}- Verify not started/completed
         #{s}- Output:
-        #{s}  WVRUNNER_TASK_INFO:
+        #{s}  TASKRUNNER_TASK_INFO:
         #{s}  ID: <relative_id>
         #{s}  TITLE: <task name>
         #{s}  DESCRIPTION: <first 200 chars>
@@ -33,7 +33,7 @@ module McptaskRunner
       <<~STEP.strip
         #{step_num}. LOAD TASK: Read mcptask://pieces/jchsoft/#{task_id}
         #{s}- Output:
-        #{s}  WVRUNNER_TASK_INFO:
+        #{s}  TASKRUNNER_TASK_INFO:
         #{s}  ID: <relative_id>
         #{s}  TITLE: <task name>
         #{s}  DESCRIPTION: <first 200 chars>
@@ -62,7 +62,7 @@ module McptaskRunner
            - progress > 0: CONTINUATION → skip steps 3-4, go to step 5
            - progress = 0: proceed normally
            - Output:
-             WVRUNNER_TASK_INFO:
+             TASKRUNNER_TASK_INFO:
              ID: <relative_id>
              TITLE: <task name>
              DESCRIPTION: <first 200 chars>

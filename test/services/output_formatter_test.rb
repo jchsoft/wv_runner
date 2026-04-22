@@ -306,7 +306,7 @@ class OutputFormatterTest < Minitest::Test
   # Task info block formatting tests
   def test_format_task_info_block_extracts_data
     text = <<~TEXT
-      WVRUNNER_TASK_INFO:
+      TASKRUNNER_TASK_INFO:
       ID: 9396
       TITLE: HP: Testimonials Section
       DESCRIPTION: Implement the testimonials section
@@ -325,7 +325,7 @@ class OutputFormatterTest < Minitest::Test
   end
 
   def test_format_task_info_block_returns_nil_without_required_fields
-    text = "WVRUNNER_TASK_INFO:\nID: 123\nEND_TASK_INFO"
+    text = "TASKRUNNER_TASK_INFO:\nID: 123\nEND_TASK_INFO"
     result = McptaskRunner::OutputFormatter.format_task_info_block(text)
     assert_nil result # Missing TITLE
   end
@@ -377,7 +377,7 @@ class OutputFormatterTest < Minitest::Test
 
   def test_format_text_content_detects_task_info
     McptaskRunner::OutputFormatter.verbose_mode = false
-    item = { 'text' => "WVRUNNER_TASK_INFO:\nID: 999\nTITLE: My Task\nDESCRIPTION: Task description\nEND_TASK_INFO" }
+    item = { 'text' => "TASKRUNNER_TASK_INFO:\nID: 999\nTITLE: My Task\nDESCRIPTION: Task description\nEND_TASK_INFO" }
     result = McptaskRunner::OutputFormatter.format_text_content(item)
     assert_includes result, "TASK #999"
     assert_includes result, "My Task"
@@ -386,10 +386,10 @@ class OutputFormatterTest < Minitest::Test
 
   def test_format_text_content_falls_back_without_valid_task_info
     McptaskRunner::OutputFormatter.verbose_mode = false
-    item = { 'text' => "WVRUNNER_TASK_INFO:\nSome malformed data\nEND_TASK_INFO" }
+    item = { 'text' => "TASKRUNNER_TASK_INFO:\nSome malformed data\nEND_TASK_INFO" }
     result = McptaskRunner::OutputFormatter.format_text_content(item)
     # Should fall back to regular text processing (stripping system reminders)
-    assert_includes result, "WVRUNNER_TASK_INFO"
+    assert_includes result, "TASKRUNNER_TASK_INFO"
   end
 
   def test_bold_returns_ansi_in_emoji_mode

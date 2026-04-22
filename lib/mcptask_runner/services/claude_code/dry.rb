@@ -27,7 +27,7 @@ module McptaskRunner
              - Found → fetch mcptask://pieces/jchsoft/<subtask_id>, display
              - Result: piece_type="Story", story_id=Story's relative_id, task_info from SUBTASK
           2c. Output:
-             WVRUNNER_TASK_INFO:
+             TASKRUNNER_TASK_INFO:
              ID: <relative_id>
              TITLE: <task name>
              DESCRIPTION: <first 200 chars>

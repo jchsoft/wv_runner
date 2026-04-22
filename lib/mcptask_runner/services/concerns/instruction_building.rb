@@ -42,7 +42,7 @@ module McptaskRunner
                c) Still nothing → #{pull_cmd} → step 2
                d) CHECK PROGRESS (if task found):
                   - progress >= 100 or state "Schváleno"/"Hotovo?" → #{pull_cmd} → step 2
-                  - progress < 100 → RESUME: WVRUNNER_TASK_INFO, SKIP steps 2-3, go to step 4
+                  - progress < 100 → RESUME: TASKRUNNER_TASK_INFO, SKIP steps 2-3, go to step 4
         STEP
       end
 
@@ -64,7 +64,7 @@ module McptaskRunner
       def result_format_instruction(json_fields, extra_rules: [])
         rules = [
           'JSON inside ```json code block',
-          '"WVRUNNER_RESULT": true MUST be FIRST key',
+          '"TASKRUNNER_RESULT": true MUST be FIRST key',
           'Valid JSON — escape quotes as \\"',
           *extra_rules,
           'NO text after closing ```'
@@ -76,7 +76,7 @@ module McptaskRunner
           At the END, output the result as valid JSON in a code block:
 
           ```json
-          {"WVRUNNER_RESULT": true, #{json_fields}}
+          {"TASKRUNNER_RESULT": true, #{json_fields}}
           ```
 
           CRITICAL FORMATTING:
@@ -141,7 +141,7 @@ module McptaskRunner
           - NEVER explain what you're about to do — do it. Never narrate tool calls.
           - NEVER summarize what you did — user sees diff.
           - Technical terms exact. Code blocks unchanged. Errors quoted exact.
-          - WVRUNNER_RESULT JSON unchanged — rules apply to natural language only.
+          - TASKRUNNER_RESULT JSON unchanged — rules apply to natural language only.
           - ALWAYS respond in English — even when task description is in Czech or other language.
         INSTRUCTION
       end
@@ -151,8 +151,8 @@ module McptaskRunner
           TIME MANAGEMENT (CRITICAL):
           - Target: 90 min. Kill: 20 min inactive (no stream output).
           - Producing output = safe.
-          - >70 min elapsed → SKIP full tests/CI. Run targeted tests only → WVRUNNER_RESULT.
-          - ALWAYS output WVRUNNER_RESULT when done.
+          - >70 min elapsed → SKIP full tests/CI. Run targeted tests only → TASKRUNNER_RESULT.
+          - ALWAYS output TASKRUNNER_RESULT when done.
         INSTRUCTION
       end
     end

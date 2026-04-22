@@ -119,7 +119,7 @@ module McptaskRunner
         <<~STEP.strip
           STEP 0 - DAILY QUOTA (FIRST):
           1. Read mcptask://user → extract "hour_goal" + "worked_out"
-          2. worked_out >= hour_goal → STOP. WVRUNNER_RESULT:
+          2. worked_out >= hour_goal → STOP. TASKRUNNER_RESULT:
              status="quota_exceeded", recommended_model="opus", task_id=0, resuming=false
              hours: {per_day: <hour_goal>, task_estimated: 0, already_worked: <worked_out>}
           3. worked_out < hour_goal → STEP 1

@@ -60,10 +60,10 @@ module McptaskRunner
 
         if @retry_state.count >= MAX_RETRY_ATTEMPTS - 1
           Logger.error "[#{@log_tag}] Missing marker - max retries reached"
-          return error_result("Missing WVRUNNER_RESULT after retries exhausted (#{elapsed_hours}h)")
+          return error_result("Missing TASKRUNNER_RESULT after retries exhausted (#{elapsed_hours}h)")
         end
 
-        Logger.warn "[#{@log_tag}] Missing WVRUNNER_RESULT marker - will retry with marker-only instruction"
+        Logger.warn "[#{@log_tag}] Missing TASKRUNNER_RESULT marker - will retry with marker-only instruction"
         @retry_state.marker_retry_mode = true
         nil # Signal to retry
       end
@@ -101,7 +101,7 @@ module McptaskRunner
           1. Check what you already completed (git status, git log, check for open PRs)
           2. Continue from where you left off in the workflow below
           3. Complete ALL remaining steps
-          4. At the END, output the WVRUNNER_RESULT marker as specified
+          4. At the END, output the TASKRUNNER_RESULT marker as specified
 
           IMPORTANT: Do NOT just output the marker - first verify and complete any remaining work!
 

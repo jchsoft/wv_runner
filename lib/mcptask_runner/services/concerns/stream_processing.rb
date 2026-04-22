@@ -87,12 +87,12 @@ module McptaskRunner
         return unless parsed['type'] == 'result'
 
         result_text = parsed['result'].to_s
-        if result_text.include?('WVRUNNER_RESULT')
+        if result_text.include?('TASKRUNNER_RESULT')
           @result_received = true
           @stopping = true
-          Logger.info_stdout "[#{@log_tag}] Final result received (WVRUNNER_RESULT found), stopping streams..."
+          Logger.info_stdout "[#{@log_tag}] Final result received (TASKRUNNER_RESULT found), stopping streams..."
         else
-          Logger.info_stdout "[#{@log_tag}] Interim result received (no WVRUNNER_RESULT), continuing to stream..."
+          Logger.info_stdout "[#{@log_tag}] Interim result received (no TASKRUNNER_RESULT), continuing to stream..."
         end
       rescue JSON::ParserError
         # Not JSON or invalid, ignore

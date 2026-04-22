@@ -31,7 +31,7 @@ class ClaudeCodeTriageTest < Minitest::Test
         assert_includes instructions, 'recommended_model'
         assert_includes instructions, 'opus'
         assert_includes instructions, 'sonnet'
-        assert_includes instructions, 'WVRUNNER_RESULT'
+        assert_includes instructions, 'TASKRUNNER_RESULT'
       end
     end
   end
@@ -168,7 +168,7 @@ class ClaudeCodeTriageTest < Minitest::Test
     assert_includes instructions, 'recommended_model'
     assert_includes instructions, 'opus'
     assert_includes instructions, 'sonnet'
-    assert_includes instructions, 'WVRUNNER_RESULT'
+    assert_includes instructions, 'TASKRUNNER_RESULT'
   end
 
   def test_story_triage_does_not_include_branch_detection

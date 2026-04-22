@@ -29,7 +29,7 @@ class ClaudeCodeHonestTest < Minitest::Test
         instructions = honest.send(:build_instructions)
         assert_includes instructions, 'project_relative_id=99'
         assert_includes instructions, 'mcptask://pieces/jchsoft/@next'
-        assert_includes instructions, 'WVRUNNER_RESULT'
+        assert_includes instructions, 'TASKRUNNER_RESULT'
       end
     end
   end
@@ -142,7 +142,7 @@ class ClaudeCodeDryTest < Minitest::Test
         instructions = dry.send(:build_instructions)
         assert_includes instructions, 'project_relative_id=77'
         assert_includes instructions, 'mcptask://pieces/jchsoft/@next'
-        assert_includes instructions, 'WVRUNNER_RESULT'
+        assert_includes instructions, 'TASKRUNNER_RESULT'
         assert_includes instructions, 'DRY RUN'
         assert_includes instructions, 'NO branch'
       end
@@ -269,7 +269,7 @@ class ClaudeCodeReviewTest < Minitest::Test
   def test_review_instructions_includes_wvrunner_result
     review = McptaskRunner::ClaudeCode::Review.new
     instructions = review.send(:build_instructions)
-    assert_includes instructions, 'WVRUNNER_RESULT'
+    assert_includes instructions, 'TASKRUNNER_RESULT'
     assert_includes instructions, 'status'
     assert_includes instructions, 'hours'
   end
@@ -369,7 +369,7 @@ class ClaudeCodeReviewsTest < Minitest::Test
   def test_reviews_instructions_includes_wvrunner_result
     reviews = McptaskRunner::ClaudeCode::Reviews.new
     instructions = reviews.send(:build_instructions)
-    assert_includes instructions, 'WVRUNNER_RESULT'
+    assert_includes instructions, 'TASKRUNNER_RESULT'
     assert_includes instructions, 'status'
     assert_includes instructions, 'hours'
   end
@@ -499,7 +499,7 @@ class ClaudeCodeStoryAutoSquashTest < Minitest::Test
   def test_story_auto_squash_instructions_includes_wvrunner_result
     story_auto_squash = McptaskRunner::ClaudeCode::StoryAutoSquash.new(story_id: 789, task_id: 101)
     instructions = story_auto_squash.send(:build_instructions)
-    assert_includes instructions, 'WVRUNNER_RESULT'
+    assert_includes instructions, 'TASKRUNNER_RESULT'
     assert_includes instructions, 'story_id'
     assert_includes instructions, '789'
     assert_includes instructions, 'task_id'
@@ -637,7 +637,7 @@ class ClaudeCodeTodayAutoSquashTest < Minitest::Test
       File.stub :read, 'project_relative_id=99' do
         today_auto_squash = McptaskRunner::ClaudeCode::TodayAutoSquash.new
         instructions = today_auto_squash.send(:build_instructions)
-        assert_includes instructions, 'WVRUNNER_RESULT'
+        assert_includes instructions, 'TASKRUNNER_RESULT'
         assert_includes instructions, 'status'
         assert_includes instructions, 'hours'
       end
@@ -747,7 +747,7 @@ class ClaudeCodeStoryManualTest < Minitest::Test
     instructions = story_manual.send(:build_instructions)
     assert_includes instructions, 'LOAD TASK'
     assert_includes instructions, 'mcptask://pieces/jchsoft/456'
-    assert_includes instructions, 'WVRUNNER_TASK_INFO'
+    assert_includes instructions, 'TASKRUNNER_TASK_INFO'
   end
 
   def test_story_manual_instructions_includes_workflow_steps
@@ -776,7 +776,7 @@ class ClaudeCodeStoryManualTest < Minitest::Test
   def test_story_manual_instructions_includes_wvrunner_result
     story_manual = McptaskRunner::ClaudeCode::StoryManual.new(story_id: 789, task_id: 101)
     instructions = story_manual.send(:build_instructions)
-    assert_includes instructions, 'WVRUNNER_RESULT'
+    assert_includes instructions, 'TASKRUNNER_RESULT'
     assert_includes instructions, 'story_id'
     assert_includes instructions, '789'
     assert_includes instructions, 'task_id'
@@ -921,7 +921,7 @@ class ClaudeCodeQueueAutoSquashTest < Minitest::Test
       File.stub :read, 'project_relative_id=99' do
         queue_auto_squash = McptaskRunner::ClaudeCode::QueueAutoSquash.new
         instructions = queue_auto_squash.send(:build_instructions)
-        assert_includes instructions, 'WVRUNNER_RESULT'
+        assert_includes instructions, 'TASKRUNNER_RESULT'
         assert_includes instructions, 'status'
         assert_includes instructions, 'hours'
       end
@@ -1088,7 +1088,7 @@ class ClaudeCodeOnceAutoSquashTest < Minitest::Test
       File.stub :read, 'project_relative_id=99' do
         once_auto_squash = McptaskRunner::ClaudeCode::OnceAutoSquash.new
         instructions = once_auto_squash.send(:build_instructions)
-        assert_includes instructions, 'WVRUNNER_RESULT'
+        assert_includes instructions, 'TASKRUNNER_RESULT'
         assert_includes instructions, 'status'
         assert_includes instructions, 'hours'
       end
@@ -1265,7 +1265,7 @@ class ClaudeCodeTaskManualTest < Minitest::Test
     task_manual = McptaskRunner::ClaudeCode::TaskManual.new(task_id: 123)
     instructions = task_manual.send(:build_instructions)
     assert_includes instructions, 'LOAD TASK'
-    assert_includes instructions, 'WVRUNNER_TASK_INFO'
+    assert_includes instructions, 'TASKRUNNER_TASK_INFO'
   end
 
   def test_task_manual_instructions_includes_workflow_steps
@@ -1302,7 +1302,7 @@ class ClaudeCodeTaskManualTest < Minitest::Test
   def test_task_manual_instructions_includes_wvrunner_result
     task_manual = McptaskRunner::ClaudeCode::TaskManual.new(task_id: 789)
     instructions = task_manual.send(:build_instructions)
-    assert_includes instructions, 'WVRUNNER_RESULT'
+    assert_includes instructions, 'TASKRUNNER_RESULT'
     assert_includes instructions, 'task_id'
     assert_includes instructions, '789'
   end
@@ -1414,7 +1414,7 @@ class ClaudeCodeTaskAutoSquashTest < Minitest::Test
   def test_task_auto_squash_instructions_includes_wvrunner_result
     task_auto_squash = McptaskRunner::ClaudeCode::TaskAutoSquash.new(task_id: 789)
     instructions = task_auto_squash.send(:build_instructions)
-    assert_includes instructions, 'WVRUNNER_RESULT'
+    assert_includes instructions, 'TASKRUNNER_RESULT'
     assert_includes instructions, 'task_id'
     assert_includes instructions, '789'
   end
