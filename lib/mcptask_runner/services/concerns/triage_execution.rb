@@ -109,7 +109,13 @@ module McptaskRunner
         hours = triage_result['hours']
         return false unless hours
 
-        per_day = hours['per_day'].to_f
+        raw_per_day = hours['per_day']
+        per_day = raw_per_day.to_f
+        if raw_per_day.nil? || per_day.zero?
+          raise "Triage returned per_day=#{raw_per_day.inspect} — mcptask://user read failed. " \
+                'Cannot evaluate quota. Check triage prompt and MCP endpoint.'
+        end
+
         already_worked = hours['already_worked'].to_f
         exceeded = already_worked >= per_day
         Logger.debug("[WorkLoop] [triage_quota_exceeded?] per_day: #{per_day}h, already_worked: #{already_worked}h, exceeded: #{exceeded}")
