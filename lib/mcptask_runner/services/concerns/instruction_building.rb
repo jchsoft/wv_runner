@@ -133,6 +133,12 @@ module McptaskRunner
             * incomingCalls — call graph
           - Never re-read same file >2×. Use offset+limit for re-reads.
 
+          PATIENCE & CONTEXT BURN (MANDATORY):
+          - Long waits (CI, system tests, other Claude agent) → be patient. No polling loops,
+            no repeated status checks, no retries "just to see". Each poll re-sends full history.
+          - Large files / logs → never Read whole. Size first (wc -l), then tail/grep/offset+limit.
+          - Never repeat the same operation hoping for different result. One failure = diagnose, not retry.
+
           OUTPUT EFFICIENCY (MANDATORY — saves ~65% tokens):
           - Drop filler: just/really/basically/actually/simply/certainly
           - Drop pleasantries: "Sure!"/"Happy to help"/"Let me..."/"I'll proceed to..."
