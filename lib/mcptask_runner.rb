@@ -23,6 +23,7 @@ require "mcptask_runner/services/work_loop"
 require "mcptask_runner/services/decider"
 require "mcptask_runner/services/daily_scheduler"
 require "mcptask_runner/services/waiting_strategy"
+require "mcptask_runner/event_stream"
 require "mcptask_runner/railtie"
 
 module McptaskRunner
