@@ -12,7 +12,6 @@ module McptaskRunner
       def start_session(mode:)
         return unless enabled?
 
-        @mode = mode
         @subscribed = false
         @mutex = Mutex.new
         @subscribed_cv = ConditionVariable.new
@@ -23,7 +22,8 @@ module McptaskRunner
       end
 
       def emit(event_type, payload)
-        return unless enabled? && @ws&.open?
+        ws = @mutex&.synchronize { @ws }
+        return unless enabled? && ws&.open?
 
         data = JSON.generate({
           action: "emit",
@@ -31,7 +31,7 @@ module McptaskRunner
           payload: payload
         })
 
-        @ws.send(JSON.generate({
+        ws.send(JSON.generate({
           command: "message",
           identifier: CHANNEL_IDENTIFIER,
           data: data
@@ -41,10 +41,12 @@ module McptaskRunner
       end
 
       def end_session
-        return unless enabled? && @ws
+        return unless enabled?
 
-        @ws.close
-        @ws = nil
+        @mutex&.synchronize do
+          @ws&.close
+          @ws = nil
+        end
       rescue StandardError => e
         Logger.warn "[EventStream] Failed to end session: #{e.message}"
       end
@@ -61,19 +63,20 @@ module McptaskRunner
         url = cable_url
         Logger.info_stdout "[EventStream] Connecting to ActionCable..."
 
-        @ws = WebSocket::Client::Simple.connect(url) do |ws|
-          ws.on(:open) do
+        client = WebSocket::Client::Simple.connect(url) do |c|
+          c.on(:open) do
             Logger.debug "[EventStream] WebSocket connected, subscribing..."
-            ws.send(JSON.generate({ command: "subscribe", identifier: CHANNEL_IDENTIFIER }))
+            c.send(JSON.generate({ command: "subscribe", identifier: CHANNEL_IDENTIFIER }))
           end
 
-          ws.on(:message) { |msg| handle_message(msg.data) }
+          c.on(:message) { |msg| handle_message(msg.data) }
 
-          ws.on(:error) { |e| Logger.warn "[EventStream] WebSocket error: #{e.message}" }
+          c.on(:error) { |e| Logger.warn "[EventStream] WebSocket error: #{e.message}" }
 
-          ws.on(:close) { Logger.debug "[EventStream] WebSocket closed" }
+          c.on(:close) { Logger.debug "[EventStream] WebSocket closed" }
         end
 
+        @mutex.synchronize { @ws = client }
         wait_for_subscription
       end
 
