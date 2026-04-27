@@ -45,6 +45,15 @@ module McptaskRunner
     INACTIVITY_TIMEOUT = 1200 # 20 minutes - kill only if stream_line_count stops changing
     HEARTBEAT_INTERVAL = 120 # 2 minutes between heartbeat messages
 
+    # Pin to standard 200K-context model IDs (no [1m] suffix) so context overflows fail fast
+    # at ~200K instead of growing to 1M across --continue retry chains.
+    # Update IDs when newer models are released.
+    MODEL_IDS = {
+      'opus' => 'claude-opus-4-7',
+      'sonnet' => 'claude-sonnet-4-6',
+      'haiku' => 'claude-haiku-4-5-20251001'
+    }.freeze
+
     # Set by WorkLoop before #run when mid-task quota guarding is desired.
     # Hash with :per_day_hours and :already_worked_hours (both Float).
     # nil = no guard (used by Triage / Review / Dry executors).
@@ -145,6 +154,7 @@ module McptaskRunner
       cmd = [claude_path]
       cmd << '--continue' if continue_session
       cmd.concat(['-p', instructions, '--model', effective_model_name, '--output-format=stream-json', '--verbose'])
+      cmd.concat(['--max-turns', max_turns.to_s]) if max_turns
       cmd << '--permission-mode=bypassPermissions' if accept_edits?
       Logger.debug "command: #{cmd.map { |arg| Shellwords.escape(arg) }.join(' ')}"
       cmd
@@ -154,8 +164,14 @@ module McptaskRunner
       true # Override in subclass if needed
     end
 
+    # Per-invocation turn cap. Subclasses override; nil = no cap.
+    def max_turns
+      nil
+    end
+
     def effective_model_name
-      @model_override || model_name
+      raw = @model_override || model_name
+      MODEL_IDS.fetch(raw, raw)
     end
 
     def reset_streaming_state

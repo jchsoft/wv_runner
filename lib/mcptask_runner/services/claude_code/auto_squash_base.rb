@@ -10,6 +10,8 @@ module McptaskRunner
     class AutoSquashBase < ClaudeCodeBase
       include WorkflowSteps
 
+      def max_turns = 300
+
       private
 
       # Builds complete instructions for @next-based auto-squash runners (once/queue/today).

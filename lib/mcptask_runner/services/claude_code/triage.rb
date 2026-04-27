@@ -14,6 +14,7 @@ module McptaskRunner
       end
 
       def model_name = "haiku"
+      def max_turns = 30
 
       private
 

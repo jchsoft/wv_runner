@@ -7,6 +7,7 @@ module McptaskRunner
     # Dry run - only loads and displays task information, no modifications
     class Dry < ClaudeCodeBase
       def model_name = "haiku"
+      def max_turns = 30
 
       private
 

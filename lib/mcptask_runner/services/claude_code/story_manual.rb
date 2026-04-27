@@ -17,6 +17,7 @@ module McptaskRunner
       end
 
       def model_name = "opus"
+      def max_turns = 250
 
       private
 
