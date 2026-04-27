@@ -49,7 +49,7 @@ module McptaskRunner
     # Hash with :per_day_hours and :already_worked_hours (both Float).
     # nil = no guard (used by Triage / Review / Dry executors).
     def quota_watch=(val)
-      @hb_state[:quota_watch] = val
+      @runtime_state[:quota_watch] = val
     end
 
     def initialize(verbose: false, model_override: nil, resuming: false, **)
@@ -58,10 +58,11 @@ module McptaskRunner
       @resuming = resuming
       @stopping = false
       @retry_state = Concerns::RetryHandling::RetryState.initial
-      @api_overload_flag = false
-      @context_overflow_flag = false
       @result_received = false
-      @hb_state = { quota_watch: nil, quota_exceeded: false, inactivity_timeout: false }
+      @runtime_state = {
+        quota_watch: nil, quota_exceeded: false, inactivity_timeout: false,
+        api_overload: false, context_overflow: false
+      }
       @child_pid = nil
       @stream_line_count = 0
       @active_tool_calls = {}
@@ -115,12 +116,12 @@ module McptaskRunner
 
       result
     rescue Timeout::Error
-      raise ContextOverflowError if @context_overflow_flag
+      raise ContextOverflowError if @runtime_state[:context_overflow]
 
       handle_recoverable_error('Timeout', start_time)
     rescue StreamClosedError => e
-      raise ContextOverflowError if @context_overflow_flag
-      raise ApiOverloadError if @api_overload_flag
+      raise ContextOverflowError if @runtime_state[:context_overflow]
+      raise ApiOverloadError if @runtime_state[:api_overload]
 
       handle_recoverable_error("Stream closed: #{e.message}", start_time)
     rescue MissingMarkerError
@@ -159,17 +160,17 @@ module McptaskRunner
 
     def reset_streaming_state
       @result_received = false
-      @hb_state[:inactivity_timeout] = false
-      @hb_state[:quota_exceeded] = false
-      @api_overload_flag = false
-      @context_overflow_flag = false
+      @runtime_state[:inactivity_timeout] = false
+      @runtime_state[:quota_exceeded] = false
+      @runtime_state[:api_overload] = false
+      @runtime_state[:context_overflow] = false
       @stream_line_count = 0
       @active_tool_calls = {}
       @child_pid = nil
     end
 
     def quota_exceeded_now?(execution_start, now)
-      watch = @hb_state[:quota_watch] or return false
+      watch = @runtime_state[:quota_watch] or return false
 
       per_day = watch[:per_day_hours].to_f
       return false unless per_day.positive?
@@ -179,8 +180,8 @@ module McptaskRunner
 
     def raise_streaming_errors_if_any(stream_error)
       raise StreamClosedError, stream_error if stream_error && !@stopping
-      raise Timeout::Error, "Claude inactive for #{INACTIVITY_TIMEOUT}s" if @hb_state[:inactivity_timeout]
-      raise QuotaExceededMidTaskError, 'daily quota exceeded during run' if @hb_state[:quota_exceeded]
+      raise Timeout::Error, "Claude inactive for #{INACTIVITY_TIMEOUT}s" if @runtime_state[:inactivity_timeout]
+      raise QuotaExceededMidTaskError, 'daily quota exceeded during run' if @runtime_state[:quota_exceeded]
     end
 
     def log_exit_status(exit_status, stderr_content)
@@ -196,13 +197,13 @@ module McptaskRunner
     def heartbeat_quota_terminate(execution_start, now)
       return false unless quota_exceeded_now?(execution_start, now)
 
-      watch = @hb_state[:quota_watch]
+      watch = @runtime_state[:quota_watch]
       elapsed_h = ((now - execution_start) / 3600.0).round(2)
       Logger.error "[#{@log_tag}] Daily quota exceeded mid-task " \
                    "(per_day=#{watch[:per_day_hours]}h, already_worked=#{watch[:already_worked_hours]}h, " \
                    "this_run=#{elapsed_h}h), terminating..."
       @stopping = true
-      @hb_state[:quota_exceeded] = true
+      @runtime_state[:quota_exceeded] = true
       kill_process(@child_pid)
       release_test_lock
       true
@@ -286,7 +287,7 @@ module McptaskRunner
                          "(stream count stuck at #{current_count}), terminating..."
             write_debug_dump(stderr_content, @child_pid)
             @stopping = true
-            @hb_state[:inactivity_timeout] = true
+            @runtime_state[:inactivity_timeout] = true
             kill_process(@child_pid)
             release_test_lock
             break

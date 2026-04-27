@@ -371,41 +371,41 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_initialize_sets_api_overload_flag_to_false
     base = McptaskRunner::ClaudeCodeBase.new
-    refute base.instance_variable_get(:@api_overload_flag)
+    refute base.instance_variable_get(:@runtime_state)[:api_overload]
   end
 
   def test_check_for_api_overload_sets_flag_on_529
     base = McptaskRunner::ClaudeCodeBase.new
     base.send(:check_for_api_overload, '{"type":"system","subtype":"api_retry","error_status": 529}')
 
-    assert base.instance_variable_get(:@api_overload_flag), 'Should set flag on 529 error'
+    assert base.instance_variable_get(:@runtime_state)[:api_overload], 'Should set flag on 529 error'
   end
 
   def test_check_for_api_overload_sets_flag_on_repeated_529
     base = McptaskRunner::ClaudeCodeBase.new
     base.send(:check_for_api_overload, '[Claude] API Error: Repeated 529 Overloaded errors')
 
-    assert base.instance_variable_get(:@api_overload_flag), 'Should set flag on repeated 529'
+    assert base.instance_variable_get(:@runtime_state)[:api_overload], 'Should set flag on repeated 529'
   end
 
   def test_check_for_api_overload_does_not_set_flag_on_normal_output
     base = McptaskRunner::ClaudeCodeBase.new
     base.send(:check_for_api_overload, '{"type":"assistant","message":"Hello"}')
 
-    refute base.instance_variable_get(:@api_overload_flag), 'Should not set flag on normal output'
+    refute base.instance_variable_get(:@runtime_state)[:api_overload], 'Should not set flag on normal output'
   end
 
   def test_api_overload_detected_via_flag
     base = McptaskRunner::ClaudeCodeBase.new
     base.instance_variable_set(:@accumulated_output, '')
-    base.instance_variable_set(:@api_overload_flag, true)
+    base.instance_variable_get(:@runtime_state)[:api_overload] = true
 
     assert base.send(:api_overload_detected?), 'Should detect overload via flag even with empty accumulated_output'
   end
 
   def test_stream_closed_with_529_raises_api_overload
     base = McptaskRunner::ClaudeCodeBase.new
-    base.instance_variable_set(:@api_overload_flag, true)
+    base.instance_variable_get(:@runtime_state)[:api_overload] = true
 
     # attempt_execution rescues StreamClosedError, checks flag, re-raises as ApiOverloadError
     # which is then caught and handled by handle_api_overload
@@ -419,14 +419,14 @@ class ClaudeCodeBaseTest < Minitest::Test
   # Tests for context overflow detection — session exceeded 1M token limit, cannot --continue
   def test_initialize_sets_context_overflow_flag_to_false
     base = McptaskRunner::ClaudeCodeBase.new
-    refute base.instance_variable_get(:@context_overflow_flag)
+    refute base.instance_variable_get(:@runtime_state)[:context_overflow]
   end
 
   def test_check_for_context_overflow_sets_flag_on_prompt_too_long
     base = McptaskRunner::ClaudeCodeBase.new
     base.send(:check_for_context_overflow, '[Claude] Prompt is too long')
 
-    assert base.instance_variable_get(:@context_overflow_flag), 'Should set flag on "Prompt is too long"'
+    assert base.instance_variable_get(:@runtime_state)[:context_overflow], 'Should set flag on "Prompt is too long"'
     assert base.instance_variable_get(:@stopping), 'Should mark stopping to treat stream closure as expected'
   end
 
@@ -434,20 +434,20 @@ class ClaudeCodeBaseTest < Minitest::Test
     base = McptaskRunner::ClaudeCodeBase.new
     base.send(:check_for_context_overflow, '{"error":{"type":"context_length_exceeded"}}')
 
-    assert base.instance_variable_get(:@context_overflow_flag)
+    assert base.instance_variable_get(:@runtime_state)[:context_overflow]
   end
 
   def test_check_for_context_overflow_does_not_set_flag_on_normal_output
     base = McptaskRunner::ClaudeCodeBase.new
     base.send(:check_for_context_overflow, '{"type":"assistant","message":"Hello"}')
 
-    refute base.instance_variable_get(:@context_overflow_flag)
+    refute base.instance_variable_get(:@runtime_state)[:context_overflow]
   end
 
   def test_context_overflow_detected_via_flag
     base = McptaskRunner::ClaudeCodeBase.new
     base.instance_variable_set(:@accumulated_output, '')
-    base.instance_variable_set(:@context_overflow_flag, true)
+    base.instance_variable_get(:@runtime_state)[:context_overflow] = true
 
     assert base.send(:context_overflow_detected?), 'Should detect via flag even with empty accumulated_output'
   end
@@ -603,7 +603,7 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_initialize_sets_inactivity_timeout_to_false
     base = McptaskRunner::ClaudeCodeBase.new
-    refute base.instance_variable_get(:@hb_state)[:inactivity_timeout]
+    refute base.instance_variable_get(:@runtime_state)[:inactivity_timeout]
   end
 
   # Tests for release_test_lock method
@@ -973,18 +973,18 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_initialize_sets_quota_watch_to_nil
     base = McptaskRunner::ClaudeCodeBase.new
-    assert_nil base.instance_variable_get(:@hb_state)[:quota_watch]
+    assert_nil base.instance_variable_get(:@runtime_state)[:quota_watch]
   end
 
   def test_initialize_sets_quota_exceeded_to_false
     base = McptaskRunner::ClaudeCodeBase.new
-    refute base.instance_variable_get(:@hb_state)[:quota_exceeded]
+    refute base.instance_variable_get(:@runtime_state)[:quota_exceeded]
   end
 
   def test_quota_watch_writer_accepts_hash
     base = McptaskRunner::ClaudeCodeBase.new
     base.quota_watch = { per_day_hours: 8.0, already_worked_hours: 7.0 }
-    assert_equal 8.0, base.instance_variable_get(:@hb_state)[:quota_watch][:per_day_hours]
+    assert_equal 8.0, base.instance_variable_get(:@runtime_state)[:quota_watch][:per_day_hours]
   end
 
   def test_quota_exceeded_now_returns_false_when_quota_watch_nil
@@ -1026,9 +1026,9 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_reset_streaming_state_clears_quota_exceeded_flag
     base = McptaskRunner::ClaudeCodeBase.new
-    base.instance_variable_get(:@hb_state)[:quota_exceeded] = true
+    base.instance_variable_get(:@runtime_state)[:quota_exceeded] = true
     base.send(:reset_streaming_state)
-    refute base.instance_variable_get(:@hb_state)[:quota_exceeded]
+    refute base.instance_variable_get(:@runtime_state)[:quota_exceeded]
   end
 
   def test_kill_process_handles_eperm_on_group_kill

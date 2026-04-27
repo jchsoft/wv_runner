@@ -73,20 +73,20 @@ module McptaskRunner
       end
 
       def check_for_api_overload(line)
-        return if @api_overload_flag
+        return if @runtime_state[:api_overload]
 
-        @api_overload_flag = true if line.include?('"error_status": 529') ||
-                                     line.include?('"error_status":529') ||
-                                     line.include?('Repeated 529 Overloaded')
+        @runtime_state[:api_overload] = true if line.include?('"error_status": 529') ||
+                                                line.include?('"error_status":529') ||
+                                                line.include?('Repeated 529 Overloaded')
       end
 
       def check_for_context_overflow(line)
-        return if @context_overflow_flag
+        return if @runtime_state[:context_overflow]
         return unless line.include?('Prompt is too long') ||
                       line.include?('prompt is too long') ||
                       line.include?('context_length_exceeded')
 
-        @context_overflow_flag = true
+        @runtime_state[:context_overflow] = true
         @stopping = true
         Logger.error "[#{@log_tag}] Context overflow detected ('Prompt is too long') — session is dead, marking terminal"
       end

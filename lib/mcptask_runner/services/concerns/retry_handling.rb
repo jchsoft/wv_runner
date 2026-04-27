@@ -69,14 +69,14 @@ module McptaskRunner
       end
 
       def api_overload_detected?
-        @api_overload_flag ||
+        @runtime_state[:api_overload] ||
           @accumulated_output.include?('"error_status": 529') ||
           @accumulated_output.include?('Repeated 529 Overloaded') ||
           @accumulated_output.include?('"error_status":529')
       end
 
       def context_overflow_detected?
-        @context_overflow_flag ||
+        @runtime_state[:context_overflow] ||
           @accumulated_output.include?('Prompt is too long') ||
           @accumulated_output.include?('prompt is too long') ||
           @accumulated_output.include?('context_length_exceeded')

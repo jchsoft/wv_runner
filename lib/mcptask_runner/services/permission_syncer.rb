@@ -35,14 +35,14 @@ module McptaskRunner
     def sync
       raise "Baseline file not found: #{baseline_path}" unless File.exist?(baseline_path)
 
-      baseline = JSON.parse(File.read(baseline_path))
-      target = load_or_init_target
+      @baseline = JSON.parse(File.read(baseline_path))
+      @target = load_or_init_target
 
-      merge_permissions(target, baseline)
-      merge_mcp_servers(target, baseline)
-      merge_enable_all(target, baseline)
+      merge_permissions
+      merge_mcp_servers
+      merge_enable_all
 
-      write_target(target)
+      write_target
       self
     end
 
@@ -80,36 +80,34 @@ module McptaskRunner
       { 'permissions' => { 'allow' => [], 'deny' => [] }, 'enabledMcpjsonServers' => [] }
     end
 
-    def merge_permissions(target, baseline)
-      target['permissions'] ||= { 'allow' => [], 'deny' => [] }
+    def merge_permissions
+      @target['permissions'] ||= { 'allow' => [], 'deny' => [] }
       %w[allow deny].each do |key|
-        target['permissions'][key] ||= []
-        baseline_entries = baseline.dig('permissions', key) || []
-        new_entries = baseline_entries - target['permissions'][key]
-        target['permissions'][key].concat(new_entries)
+        @target['permissions'][key] ||= []
+        new_entries = (@baseline.dig('permissions', key) || []) - @target['permissions'][key]
+        @target['permissions'][key].concat(new_entries)
         @added_permissions.concat(new_entries) if key == 'allow'
       end
     end
 
-    def merge_mcp_servers(target, baseline)
-      target['enabledMcpjsonServers'] ||= []
-      baseline_servers = baseline['enabledMcpjsonServers'] || []
-      new_servers = baseline_servers - target['enabledMcpjsonServers']
-      target['enabledMcpjsonServers'].concat(new_servers)
+    def merge_mcp_servers
+      @target['enabledMcpjsonServers'] ||= []
+      new_servers = (@baseline['enabledMcpjsonServers'] || []) - @target['enabledMcpjsonServers']
+      @target['enabledMcpjsonServers'].concat(new_servers)
       @added_servers = new_servers
     end
 
-    def merge_enable_all(target, baseline)
-      return unless baseline['enableAllProjectMcpServers'] == true
-      return if target['enableAllProjectMcpServers'] == true
+    def merge_enable_all
+      return unless @baseline['enableAllProjectMcpServers'] == true
+      return if @target['enableAllProjectMcpServers'] == true
 
-      target['enableAllProjectMcpServers'] = true
+      @target['enableAllProjectMcpServers'] = true
       @flipped_enable_all = true
     end
 
-    def write_target(target)
+    def write_target
       FileUtils.mkdir_p(File.dirname(target_path))
-      File.write(target_path, "#{JSON.pretty_generate(target)}\n")
+      File.write(target_path, "#{JSON.pretty_generate(@target)}\n")
     end
   end
 end
