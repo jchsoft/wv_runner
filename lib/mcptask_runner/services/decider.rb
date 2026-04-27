@@ -17,13 +17,18 @@ module McptaskRunner
     def should_stop?
       Logger.debug('[Decider] [should_stop?] Checking stop conditions...')
       has_failures = tasks_failed?
+      mid_task_quota = quota_exceeded_mid_task?
+      return true if has_failures || mid_task_quota
+
       quota_exceeded = daily_quota_exceeded?
+      Logger.debug("[Decider] [should_stop?] Tasks failed: #{has_failures}, mid-task quota: #{mid_task_quota}, quota exceeded: #{quota_exceeded}")
+      quota_exceeded
+    end
 
-      Logger.debug("[Decider] [should_stop?] Tasks failed: #{has_failures}, quota exceeded: #{quota_exceeded}")
-
-      should_stop_result = has_failures || quota_exceeded
-      Logger.debug("[Decider] [should_stop?] Final decision: #{should_stop_result}")
-      should_stop_result
+    def quota_exceeded_mid_task?
+      hit = @task_results.any? { |r| r['status'] == 'quota_exceeded_mid_task' }
+      Logger.debug("[Decider] [quota_exceeded_mid_task?] hit: #{hit}")
+      hit
     end
 
     def remaining_hours

@@ -26,6 +26,10 @@ module McptaskRunner
   # Terminal: session is unrecoverable, --continue on same session would re-trigger the error.
   class ContextOverflowError < StandardError; end
 
+  # Raised when daily quota crosses per_day while a Claude run is in progress.
+  # Terminal: heartbeat already SIGTERMed the subprocess; caller must NOT retry.
+  class QuotaExceededMidTaskError < StandardError; end
+
   # Base class for Claude Code executors
   # Handles common execution, streaming, and JSON parsing logic
   # Subclasses must implement:
@@ -41,6 +45,13 @@ module McptaskRunner
     INACTIVITY_TIMEOUT = 1200 # 20 minutes - kill only if stream_line_count stops changing
     HEARTBEAT_INTERVAL = 120 # 2 minutes between heartbeat messages
 
+    # Set by WorkLoop before #run when mid-task quota guarding is desired.
+    # Hash with :per_day_hours and :already_worked_hours (both Float).
+    # nil = no guard (used by Triage / Review / Dry executors).
+    def quota_watch=(val)
+      @hb_state[:quota_watch] = val
+    end
+
     def initialize(verbose: false, model_override: nil, resuming: false, **)
       @verbose = verbose
       @model_override = model_override
@@ -50,7 +61,7 @@ module McptaskRunner
       @api_overload_flag = false
       @context_overflow_flag = false
       @result_received = false
-      @inactivity_timeout = false
+      @hb_state = { quota_watch: nil, quota_exceeded: false, inactivity_timeout: false }
       @child_pid = nil
       @stream_line_count = 0
       @active_tool_calls = {}
@@ -148,12 +159,53 @@ module McptaskRunner
 
     def reset_streaming_state
       @result_received = false
-      @inactivity_timeout = false
+      @hb_state[:inactivity_timeout] = false
+      @hb_state[:quota_exceeded] = false
       @api_overload_flag = false
       @context_overflow_flag = false
       @stream_line_count = 0
       @active_tool_calls = {}
       @child_pid = nil
+    end
+
+    def quota_exceeded_now?(execution_start, now)
+      watch = @hb_state[:quota_watch] or return false
+
+      per_day = watch[:per_day_hours].to_f
+      return false unless per_day.positive?
+
+      watch[:already_worked_hours].to_f + ((now - execution_start) / 3600.0) >= per_day
+    end
+
+    def raise_streaming_errors_if_any(stream_error)
+      raise StreamClosedError, stream_error if stream_error && !@stopping
+      raise Timeout::Error, "Claude inactive for #{INACTIVITY_TIMEOUT}s" if @hb_state[:inactivity_timeout]
+      raise QuotaExceededMidTaskError, 'daily quota exceeded during run' if @hb_state[:quota_exceeded]
+    end
+
+    def log_exit_status(exit_status, stderr_content)
+      return unless exit_status
+
+      Logger.debug "[#{@log_tag}] Process exit status: #{exit_status.exitstatus}"
+      return unless exit_status.exitstatus != 0 && !@result_received
+
+      Logger.debug "[#{@log_tag}] WARNING: Claude exited with non-zero status!"
+      Logger.debug "[#{@log_tag}] stderr: #{stderr_content}" unless stderr_content.empty?
+    end
+
+    def heartbeat_quota_terminate(execution_start, now)
+      return false unless quota_exceeded_now?(execution_start, now)
+
+      watch = @hb_state[:quota_watch]
+      elapsed_h = ((now - execution_start) / 3600.0).round(2)
+      Logger.error "[#{@log_tag}] Daily quota exceeded mid-task " \
+                   "(per_day=#{watch[:per_day_hours]}h, already_worked=#{watch[:already_worked_hours]}h, " \
+                   "this_run=#{elapsed_h}h), terminating..."
+      @stopping = true
+      @hb_state[:quota_exceeded] = true
+      kill_process(@child_pid)
+      release_test_lock
+      true
     end
 
     def execute_with_streaming(command)
@@ -226,14 +278,16 @@ module McptaskRunner
             Logger.info_stdout "[#{@log_tag}] [heartbeat] Claude is working... " \
                                "(#{current_count} stream events, inactive: #{inactive_seconds}s#{tool_info})"
 
+            break if heartbeat_quota_terminate(execution_start, now)
+
             next unless inactive_seconds >= INACTIVITY_TIMEOUT
 
             Logger.error "[#{@log_tag}] Claude inactive for #{inactive_seconds}s " \
                          "(stream count stuck at #{current_count}), terminating..."
-            write_debug_dump(stderr_content, wait_thr.pid)
+            write_debug_dump(stderr_content, @child_pid)
             @stopping = true
-            @inactivity_timeout = true
-            kill_process(wait_thr.pid)
+            @hb_state[:inactivity_timeout] = true
+            kill_process(@child_pid)
             release_test_lock
             break
           end
@@ -243,29 +297,15 @@ module McptaskRunner
 
         begin
           # Kill process first if result received, so streams close and threads unblock
-          kill_process(wait_thr.pid) if @result_received
+          kill_process(@child_pid) if @result_received
 
           stdout_thread.join
           stderr_thread.join(30)
-
-          # Check if stream was unexpectedly closed
-          raise StreamClosedError, stream_error if stream_error && !@stopping
-
-          # Check if heartbeat detected inactivity
-          raise Timeout::Error, "Claude inactive for #{INACTIVITY_TIMEOUT}s" if @inactivity_timeout
-
-          exit_status = wait_for_process(wait_thr)
-          if exit_status
-            Logger.debug "[#{@log_tag}] Process exit status: #{exit_status.exitstatus}"
-
-            if exit_status.exitstatus != 0 && !@result_received
-              Logger.debug "[#{@log_tag}] WARNING: Claude exited with non-zero status!"
-              Logger.debug "[#{@log_tag}] stderr: #{stderr_content}" unless stderr_content.empty?
-            end
-          end
+          raise_streaming_errors_if_any(stream_error)
+          log_exit_status(wait_for_process(wait_thr), stderr_content)
         ensure
           heartbeat_thread&.kill
-          kill_process(wait_thr.pid) unless @result_received
+          kill_process(@child_pid) unless @result_received
         end
       end
 

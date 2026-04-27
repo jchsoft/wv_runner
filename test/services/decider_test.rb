@@ -199,4 +199,25 @@ class DeciderTest < Minitest::Test
 
     assert_equal 6.75, decider.send(:total_hours_estimated)
   end
+
+  def test_should_stop_on_quota_exceeded_mid_task_status
+    results = [
+      { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 1.0, 'task_worked' => 1.0, 'already_worked' => 0 } },
+      { 'status' => 'quota_exceeded_mid_task', 'task_id' => 999 }
+    ]
+    decider = McptaskRunner::Decider.new(task_results: results)
+
+    assert decider.should_stop?
+    assert decider.quota_exceeded_mid_task?
+    refute decider.should_continue?
+  end
+
+  def test_quota_exceeded_mid_task_false_when_no_such_status
+    results = [
+      { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 1.0, 'task_worked' => 1.0, 'already_worked' => 0 } }
+    ]
+    decider = McptaskRunner::Decider.new(task_results: results)
+
+    refute decider.quota_exceeded_mid_task?
+  end
 end

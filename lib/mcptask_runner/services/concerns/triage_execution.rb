@@ -44,20 +44,46 @@ module McptaskRunner
         if triage_result['piece_type'] == 'Story' && !kwargs[:story_id]
           story_id = triage_result['story_id']
           Logger.info_stdout("[WorkLoop] Story ##{story_id} detected from @next, switching to story loop")
-          return run_story_loop(story_id, executor_class, model_override: model_override, first_task_id: triaged_task_id)
+          return run_story_loop(story_id, executor_class, model_override: model_override,
+                                first_task_id: triaged_task_id, triage_result: triage_result)
         end
 
-        execute_with_triage(executor_class, triaged_task_id, model_override, resuming, **kwargs)
+        execute_with_triage(executor_class, triaged_task_id, model_override, resuming,
+                            triage_result: triage_result, **kwargs)
       end
 
       def execute_with_triage(executor_class, task_id, model_override, resuming, **kwargs)
-        executor_kwargs = kwargs.merge(verbose: @verbose, model_override: model_override, resuming: resuming)
-        executor_kwargs[:task_id] = task_id
+        triage_result = kwargs.delete(:triage_result)
+        executor_kwargs = kwargs.merge(verbose: @verbose, model_override: model_override, resuming: resuming, task_id: task_id)
 
-        result = executor_class.new(**executor_kwargs).run
+        result = run_with_quota_guard(executor_class.new(**executor_kwargs), triage_result, task_id)
         Logger.info_stdout("[WorkLoop] Task completed with status: #{result['status']}")
         Logger.debug("[WorkLoop] Full result: #{result.inspect}")
         result
+      end
+
+      def run_with_quota_guard(executor, triage_result, task_id)
+        apply_quota_watch(executor, triage_result) unless @ignore_quota
+        executor.run
+      rescue McptaskRunner::QuotaExceededMidTaskError => e
+        Logger.warn("[WorkLoop] #{e.message} — ending loop with quota_exceeded_mid_task")
+        { 'status' => 'quota_exceeded_mid_task', 'task_id' => task_id }
+      end
+
+      def apply_quota_watch(executor, triage_result)
+        executor.quota_watch = build_quota_watch(triage_result)
+      rescue NoMethodError
+        # Executor doesn't support quota_watch (test mocks, future executors) — skip silently.
+      end
+
+      def build_quota_watch(triage_result)
+        hours = triage_result&.dig('hours')
+        return nil unless hours
+
+        per_day = hours['per_day'].to_f
+        return nil unless per_day.positive?
+
+        { per_day_hours: per_day, already_worked_hours: hours['already_worked'].to_f }
       end
 
       def resolve_triaged_task_id(triage_result, explicit_task_id)
