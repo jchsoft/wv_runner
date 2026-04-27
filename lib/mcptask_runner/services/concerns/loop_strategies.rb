@@ -221,7 +221,7 @@ module McptaskRunner
             next
           end
 
-          break if %w[no_more_tasks failure task_already_started ci_failed quota_exceeded quota_exceeded_mid_task].include?(status)
+          break if %w[no_more_tasks failure task_already_started ci_failed merge_failed merge_unverified quota_exceeded quota_exceeded_mid_task].include?(status)
           break if quota_exceeded?(results)
 
           sleep(2)
@@ -258,7 +258,7 @@ module McptaskRunner
             next
           end
 
-          break if %w[no_more_tasks failure task_already_started ci_failed quota_exceeded quota_exceeded_mid_task].include?(status)
+          break if %w[no_more_tasks failure task_already_started ci_failed merge_failed merge_unverified quota_exceeded quota_exceeded_mid_task].include?(status)
           break if quota_exceeded?(results)
 
           sleep(2)

@@ -37,15 +37,17 @@ module McptaskRunner
           AUTO-SQUASH: PR auto-merged after CI. CI fails 2× → PR stays open.
 
           #{result_format_instruction(
-            %("status": "success", "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}, "story_id": #{@story_id}, "task_id": Z)
+            %("status": "success", "pr_number": N, "branch_name": "...", "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}, "story_id": #{@story_id}, "task_id": Z),
+            extra_rules: ['pr_number + branch_name REQUIRED whenever PR was created (success / ci_failed / merge_failed / preexisting_test_errors)']
           )}
 
-          #{hours_data_instruction}
+          #{auto_squash_hours_data_instruction}
           3. task_id: relative_id of the task you worked on
           4. Set status:
-             - "success" if task completed and PR merged successfully
+             - "success" if task completed AND `gh pr view <pr_number> --json merged --jq .merged` returns `true`
              - "no_more_tasks" if no incomplete tasks in the Story
              - "ci_failed" if CI failed after retry (PR stays open)
+             - "merge_failed" if `gh pr merge` itself errored (branch protection, conflicts, etc.)
              - "preexisting_test_errors" if tests were already failing before your changes (urgent bug task created)
              - "failure" for other errors
         INSTRUCTIONS

@@ -40,6 +40,7 @@ module McptaskRunner
             obj['hours'] ||= {}
             obj['hours']['task_worked'] = elapsed_hours
           end
+          result = post_parse_result(result) if respond_to?(:post_parse_result, true)
           Logger.debug "[#{@log_tag}] [parse_result] Successfully parsed result: #{result.inspect}"
           log_task_info(result)
           result

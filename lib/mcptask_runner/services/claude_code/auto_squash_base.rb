@@ -36,10 +36,11 @@ module McptaskRunner
           #{workflow_notice}
 
           #{result_format_instruction(
-            '"status": "success", "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}'
+            '"status": "success", "pr_number": N, "branch_name": "...", "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}',
+            extra_rules: ['pr_number + branch_name REQUIRED whenever PR was created (success / ci_failed / merge_failed / preexisting_test_errors)']
           )}
 
-          #{hours_data_instruction}
+          #{auto_squash_hours_data_instruction}
           3. Set status:
              #{next_task_auto_squash_status_options}
         INSTRUCTIONS
@@ -47,12 +48,78 @@ module McptaskRunner
 
       def next_task_auto_squash_status_options
         <<~STATUS.strip
-          - "success" if task completed and PR merged successfully
+          - "success" if task completed AND `gh pr view <pr_number> --json merged --jq .merged` returns `true`
           - "no_more_tasks" if no tasks available (mcptask returns "No available tasks found")
           - "ci_failed" if CI failed after retry (PR stays open)
+          - "merge_failed" if `gh pr merge` itself errored (branch protection, conflicts, etc.)
           - "preexisting_test_errors" if tests were already failing before your changes (urgent bug task created)
           - "failure" for other errors
         STATUS
+      end
+
+      # Autosquash variant of hours_data_instruction. Same milestones but 100% is gated
+      # on an actual `gh pr view` merge check — prevents marking task done when PR was
+      # never merged (preexisting tests, ci_failed, merge_failed).
+      def auto_squash_hours_data_instruction
+        <<~INSTRUCTION.strip
+          Hours data:
+          1. mcptask://user (LITERAL URI — no account suffix) → "hour_goal"=per_day, "worked_out"=already_worked
+             Read BEFORE logging work progress
+          2. Task "duration_best" → task_estimated (e.g. "1 hodina" → 1.0)
+
+          PROGRESS LOGGING (MANDATORY — min 3× LogWorkProgressTool calls during run):
+          - Single 100% call at end = UNACCEPTABLE. Caller sees no interim state.
+          - Milestones (minimum cadence, bump progress_percent each time):
+            a) After branch created + task understood → ~20%
+            b) After implementation + unit tests pass → ~60%
+            c) ONLY after `gh pr view <pr_number> --json merged --jq .merged` returns `true` → 100%
+               UNMERGED outcomes (ci_failed / merge_failed / preexisting_test_errors / failure):
+               cap at 80%. Description states non-merge reason. NEVER 100% for unmerged work.
+          - Each call: duration_minutes = minutes since previous call (not cumulative);
+            description = what was done since last log.
+          - More calls OK for long tasks; 3× is floor, not target.
+        INSTRUCTION
+      end
+
+      # Runner-side merge verification. Called from ResultParsing#parse_result via the
+      # `respond_to?(:post_parse_result, true)` hook. If Claude reported `success` but
+      # `gh pr view --json merged` says otherwise, reclassify to `merge_unverified` so
+      # the loop breaks and decider does not count the task as completed.
+      def post_parse_result(result)
+        return result unless result['status'] == 'success'
+
+        pr_number = result['pr_number'] || lookup_pr_number_from_branch(result['branch_name'])
+        unless pr_number
+          Logger.info_stdout("[#{@log_tag}] [merge_verify] WARN: status=success but pr_number missing and lookup failed → merge_unverified")
+          result['status'] = 'merge_unverified'
+          result['merge_verification_error'] = 'pr_number missing and gh pr list fallback found no PR'
+          return result
+        end
+
+        merged_str, status = Open3.capture2('gh', 'pr', 'view', pr_number.to_s, '--json', 'merged', '--jq', '.merged')
+        merged = status.success? && merged_str.strip == 'true'
+
+        if merged
+          Logger.debug "[#{@log_tag}] [merge_verify] PR ##{pr_number} confirmed merged"
+          return result
+        end
+
+        reason = status.success? ? "gh pr view returned merged=#{merged_str.strip.inspect}" : "gh pr view exited non-zero (#{status.exitstatus})"
+        Logger.info_stdout("[#{@log_tag}] [merge_verify] WARN: status=success but PR ##{pr_number} not merged (#{reason}) → merge_unverified")
+        result['status'] = 'merge_unverified'
+        result['merge_verification_error'] = reason
+        result
+      end
+
+      def lookup_pr_number_from_branch(branch_name)
+        branch = branch_name || `git branch --show-current`.strip
+        return nil if branch.empty? || branch == 'main' || branch == 'master'
+
+        out, status = Open3.capture2('gh', 'pr', 'list', '--head', branch, '--state', 'all', '--json', 'number', '--jq', '.[0].number')
+        return nil unless status.success?
+
+        n = out.strip
+        n.empty? ? nil : n.to_i
       end
 
       # Returns shared implementation steps from CREATE BRANCH through CODE REVIEW.

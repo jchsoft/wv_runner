@@ -41,6 +41,9 @@ detectors:
   DataClump:
     exclude:
       - McptaskRunner::ClaudeCodeBase
+  ManualDispatch:
+    exclude:
+      - McptaskRunner::Concerns::ResultParsing#parse_result
   NestedIterators:
     max_allowed_nesting: 2
   UnusedParameters:
