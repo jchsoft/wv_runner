@@ -162,8 +162,8 @@ class ClaudeCodeBaseTest < Minitest::Test
     assert_includes cmd, '-p'
     assert_includes cmd, 'test instructions'
     assert_includes cmd, '--model'
-    assert_includes cmd, 'claude-opus-4-7', 'opus alias must map to pinned 200K model ID'
-    refute_includes cmd, 'claude-opus-4-7[1m]', 'must not request 1M context variant'
+    assert_includes cmd, 'claude-opus-4-6', 'opus alias must map to pinned 200K model ID'
+    refute_includes cmd, 'claude-opus-4-6[1m]', 'must not request 1M context variant'
   end
 
   def test_build_command_with_continue_session
