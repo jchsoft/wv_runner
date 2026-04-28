@@ -50,6 +50,45 @@ class WorkLoopQuotaPrecheckTest < Minitest::Test
     end
   end
 
+  def triage_status_quota_exceeded_mock
+    mock = Object.new
+    mock.define_singleton_method(:run) do
+      { 'status' => 'quota_exceeded', 'recommended_model' => 'opus', 'task_id' => 0,
+        'resuming' => false, 'hours' => { 'per_day' => 8, 'already_worked' => 9, 'task_estimated' => 0 } }
+    end
+    mock
+  end
+
+  def test_triage_status_quota_exceeded_short_circuits_without_ignore_quota
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_status_quota_exceeded_mock) do
+      result = McptaskRunner::WorkLoop.new.execute(:once)
+      assert_equal 'quota_exceeded', result['status']
+    end
+  end
+
+  def test_triage_status_quota_exceeded_bypassed_when_ignore_quota
+    executor_mock = Object.new
+    executor_called = false
+    executor_mock.define_singleton_method(:run) do
+      executor_called = true
+      { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2 } }
+    end
+
+    triage = Object.new
+    triage.define_singleton_method(:run) do
+      { 'status' => 'quota_exceeded', 'recommended_model' => 'opus', 'task_id' => 555,
+        'resuming' => false, 'hours' => { 'per_day' => 8, 'already_worked' => 9, 'task_estimated' => 0 } }
+    end
+
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage) do
+      McptaskRunner::ClaudeCode::Honest.stub(:new, executor_mock) do
+        result = McptaskRunner::WorkLoop.new(ignore_quota: true).execute(:once)
+        assert_equal 'success', result['status']
+        assert executor_called, 'Executor must run when ignore_quota=true even if triage flagged quota_exceeded'
+      end
+    end
+  end
+
   def test_triage_and_execute_proceeds_when_quota_not_exceeded
     executor_mock = Object.new
     def executor_mock.run

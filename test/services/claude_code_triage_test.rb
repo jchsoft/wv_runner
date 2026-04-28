@@ -242,4 +242,34 @@ class ClaudeCodeTriageTest < Minitest::Test
       end
     end
   end
+
+  def test_quota_check_step_is_active_by_default
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=7' do
+        instructions = McptaskRunner::ClaudeCode::Triage.new.send(:build_instructions)
+
+        assert_includes instructions, 'STEP 0 - DAILY QUOTA (FIRST)'
+        assert_includes instructions, 'worked_out >= hour_goal → STOP'
+      end
+    end
+  end
+
+  def test_quota_check_step_skipped_when_ignore_quota_true
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=7' do
+        instructions = McptaskRunner::ClaudeCode::Triage.new(ignore_quota: true).send(:build_instructions)
+
+        assert_includes instructions, 'STEP 0 - DAILY QUOTA (SKIPPED — ignore_quota=true)'
+        assert_includes instructions, 'Always proceed to STEP 1'
+        refute_includes instructions, 'worked_out >= hour_goal → STOP'
+      end
+    end
+  end
+
+  def test_story_triage_quota_check_skipped_when_ignore_quota_true
+    instructions = McptaskRunner::ClaudeCode::Triage.new(story_id: 99, ignore_quota: true).send(:build_instructions)
+
+    assert_includes instructions, 'STEP 0 - DAILY QUOTA (SKIPPED — ignore_quota=true)'
+    refute_includes instructions, 'worked_out >= hour_goal → STOP'
+  end
 end

@@ -19,11 +19,11 @@ module McptaskRunner
         story_id_for_triage = kwargs[:story_id]
 
         Logger.info_stdout('[WorkLoop] Running triage to select optimal model...')
-        triage_result = ClaudeCode::Triage.new(verbose: @verbose, task_id: task_id_for_triage, story_id: story_id_for_triage).run
+        triage_result = ClaudeCode::Triage.new(verbose: @verbose, task_id: task_id_for_triage, story_id: story_id_for_triage, ignore_quota: @ignore_quota).run
 
         return triage_result if triage_result['status'] == 'no_more_tasks'
 
-        if triage_result['status'] == 'quota_exceeded'
+        if !@ignore_quota && triage_result['status'] == 'quota_exceeded'
           Logger.info_stdout('[WorkLoop] Triage reported quota exceeded')
           return { 'status' => 'quota_exceeded' }
         end

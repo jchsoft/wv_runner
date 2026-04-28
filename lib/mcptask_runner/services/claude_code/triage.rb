@@ -7,10 +7,11 @@ module McptaskRunner
     # Triage step - cheap Haiku call that analyzes task complexity
     # and recommends the optimal model for execution
     class Triage < ClaudeCodeBase
-      def initialize(verbose: false, task_id: nil, story_id: nil)
+      def initialize(verbose: false, task_id: nil, story_id: nil, ignore_quota: false)
         super(verbose: verbose)
         @task_id = task_id
         @story_id = story_id
+        @ignore_quota = ignore_quota
       end
 
       def model_name = "haiku"
@@ -117,15 +118,23 @@ module McptaskRunner
       end
 
       def daily_quota_check_step
-        <<~STEP.strip
-          STEP 0 - DAILY QUOTA (FIRST):
-          1. Read mcptask://user (LITERAL URI — no account suffix, no path after /user). Extract "hour_goal" + "worked_out".
-             MANDATORY: per_day MUST be a number from hour_goal. Never null. If endpoint fails, retry — do NOT proceed.
-          2. worked_out >= hour_goal → STOP. TASKRUNNER_RESULT:
-             status="quota_exceeded", recommended_model="opus", task_id=0, resuming=false
-             hours: {per_day: <hour_goal>, task_estimated: 0, already_worked: <worked_out>}
-          3. worked_out < hour_goal → STEP 1
-        STEP
+        if @ignore_quota
+          <<~STEP.strip
+            STEP 0 - DAILY QUOTA (SKIPPED — ignore_quota=true):
+            1. Read mcptask://user. Extract "hour_goal" + "worked_out" for hours block. Never STOP on quota.
+            2. Always proceed to STEP 1 regardless of worked_out vs hour_goal.
+          STEP
+        else
+          <<~STEP.strip
+            STEP 0 - DAILY QUOTA (FIRST):
+            1. Read mcptask://user (LITERAL URI — no account suffix, no path after /user). Extract "hour_goal" + "worked_out".
+               MANDATORY: per_day MUST be a number from hour_goal. Never null. If endpoint fails, retry — do NOT proceed.
+            2. worked_out >= hour_goal → STOP. TASKRUNNER_RESULT:
+               status="quota_exceeded", recommended_model="opus", task_id=0, resuming=false
+               hours: {per_day: <hour_goal>, task_estimated: 0, already_worked: <worked_out>}
+            3. worked_out < hour_goal → STEP 1
+          STEP
+        end
       end
 
       def model_selection_rules
