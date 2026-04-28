@@ -44,7 +44,7 @@ module McptaskRunner
           #{auto_squash_hours_data_instruction}
           3. task_id: relative_id of the task you worked on
           4. Set status:
-             - "success" if task completed AND `gh pr view <pr_number> --json merged --jq .merged` returns `true`
+             - "success" if task completed AND `gh pr view <pr_number> --json state --jq .state` returns `MERGED`
              - "no_more_tasks" if no incomplete tasks in the Story
              - "ci_failed" if CI failed after retry (PR stays open)
              - "merge_failed" if `gh pr merge` itself errored (branch protection, conflicts, etc.)

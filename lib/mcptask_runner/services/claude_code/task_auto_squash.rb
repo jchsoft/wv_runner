@@ -40,7 +40,7 @@ module McptaskRunner
 
           #{auto_squash_hours_data_instruction}
           3. Set status:
-             - "success" if task completed AND `gh pr view <pr_number> --json merged --jq .merged` returns `true`
+             - "success" if task completed AND `gh pr view <pr_number> --json state --jq .state` returns `MERGED`
              - "ci_failed" if CI failed after retry (PR stays open)
              - "merge_failed" if `gh pr merge` itself errored (branch protection, conflicts, etc.)
              - "preexisting_test_errors" if tests were already failing before your changes (urgent bug task created)

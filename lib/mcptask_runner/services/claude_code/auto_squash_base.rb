@@ -50,7 +50,7 @@ module McptaskRunner
 
       def next_task_auto_squash_status_options
         <<~STATUS.strip
-          - "success" if task completed AND `gh pr view <pr_number> --json merged --jq .merged` returns `true`
+          - "success" if task completed AND `gh pr view <pr_number> --json state --jq .state` returns `MERGED`
           - "no_more_tasks" if no tasks available (mcptask returns "No available tasks found")
           - "ci_failed" if CI failed after retry (PR stays open)
           - "merge_failed" if `gh pr merge` itself errored (branch protection, conflicts, etc.)
@@ -74,7 +74,7 @@ module McptaskRunner
           - Milestones (minimum cadence, bump progress_percent each time):
             a) After branch created + task understood → ~20%
             b) After implementation + unit tests pass → ~60%
-            c) ONLY after `gh pr view <pr_number> --json merged --jq .merged` returns `true` → 100%
+            c) ONLY after `gh pr view <pr_number> --json state --jq .state` returns `MERGED` → 100%
                UNMERGED outcomes (ci_failed / merge_failed / preexisting_test_errors / failure):
                cap at 80%. Description states non-merge reason. NEVER 100% for unmerged work.
           - Each call: duration_minutes = minutes since previous call (not cumulative);
@@ -85,7 +85,7 @@ module McptaskRunner
 
       # Runner-side merge verification. Called from ResultParsing#parse_result via the
       # `respond_to?(:post_parse_result, true)` hook. If Claude reported `success` but
-      # `gh pr view --json merged` says otherwise, reclassify to `merge_unverified` so
+      # `gh pr view --json state` says otherwise, reclassify to `merge_unverified` so
       # the loop breaks and decider does not count the task as completed.
       def post_parse_result(result)
         return result unless result['status'] == 'success'
@@ -98,15 +98,15 @@ module McptaskRunner
           return result
         end
 
-        merged_str, status = Open3.capture2('gh', 'pr', 'view', pr_number.to_s, '--json', 'merged', '--jq', '.merged')
-        merged = status.success? && merged_str.strip == 'true'
+        state_str, status = Open3.capture2('gh', 'pr', 'view', pr_number.to_s, '--json', 'state', '--jq', '.state')
+        merged = status.success? && state_str.strip == 'MERGED'
 
         if merged
           Logger.debug "[#{@log_tag}] [merge_verify] PR ##{pr_number} confirmed merged"
           return result
         end
 
-        reason = status.success? ? "gh pr view returned merged=#{merged_str.strip.inspect}" : "gh pr view exited non-zero (#{status.exitstatus})"
+        reason = status.success? ? "gh pr view returned state=#{state_str.strip.inspect}" : "gh pr view exited non-zero (#{status.exitstatus})"
         Logger.info_stdout("[#{@log_tag}] [merge_verify] WARN: status=success but PR ##{pr_number} not merged (#{reason}) → merge_unverified")
         result['status'] = 'merge_unverified'
         result['merge_verification_error'] = reason
