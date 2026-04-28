@@ -400,25 +400,11 @@ class ClaudeCodeAutoSquashBaseTest < Minitest::Test
     assert McptaskRunner::ClaudeCode::AutoSquashBase < McptaskRunner::ClaudeCodeBase
   end
 
-  def test_code_review_step_in_implementation_steps
+  def test_implementation_steps_omits_code_review
     obj = McptaskRunner::ClaudeCode::StoryAutoSquash.new(story_id: 1, task_id: 456)
     steps = obj.send(:implementation_steps, start: 3)
-    assert_includes steps, 'CODE REVIEW'
-    assert_includes steps, 'code-review:code-review'
-    assert_includes steps, 'fix, commit, push, re-review'
-  end
-
-  def test_code_review_step_uses_skill_invocation
-    obj = McptaskRunner::ClaudeCode::StoryAutoSquash.new(story_id: 1, task_id: 456)
-    steps = obj.send(:implementation_steps, start: 3)
-    assert_includes steps, '/code-review:code-review'
-    assert_includes steps, 'Repeat until clean'
-  end
-
-  def test_code_review_step_skips_for_test_only_changes
-    obj = McptaskRunner::ClaudeCode::StoryAutoSquash.new(story_id: 1, task_id: 456)
-    steps = obj.send(:implementation_steps, start: 3)
-    assert_includes steps, 'SKIP if changes only touch test files'
+    refute_includes steps, 'CODE REVIEW'
+    refute_includes steps, '/code-review:code-review'
   end
 end
 
@@ -521,12 +507,11 @@ class ClaudeCodeStoryAutoSquashTest < Minitest::Test
     assert_includes instructions, 'assets:precompile'
   end
 
-  def test_story_auto_squash_instructions_includes_code_review_skill
+  def test_story_auto_squash_instructions_omits_code_review
     story_auto_squash = McptaskRunner::ClaudeCode::StoryAutoSquash.new(story_id: 123, task_id: 456)
     instructions = story_auto_squash.send(:build_instructions)
-    assert_includes instructions, 'CODE REVIEW'
-    assert_includes instructions, '/code-review:code-review'
-    assert_includes instructions, 'fix, commit, push, re-review'
+    refute_includes instructions, 'CODE REVIEW'
+    refute_includes instructions, '/code-review:code-review'
   end
 
   def test_story_auto_squash_instructions_uses_test_runner_skill
@@ -668,14 +653,13 @@ class ClaudeCodeTodayAutoSquashTest < Minitest::Test
     end
   end
 
-  def test_today_auto_squash_instructions_includes_code_review_skill
+  def test_today_auto_squash_instructions_omits_code_review
     File.stub :exist?, true do
       File.stub :read, 'project_relative_id=99' do
         today_auto_squash = McptaskRunner::ClaudeCode::TodayAutoSquash.new
         instructions = today_auto_squash.send(:build_instructions)
-        assert_includes instructions, 'CODE REVIEW'
-        assert_includes instructions, '/code-review:code-review'
-        assert_includes instructions, 'fix, commit, push, re-review'
+        refute_includes instructions, 'CODE REVIEW'
+        refute_includes instructions, '/code-review:code-review'
       end
     end
   end
@@ -952,14 +936,13 @@ class ClaudeCodeQueueAutoSquashTest < Minitest::Test
     end
   end
 
-  def test_queue_auto_squash_instructions_includes_code_review_skill
+  def test_queue_auto_squash_instructions_omits_code_review
     File.stub :exist?, true do
       File.stub :read, 'project_relative_id=99' do
         queue_auto_squash = McptaskRunner::ClaudeCode::QueueAutoSquash.new
         instructions = queue_auto_squash.send(:build_instructions)
-        assert_includes instructions, 'CODE REVIEW'
-        assert_includes instructions, '/code-review:code-review'
-        assert_includes instructions, 'fix, commit, push, re-review'
+        refute_includes instructions, 'CODE REVIEW'
+        refute_includes instructions, '/code-review:code-review'
       end
     end
   end
@@ -1119,14 +1102,13 @@ class ClaudeCodeOnceAutoSquashTest < Minitest::Test
     end
   end
 
-  def test_once_auto_squash_instructions_includes_code_review_skill
+  def test_once_auto_squash_instructions_omits_code_review
     File.stub :exist?, true do
       File.stub :read, 'project_relative_id=99' do
         once_auto_squash = McptaskRunner::ClaudeCode::OnceAutoSquash.new
         instructions = once_auto_squash.send(:build_instructions)
-        assert_includes instructions, 'CODE REVIEW'
-        assert_includes instructions, '/code-review:code-review'
-        assert_includes instructions, 'fix, commit, push, re-review'
+        refute_includes instructions, 'CODE REVIEW'
+        refute_includes instructions, '/code-review:code-review'
       end
     end
   end
@@ -1434,12 +1416,11 @@ class ClaudeCodeTaskAutoSquashTest < Minitest::Test
     assert_includes instructions, 'assets:precompile'
   end
 
-  def test_task_auto_squash_instructions_includes_code_review_skill
+  def test_task_auto_squash_instructions_omits_code_review
     task_auto_squash = McptaskRunner::ClaudeCode::TaskAutoSquash.new(task_id: 123)
     instructions = task_auto_squash.send(:build_instructions)
-    assert_includes instructions, 'CODE REVIEW'
-    assert_includes instructions, '/code-review:code-review'
-    assert_includes instructions, 'fix, commit, push, re-review'
+    refute_includes instructions, 'CODE REVIEW'
+    refute_includes instructions, '/code-review:code-review'
   end
 
   def test_task_auto_squash_instructions_uses_test_runner_skill

@@ -28,8 +28,8 @@ module McptaskRunner
           #{load_task_step(step_num: 2, task_id: @task_id)}
 
           #{implementation_steps(start: 3)}
-          #{ci_run_and_merge_step(step_num: 14, next_step: 15)}
-          15. FINAL OUTPUT: Generate the result JSON
+          #{ci_run_and_merge_step(step_num: 13, next_step: 14)}
+          14. FINAL OUTPUT: Generate the result JSON
 
           AUTO-SQUASH: PR auto-merged after CI. CI fails 2× → PR stays open.
 

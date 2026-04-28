@@ -31,8 +31,8 @@ module McptaskRunner
           3. GIT: git checkout main && git pull
 
           #{implementation_steps(start: 4)}
-          #{ci_run_and_merge_step(step_num: 15, next_step: 16)}
-          16. FINAL OUTPUT: Generate the result JSON
+          #{ci_run_and_merge_step(step_num: 14, next_step: 15)}
+          15. FINAL OUTPUT: Generate the result JSON
 
           AUTO-SQUASH: PR auto-merged after CI. CI fails 2× → PR stays open.
 

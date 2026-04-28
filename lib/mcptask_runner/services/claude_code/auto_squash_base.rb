@@ -32,8 +32,8 @@ module McptaskRunner
           #{task_fetch_step(step_num: 2, fetch_url: fetch_url)}
 
           #{implementation_steps(start: 3)}
-          #{ci_run_and_merge_step(step_num: 14, next_step: 15)}
-          15. FINAL OUTPUT: Generate the result JSON
+          #{ci_run_and_merge_step(step_num: 13, next_step: 14)}
+          14. FINAL OUTPUT: Generate the result JSON
 
           #{workflow_notice}
 
@@ -143,8 +143,7 @@ module McptaskRunner
           verify_tests_step(step_num: n + 6),
           push_step(step_num: n + 7),
           create_pr_step(step_num: n + 8, auto_merge_note: true),
-          skip_screenshots_step(step_num: n + 9),
-          code_review_step(step_num: n + 10)
+          skip_screenshots_step(step_num: n + 9)
         ].join("\n\n")
       end
 
