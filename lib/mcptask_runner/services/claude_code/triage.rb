@@ -121,13 +121,13 @@ module McptaskRunner
         if @ignore_quota
           <<~STEP.strip
             STEP 0 - DAILY QUOTA (SKIPPED — ignore_quota=true):
-            1. Read mcptask://user. Extract "hour_goal" + "worked_out" for hours block. Never STOP on quota.
+            1. Read mcptask://user (server="mcptask-online"). Extract "hour_goal" + "worked_out" for hours block. Never STOP on quota.
             2. Always proceed to STEP 1 regardless of worked_out vs hour_goal.
           STEP
         else
           <<~STEP.strip
             STEP 0 - DAILY QUOTA (FIRST):
-            1. Read mcptask://user (LITERAL URI — no account suffix, no path after /user). Extract "hour_goal" + "worked_out".
+            1. Read mcptask://user (server="mcptask-online", LITERAL URI — no account suffix, no path after /user). Extract "hour_goal" + "worked_out".
                MANDATORY: per_day MUST be a number from hour_goal. Never null. If endpoint fails, retry — do NOT proceed.
             2. worked_out >= hour_goal → STOP. TASKRUNNER_RESULT:
                status="quota_exceeded", recommended_model="opus", task_id=0, resuming=false

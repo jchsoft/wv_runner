@@ -134,7 +134,7 @@ module McptaskRunner
       def hours_data_section
         <<~HOURS.strip
           Hours:
-          1. mcptask://user (LITERAL URI — no account suffix) → "hour_goal"=per_day, "worked_out"=already_worked
+          1. mcptask://user (server="mcptask-online", LITERAL URI — no account suffix) → "hour_goal"=per_day, "worked_out"=already_worked
              Read BEFORE logging work. WARNING: already_worked = daily "worked_out", NOT from effort history!
           2. task_estimated = 0.5 (reviews short)
 

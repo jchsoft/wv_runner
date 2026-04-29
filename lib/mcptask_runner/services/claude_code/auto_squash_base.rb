@@ -65,7 +65,7 @@ module McptaskRunner
       def auto_squash_hours_data_instruction
         <<~INSTRUCTION.strip
           Hours data:
-          1. mcptask://user (LITERAL URI — no account suffix) → "hour_goal"=per_day, "worked_out"=already_worked
+          1. mcptask://user (server="mcptask-online", LITERAL URI — no account suffix) → "hour_goal"=per_day, "worked_out"=already_worked
              Read BEFORE logging work progress
           2. Task "duration_best" → task_estimated (e.g. "1 hodina" → 1.0)
 

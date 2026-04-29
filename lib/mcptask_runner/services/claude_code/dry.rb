@@ -42,7 +42,7 @@ module McptaskRunner
           )}
 
           Data:
-          1. mcptask://user (LITERAL URI — no account suffix) → "hour_goal"=per_day, "worked_out"=already_worked
+          1. mcptask://user (server="mcptask-online", LITERAL URI — no account suffix) → "hour_goal"=per_day, "worked_out"=already_worked
              Read BEFORE logging work. WARNING: already_worked = daily "worked_out", NOT from effort history!
           2. From task: name, relative_id (as id), description, task_state (as status), priority, assigned_user, scrum_point (as scrum_points)
           3. task_estimated from "duration_best": hodina/hours→hours, den/day→×8, tyden/week→×40

@@ -186,7 +186,7 @@ module McptaskRunner
         1. Verify: git stash → run tests on main → git stash pop
         2. Fail without your changes = PREEXISTING
         3. Create URGENT bug task:
-           - mcptask://user (LITERAL URI — no account suffix) → get relative_id
+           - mcptask://user (server="mcptask-online", LITERAL URI — no account suffix) → get relative_id
            - CreatePieceTool: account_code="jchsoft", piece_type="Task", task_type_code="bug",
              priority_code="urgent", project_id=<from CLAUDE.md>, assigned_user_id=<relative_id>
              name="Fix: Padající testy - <description>"
