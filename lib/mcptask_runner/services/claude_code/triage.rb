@@ -143,9 +143,9 @@ module McptaskRunner
 
           "haiku": trivial — typo fix, single CSS change, one-line config
 
-          "opus" ONLY: UI elements/improvements/beautification, complex architecture (models+associations, multi-service, migrations w/ data transforms), security (auth/encryption), ambiguous requirements, Story type
+          "opus" ONLY: UI elements/improvements/beautification, complex architecture (models+associations, multi-service, migrations w/ data transforms), security (auth/encryption), ambiguous requirements, Story type, FIXING FAILING TESTS / debugging test failures (red→green, flaky tests, CI-failing specs — Sonnet historically struggles here)
 
-          "sonnet" (DEFAULT): everything else — CRUD, refactoring, bug fixes, tests, simple frontend, validations/scopes/callbacks, config/locale/docs, API endpoints
+          "sonnet" (DEFAULT): everything else — CRUD, refactoring, bug fixes, writing NEW tests, simple frontend, validations/scopes/callbacks, config/locale/docs, API endpoints
 
           DURATION HINT: <1 hour → lean sonnet/haiku
         RULES
