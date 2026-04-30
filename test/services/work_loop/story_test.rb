@@ -158,6 +158,32 @@ class WorkLoopStoryTest < Minitest::Test
     end
   end
 
+  def test_execute_with_story_auto_squash_continues_on_already_done
+    call_count = [0]
+    executor_mock = Object.new
+    executor_mock.define_singleton_method(:run) do
+      call_count[0] += 1
+      if call_count[0] == 1
+        { 'status' => 'already_done', 'hours' => { 'per_day' => 8, 'task_estimated' => 1 } }
+      else
+        { 'status' => 'no_more_tasks' }
+      end
+    end
+
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_mock) do
+      McptaskRunner::ClaudeCode::StoryAutoSquash.stub(:new, executor_mock) do
+        Kernel.stub(:sleep, nil) do
+          loop_instance = McptaskRunner::WorkLoop.new(story_id: 123)
+          results = loop_instance.execute(:story_auto_squash)
+
+          assert_equal 2, results.length
+          assert_equal 'already_done', results.first['status']
+          assert_equal 'no_more_tasks', results.last['status']
+        end
+      end
+    end
+  end
+
   def test_execute_with_story_auto_squash_continues_on_preexisting_test_errors
     call_count = [0]
     executor_mock = Object.new

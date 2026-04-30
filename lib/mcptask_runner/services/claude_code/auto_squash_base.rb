@@ -55,6 +55,9 @@ module McptaskRunner
           - "ci_failed" if CI failed after retry (PR stays open)
           - "merge_failed" if `gh pr merge` itself errored (branch protection, conflicts, etc.)
           - "preexisting_test_errors" if tests were already failing before your changes (urgent bug task created)
+          - "already_done" if task already resolved (no code changes needed — e.g. fixed in earlier commit / fix branch is empty);
+              MUST log final progress at 100% with description explaining which prior commit resolved it,
+              so triage does not re-pick the same task; loop continues to next task
           - "failure" for other errors
         STATUS
       end
@@ -77,6 +80,8 @@ module McptaskRunner
             c) ONLY after `gh pr view <pr_number> --json state --jq .state` returns `MERGED` → 100%
                UNMERGED outcomes (ci_failed / merge_failed / preexisting_test_errors / failure):
                cap at 80%. Description states non-merge reason. NEVER 100% for unmerged work.
+               EXCEPTION — already_done: REQUIRED 100% (resolution exists in prior merged commit),
+                 description names the resolving commit SHA so triage closes the task.
           - Each call: duration_minutes = minutes since previous call (not cumulative);
             description = what was done since last log.
           - More calls OK for long tasks; 3× is floor, not target.

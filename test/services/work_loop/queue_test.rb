@@ -84,6 +84,32 @@ class WorkLoopQueueTest < Minitest::Test
     end
   end
 
+  def test_execute_with_queue_auto_squash_continues_on_already_done
+    call_count = [0]
+    mock = Object.new
+    mock.define_singleton_method(:run) do
+      call_count[0] += 1
+      if call_count[0] == 1
+        { 'status' => 'already_done', 'hours' => { 'per_day' => 8, 'task_estimated' => 1 } }
+      else
+        { 'status' => 'no_more_tasks' }
+      end
+    end
+
+    with_triage_stub do
+      McptaskRunner::ClaudeCode::QueueAutoSquash.stub(:new, mock) do
+        Kernel.stub(:sleep, nil) do
+          loop_instance = McptaskRunner::WorkLoop.new
+          results = loop_instance.execute(:queue_auto_squash)
+
+          assert_equal 2, results.length
+          assert_equal 'already_done', results.first['status']
+          assert_equal 'no_more_tasks', results.last['status']
+        end
+      end
+    end
+  end
+
   def test_execute_with_queue_auto_squash_continues_on_preexisting_test_errors
     call_count = [0]
     mock = Object.new
