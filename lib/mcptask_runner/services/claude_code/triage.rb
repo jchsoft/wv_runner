@@ -4,8 +4,13 @@ require_relative '../claude_code_base'
 
 module McptaskRunner
   module ClaudeCode
-    # Triage step - cheap Haiku call that analyzes task complexity
-    # and recommends the optimal model for execution
+    # Triage step — Sonnet call that analyzes task complexity and recommends optimal model.
+    # Sonnet (was Haiku before 2026-05-01): branchy prompt + tool-call ordering caused Haiku
+    # hallucinations (wrong task_id, skipped quota tool). Triage cost is negligible vs the
+    # task it gates, so reliability wins.
+    #
+    # Prompt building delegated to Triage::Prompt::* — one class per input shape, no
+    # `if @story_id` / `if @task_id` branches inside any single prompt.
     class Triage < ClaudeCodeBase
       def initialize(verbose: false, task_id: nil, story_id: nil, ignore_quota: false)
         super(verbose: verbose)
@@ -14,17 +19,8 @@ module McptaskRunner
         @ignore_quota = ignore_quota
       end
 
-      def model_name = "haiku"
+      def model_name = 'sonnet'
       def max_turns = 30
-
-      def run
-        result = super
-        return result if @ignore_quota
-        return result if per_day_known?(result)
-
-        Logger.warn("[Triage] per_day missing in haiku result (#{result.dig('hours', 'per_day').inspect}); retrying with sonnet")
-        sonnet_retry_result(result)
-      end
 
       private
 
@@ -32,194 +28,25 @@ module McptaskRunner
         false
       end
 
-      # per_day=0 is valid (holiday/non-working day). Only nil means API read failed.
-      def per_day_known?(result)
-        !result.dig('hours', 'per_day').nil?
-      end
-
-      def sonnet_retry_result(original)
-        retry_triage = self.class.new(verbose: @verbose, task_id: @task_id, story_id: @story_id, ignore_quota: @ignore_quota)
-        retry_triage.instance_variable_set(:@model_override, 'sonnet')
-        result = retry_triage.run
-        return result if per_day_known?(result)
-
-        Logger.error("[Triage] Sonnet retry also returned per_day=nil; downstream will skip quota check")
-        result
-      rescue StandardError => e
-        Logger.error("[Triage] Sonnet retry failed: #{e.class}: #{e.message}; falling back to original haiku result")
-        original
-      end
-
       def build_instructions
-        @story_id ? build_story_triage_instructions : build_standard_triage_instructions
+        prompt_builder.build
       end
 
-      def build_story_triage_instructions
-        <<~INSTRUCTIONS
-          Task triage agent. Find next incomplete subtask from Story, recommend model.
-          OUTPUT ONLY JSON. No explanations, no commentary.
-
-          #{daily_quota_check_step}
-
-          STEP 1 - LOAD STORY:
-          1. Read mcptask://pieces/jchsoft/#{@story_id}
-          2. Find subtasks
-          3. First task: NOT "Schváleno"/"Hotovo?", progress<100
-          4. None found → status "no_more_tasks", recommended_model="opus"
-          5. Remember task relative_id
-
-          STEP 2 - FETCH TASK: Read mcptask://pieces/jchsoft/<task_relative_id>
-
-          STEP 3 - ANALYZE: Read title, description, piece_type, attachment filenames (no downloads). Apply model rules below.
-
-          #{model_selection_rules}
-
-          #{result_format_instruction(
-            '"status": "success", "recommended_model": "sonnet", "task_id": 123, "resuming": false, "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}',
-            extra_rules: [
-              'recommended_model: "opus"/"sonnet"/"haiku" (lowercase)',
-              'task_id = subtask relative_id (NOT story)',
-              'resuming = false (story triage = fresh tasks)',
-              'already_worked = exact "worked_out" from mcptask://user — never 0 unless API returned 0'
-            ]
-          )}
-
-          #{triage_hours_instruction(entity: 'subtask', status_entries: story_triage_status_entries)}
-        INSTRUCTIONS
-      end
-
-      def build_standard_triage_instructions
-        fetch_url = task_fetch_url
-
-        <<~INSTRUCTIONS
-          Task triage agent. Analyze task, recommend model.
-          OUTPUT ONLY JSON. No explanations, no commentary.
-
-          #{daily_quota_check_step}
-
-          #{branch_detection_step}
-
-          STEP 2 - FETCH: #{fetch_url}#{" (unless STEP 1c override)" unless @task_id}
-          - No tasks → status "no_more_tasks", recommended_model="opus"
-          - type="Story" → STEP 2b
-          - type="Task" → STEP 3
-
-          STEP 2b - STORY:
-          1. story_id = Story's relative_id
-          2. First subtask: NOT "Schváleno"/"Hotovo?", progress<100
-          3. None → status "no_more_tasks", recommended_model="opus", piece_type="Story"
-          4. Fetch mcptask://pieces/jchsoft/<subtask_id>
-          5. STEP 3 with SUBTASK data
-          6. Result: piece_type="Story", story_id=Story's relative_id, task_id=subtask's relative_id
-
-          STEP 3 - ANALYZE: Read title, description, piece_type, attachment filenames (no downloads). Apply model rules below.
-
-          #{model_selection_rules}
-
-          #{result_format_instruction(
-            '"status": "success", "recommended_model": "sonnet", "task_id": 123, "resuming": false, "piece_type": "Task", "story_id": null, "hours": {"per_day": X, "task_estimated": Y, "already_worked": Z}',
-            extra_rules: [
-              'recommended_model: "opus"/"sonnet"/"haiku" (lowercase)',
-              'task_id = relative_id of task (or subtask if Story)',
-              'resuming: boolean (not string)',
-              'piece_type: "Task" or "Story" (Story only if STEP 2b)',
-              'story_id: Story relative_id if piece_type="Story", else null',
-              'already_worked = exact "worked_out" — never 0 unless API returned 0'
-            ]
-          )}
-
-          #{triage_hours_instruction(entity: 'task', status_entries: standard_triage_status_entries)}
-        INSTRUCTIONS
-      end
-
-      def story_triage_status_entries
-        "- \"success\" if subtask analyzed successfully\n" \
-          "- \"no_more_tasks\" if no incomplete subtasks in the Story\n" \
-          '- "quota_exceeded" if worked_out >= hour_goal (from STEP 0)'
-      end
-
-      def standard_triage_status_entries
-        "- \"success\" if task analyzed successfully\n" \
-          "- \"no_more_tasks\" if no tasks available\n" \
-          '- "quota_exceeded" if worked_out >= hour_goal (from STEP 0)'
-      end
-
-      def daily_quota_check_step
-        if @ignore_quota
-          <<~STEP.strip
-            STEP 0 - DAILY QUOTA (SKIPPED — ignore_quota=true):
-            1. Read mcptask://user (server="mcptask-online"). Extract "hour_goal" + "worked_out" for hours block. Never STOP on quota.
-            2. Always proceed to STEP 1 regardless of worked_out vs hour_goal.
-          STEP
+      def prompt_builder
+        if @story_id
+          Prompt::Story.new(story_id: @story_id, ignore_quota: @ignore_quota)
+        elsif @task_id
+          Prompt::TaskPinned.new(task_id: @task_id, ignore_quota: @ignore_quota)
         else
-          <<~STEP.strip
-            STEP 0 - DAILY QUOTA (FIRST — MUST USE TOOL):
-            1. INVOKE ReadMcpResourceTool with server="mcptask-online", uri="mcptask://user".
-               This is a TOOL CALL, not text. You MUST emit a tool_use block before any JSON output.
-               DO NOT GUESS. DO NOT WRITE TASKRUNNER_RESULT until you have received the tool result.
-               If you output JSON without first calling this tool, the result is INVALID and rejected.
-               Extract "hour_goal" → per_day. "worked_out" → already_worked.
-               per_day=0 is VALID (holiday/non-working day), keep the 0. Only null=failure → retry tool call.
-            2. worked_out >= hour_goal → STOP. TASKRUNNER_RESULT:
-               status="quota_exceeded", recommended_model="opus", task_id=0, resuming=false
-               hours: {per_day: <hour_goal>, task_estimated: 0, already_worked: <worked_out>}
-            3. worked_out < hour_goal → STEP 1
-          STEP
-        end
-      end
-
-      def model_selection_rules
-        <<~RULES.strip
-          MODEL SELECTION (pick one: "opus"/"sonnet"/"haiku"):
-
-          "haiku": trivial — typo fix, single CSS change, one-line config
-
-          "opus" ONLY: UI elements/improvements/beautification, complex architecture (models+associations, multi-service, migrations w/ data transforms), security (auth/encryption), ambiguous requirements, Story type, FIXING FAILING TESTS / debugging test failures (red→green, flaky tests, CI-failing specs — Sonnet historically struggles here)
-
-          "sonnet" (DEFAULT): everything else — CRUD, refactoring, bug fixes, writing NEW tests, simple frontend, validations/scopes/callbacks, config/locale/docs, API endpoints
-
-          DURATION HINT: <1 hour → lean sonnet/haiku
-        RULES
-      end
-
-      def triage_hours_instruction(entity:, status_entries:)
-        <<~INSTRUCTION.strip
-          Hours:
-          1. per_day = "hour_goal" (from STEP 0)
-          2. already_worked = "worked_out" (from STEP 0)
-          3. task_estimated = "duration_best" from #{entity} (e.g. "30 minut"→0.5, "1 hodina"→1.0)
-          4. Status:
-             #{status_entries}
-        INSTRUCTION
-      end
-
-      def branch_detection_step
-        if @task_id
-          <<~STEP.strip
-            STEP 1 - RESUME DETECTION:
-            1. git branch --show-current
-            2. Feature branch contains "#{@task_id}" → resuming=true
-            3. On main/master:
-               a. git branch --list "*#{@task_id}*"
-               b. Match found → resuming=true
-               c. No match → resuming=false
-            4. Other branch → resuming=false
-            Task already set: #{@task_id}. Do NOT fetch different task.
-          STEP
-        else
-          <<~STEP.strip
-            STEP 1 - RESUME DETECTION:
-            1. git branch --show-current
-            2. main/master → STEP 2, resuming=false
-            3. Feature branch:
-               a. Extract 4+ digit task ID from branch (e.g. "feature/9508-..." → 9508)
-               b. No ID → check PR: gh pr list --head $(git branch --show-current) --json body --jq '.[0].body'
-                  Look for mcptask.online link → extract task ID
-               c. Found → mcptask://pieces/jchsoft/{task_id}, resuming=true
-               d. Not found → STEP 2, resuming=false
-          STEP
+          Prompt::TaskDiscovery.new(project_id: project_relative_id, ignore_quota: @ignore_quota)
         end
       end
     end
   end
 end
+
+require_relative 'triage/prompt/base'
+require_relative 'triage/prompt/task_base'
+require_relative 'triage/prompt/task_discovery'
+require_relative 'triage/prompt/task_pinned'
+require_relative 'triage/prompt/story'

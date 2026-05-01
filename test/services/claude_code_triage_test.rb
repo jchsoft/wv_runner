@@ -7,9 +7,9 @@ class ClaudeCodeTriageTest < Minitest::Test
     assert McptaskRunner::ClaudeCode::Triage < McptaskRunner::ClaudeCodeBase
   end
 
-  def test_triage_uses_haiku_model
+  def test_triage_uses_sonnet_model
     triage = McptaskRunner::ClaudeCode::Triage.new
-    assert_equal 'haiku', triage.send(:model_name)
+    assert_equal 'sonnet', triage.send(:model_name)
   end
 
   def test_triage_does_not_accept_edits
