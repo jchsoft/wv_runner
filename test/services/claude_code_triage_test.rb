@@ -248,7 +248,7 @@ class ClaudeCodeTriageTest < Minitest::Test
       File.stub :read, 'project_relative_id=7' do
         instructions = McptaskRunner::ClaudeCode::Triage.new.send(:build_instructions)
 
-        assert_includes instructions, 'STEP 0 - DAILY QUOTA (FIRST)'
+        assert_includes instructions, 'STEP 0 - DAILY QUOTA (FIRST'
         assert_includes instructions, 'worked_out >= hour_goal → STOP'
       end
     end

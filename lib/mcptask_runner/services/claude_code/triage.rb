@@ -17,10 +17,37 @@ module McptaskRunner
       def model_name = "haiku"
       def max_turns = 30
 
+      def run
+        result = super
+        return result if @ignore_quota
+        return result if per_day_known?(result)
+
+        Logger.warn("[Triage] per_day missing in haiku result (#{result.dig('hours', 'per_day').inspect}); retrying with sonnet")
+        sonnet_retry_result(result)
+      end
+
       private
 
       def accept_edits?
         false
+      end
+
+      # per_day=0 is valid (holiday/non-working day). Only nil means API read failed.
+      def per_day_known?(result)
+        !result.dig('hours', 'per_day').nil?
+      end
+
+      def sonnet_retry_result(original)
+        retry_triage = self.class.new(verbose: @verbose, task_id: @task_id, story_id: @story_id, ignore_quota: @ignore_quota)
+        retry_triage.instance_variable_set(:@model_override, 'sonnet')
+        result = retry_triage.run
+        return result if per_day_known?(result)
+
+        Logger.error("[Triage] Sonnet retry also returned per_day=nil; downstream will skip quota check")
+        result
+      rescue StandardError => e
+        Logger.error("[Triage] Sonnet retry failed: #{e.class}: #{e.message}; falling back to original haiku result")
+        original
       end
 
       def build_instructions
@@ -126,9 +153,13 @@ module McptaskRunner
           STEP
         else
           <<~STEP.strip
-            STEP 0 - DAILY QUOTA (FIRST):
-            1. Read mcptask://user (server="mcptask-online", LITERAL URI — no account suffix, no path after /user). Extract "hour_goal" + "worked_out".
-               MANDATORY: per_day MUST be a number from hour_goal. Never null. If endpoint fails, retry — do NOT proceed.
+            STEP 0 - DAILY QUOTA (FIRST — MUST USE TOOL):
+            1. INVOKE ReadMcpResourceTool with server="mcptask-online", uri="mcptask://user".
+               This is a TOOL CALL, not text. You MUST emit a tool_use block before any JSON output.
+               DO NOT GUESS. DO NOT WRITE TASKRUNNER_RESULT until you have received the tool result.
+               If you output JSON without first calling this tool, the result is INVALID and rejected.
+               Extract "hour_goal" → per_day. "worked_out" → already_worked.
+               per_day=0 is VALID (holiday/non-working day), keep the 0. Only null=failure → retry tool call.
             2. worked_out >= hour_goal → STOP. TASKRUNNER_RESULT:
                status="quota_exceeded", recommended_model="opus", task_id=0, resuming=false
                hours: {per_day: <hour_goal>, task_estimated: 0, already_worked: <worked_out>}

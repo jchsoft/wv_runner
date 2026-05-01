@@ -132,6 +132,20 @@ class WorkLoopQuotaPrecheckTest < Minitest::Test
     refute result
   end
 
+  def test_triage_quota_exceeded_returns_true_when_per_day_is_zero_holiday
+    loop_instance = McptaskRunner::WorkLoop.new
+    result = loop_instance.send(:triage_quota_exceeded?,
+                                { 'hours' => { 'per_day' => 0, 'already_worked' => 0 } })
+    assert result, 'per_day=0 means no work today (holiday); must report quota exceeded'
+  end
+
+  def test_triage_quota_exceeded_returns_false_when_per_day_is_nil_api_failure
+    loop_instance = McptaskRunner::WorkLoop.new
+    result = loop_instance.send(:triage_quota_exceeded?,
+                                { 'hours' => { 'per_day' => nil, 'already_worked' => 0 } })
+    refute result, 'per_day=nil means API read failed; skip check, do not crash daemon'
+  end
+
   def test_queue_auto_squash_breaks_on_quota_exceeded
     call_count = [0]
     triage = Object.new

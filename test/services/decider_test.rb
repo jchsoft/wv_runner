@@ -178,6 +178,24 @@ class DeciderTest < Minitest::Test
     assert_equal 8.0, decider.send(:daily_hour_goal)
   end
 
+  def test_daily_hour_goal_zero_means_holiday
+    results = [
+      { 'status' => 'success', 'hours' => { 'per_day' => 0, 'task_estimated' => 0, 'task_worked' => 0 } }
+    ]
+    decider = McptaskRunner::Decider.new(task_results: results)
+
+    assert_equal 0.0, decider.send(:daily_hour_goal), 'per_day=0 is valid (holiday); return 0 not raise'
+  end
+
+  def test_daily_hour_goal_nil_falls_back_to_24h
+    results = [
+      { 'status' => 'success', 'hours' => { 'per_day' => nil, 'task_estimated' => 0, 'task_worked' => 0 } }
+    ]
+    decider = McptaskRunner::Decider.new(task_results: results)
+
+    assert_equal 24.0, decider.send(:daily_hour_goal), 'per_day=nil = API failure; fall back to 24h to keep daemon alive'
+  end
+
   def test_total_hours_worked_sums_all_results
     results = [
       { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2, 'task_worked' => 1.0 } },

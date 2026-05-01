@@ -86,12 +86,12 @@ module McptaskRunner
       return 0 if @task_results.empty?
 
       raw = @task_results.first.dig('hours', 'per_day')
-      goal = raw.to_f
-      if raw.nil? || goal.zero?
-        raise "Decider: per_day missing/zero in triage result (got #{raw.inspect}). " \
-              'Triage likely failed to read mcptask://user — check prompt and MCP endpoint.'
+      if raw.nil?
+        Logger.warn('[Decider] per_day=nil in triage result; mcptask://user read failed, treating as 24h fallback')
+        return 24.0
       end
 
+      goal = raw.to_f
       Logger.debug("[Decider] [daily_hour_goal] Daily hour goal: #{goal}h")
       goal
     end
