@@ -94,6 +94,11 @@ module McptaskRunner
             break
           end
 
+          if result['status'] == 'urgent_bug_pending_dirty_branch'
+            Logger.error("[WorkLoop] Cannot proceed — branch '#{result['dirty_branch']}' has uncommitted changes; manual cleanup required")
+            break
+          end
+
           break if %w[no_more_tasks failure task_already_started quota_exceeded quota_exceeded_mid_task].include?(result['status'])
           break if quota_exceeded?(results)
 
@@ -130,7 +135,7 @@ module McptaskRunner
           results << result
           Logger.info_stdout("[WorkLoop] Task ##{iteration_count} completed with status: #{result['status']}")
 
-          break if %w[no_more_tasks failure quota_exceeded quota_exceeded_mid_task].include?(result['status'])
+          break if %w[no_more_tasks failure quota_exceeded quota_exceeded_mid_task urgent_bug_pending_dirty_branch].include?(result['status'])
           break if quota_exceeded?(results)
 
           sleep(2)
@@ -150,7 +155,7 @@ module McptaskRunner
           results << result
           Logger.info_stdout("[WorkLoop] Task ##{iteration_count} completed with status: #{result['status']}")
 
-          break if no_tasks_available?(result) || %w[quota_exceeded quota_exceeded_mid_task].include?(result['status'])
+          break if no_tasks_available?(result) || %w[quota_exceeded quota_exceeded_mid_task urgent_bug_pending_dirty_branch].include?(result['status'])
           break if should_stop_running_today?(results)
 
           sleep(2)
@@ -182,7 +187,7 @@ module McptaskRunner
           result = triage_and_execute(ClaudeCode::Honest)
           results << result
 
-          break if %w[quota_exceeded quota_exceeded_mid_task].include?(result['status'])
+          break if %w[quota_exceeded quota_exceeded_mid_task urgent_bug_pending_dirty_branch].include?(result['status'])
 
           if no_tasks_available?(result)
             break if !@ignore_quota && triage_quota_exceeded?(result)
@@ -234,6 +239,11 @@ module McptaskRunner
 
           if status == 'urgent_bug_pending'
             Logger.info_stdout("[WorkLoop] Urgent bug ##{result['bug_task_id']} pending — exiting story loop, parent will re-triage")
+            break
+          end
+
+          if status == 'urgent_bug_pending_dirty_branch'
+            Logger.error("[WorkLoop] Cannot proceed — branch '#{result['dirty_branch']}' has uncommitted changes; manual cleanup required")
             break
           end
 
@@ -289,6 +299,11 @@ module McptaskRunner
             Logger.info_stdout("[WorkLoop] Urgent bug ##{result['bug_task_id']} pending — re-triaging globally")
             sleep(2)
             next
+          end
+
+          if status == 'urgent_bug_pending_dirty_branch'
+            Logger.error("[WorkLoop] Cannot proceed — branch '#{result['dirty_branch']}' has uncommitted changes; manual cleanup required")
+            break
           end
 
           break if %w[no_more_tasks failure task_already_started ci_failed merge_failed merge_unverified quota_exceeded quota_exceeded_mid_task].include?(status)

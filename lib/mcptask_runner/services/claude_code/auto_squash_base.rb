@@ -58,6 +58,7 @@ module McptaskRunner
           - "already_done" if task already resolved (no code changes needed — e.g. fixed in earlier commit / fix branch is empty);
               MUST log final progress at 100% with description explaining which prior commit resolved it,
               so triage does not re-pick the same task; loop continues to next task
+          #{urgent_bug_pending_status_option}
           - "failure" for other errors
         STATUS
       end

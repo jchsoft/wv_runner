@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'English'
+
 module McptaskRunner
   module Concerns
     # Handles triage-based model selection and task execution dispatch
@@ -64,10 +66,43 @@ module McptaskRunner
 
       def run_with_quota_guard(executor, triage_result, task_id)
         apply_quota_watch(executor, triage_result) unless @ignore_quota
-        executor.run
+        switch_to_main_if_urgent_bug(executor.run)
       rescue McptaskRunner::QuotaExceededMidTaskError => e
         Logger.warn("[WorkLoop] #{e.message} — ending loop with quota_exceeded_mid_task")
         { 'status' => 'quota_exceeded_mid_task', 'task_id' => task_id }
+      end
+
+      # Safety net: when child Claude returns urgent_bug_pending while still on a feature branch,
+      # the next triage's branch detection would re-pick the interrupted task instead of the urgent bug.
+      # Switch to main so triage falls through to TaskDiscovery (or @next-based queue) and picks the bug.
+      # If checkout fails (uncommitted changes), reclassify status so the loop aborts cleanly.
+      def switch_to_main_if_urgent_bug(result)
+        return result unless result.is_a?(Hash) && result['status'] == 'urgent_bug_pending'
+
+        branch = current_git_branch
+        return result if branch.empty? || %w[main master].include?(branch)
+
+        Logger.info_stdout("[WorkLoop] Urgent bug ##{result['bug_task_id']} pending — switching from '#{branch}' to main")
+        success, output = checkout_main_branch
+        if success
+          Logger.info_stdout('[WorkLoop] On main; next triage will pick urgent bug')
+          return result
+        end
+
+        Logger.error("[WorkLoop] git checkout main failed (uncommitted changes on '#{branch}'?): #{output}")
+        Logger.error('[WorkLoop] Setting status=urgent_bug_pending_dirty_branch — manual cleanup required')
+        result['status'] = 'urgent_bug_pending_dirty_branch'
+        result['dirty_branch'] = branch
+        result
+      end
+
+      def current_git_branch
+        `git branch --show-current 2>/dev/null`.strip
+      end
+
+      def checkout_main_branch
+        output = `git checkout main 2>&1`
+        [$CHILD_STATUS.success?, output.strip]
       end
 
       def apply_quota_watch(executor, triage_result)

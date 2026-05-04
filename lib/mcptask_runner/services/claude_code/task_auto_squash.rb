@@ -46,6 +46,7 @@ module McptaskRunner
              - "preexisting_test_errors" if tests were already failing before your changes (urgent bug task created)
              - "already_done" if task already resolved (no code changes needed — e.g. fixed in earlier commit);
                  MUST log final progress at 100% naming the resolving commit SHA
+             #{urgent_bug_pending_status_option}
              - "failure" for other errors
         INSTRUCTIONS
       end

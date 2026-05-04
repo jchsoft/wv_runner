@@ -69,6 +69,7 @@ module McptaskRunner
           3. Set status:
              - "success" if task completed successfully
              - "no_more_tasks" if no tasks available (mcptask returns "No available tasks found")
+             #{urgent_bug_pending_status_option}
              - "failure" for other errors
         INSTRUCTIONS
       end

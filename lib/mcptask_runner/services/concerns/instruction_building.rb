@@ -152,6 +152,20 @@ module McptaskRunner
         INSTRUCTION
       end
 
+      # Shared status option text for any executor that runs a task and might detect a NEW urgent
+      # bug mid-work. Emit `urgent_bug_pending` so the runner switches to main and re-triages
+      # globally (or exits a story-locked loop) to pick the urgent bug before resuming this task.
+      def urgent_bug_pending_status_option
+        <<~OPTION.strip
+          - "urgent_bug_pending" if you discovered/created a NEW URGENT bug task during work that must be handled before continuing this task;
+              BEFORE emitting this status:
+                1. Commit + push current work on this task's branch (if any) — leaves PR/branch for human review or future resume
+                2. `git checkout main` — leave clean working tree so runner picks the urgent bug, not this task
+                3. Add field "bug_task_id": <relative_id of the urgent bug task you created>
+              Loop will exit (story-locked / explicit task / single-shot) or re-triage globally (today/queue) and pick the urgent bug.
+        OPTION
+      end
+
       def time_awareness_instruction
         <<~INSTRUCTION.strip
           TIME MANAGEMENT (CRITICAL):

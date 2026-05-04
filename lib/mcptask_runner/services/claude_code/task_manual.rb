@@ -68,6 +68,7 @@ module McptaskRunner
           #{hours_data_instruction}
           3. Set status:
              - "success" if task completed successfully (PR created, NOT merged)
+             #{urgent_bug_pending_status_option}
              - "failure" for other errors
         INSTRUCTIONS
       end

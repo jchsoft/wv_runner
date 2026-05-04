@@ -52,9 +52,7 @@ module McptaskRunner
              - "already_done" if task already resolved (no code changes needed — e.g. fixed in earlier commit);
                  MUST log final progress at 100% naming the resolving commit SHA, so triage does not re-pick;
                  loop continues to next task
-             - "urgent_bug_pending" if you discovered/created a NEW URGENT bug task during work that must be handled before continuing the Story;
-                 add field "bug_task_id": <relative_id of the urgent bug task you created>;
-                 story loop will exit so parent re-triages globally and picks the urgent bug
+             #{urgent_bug_pending_status_option}
              - "failure" for other errors
         INSTRUCTIONS
       end
