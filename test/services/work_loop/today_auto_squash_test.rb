@@ -169,6 +169,35 @@ class WorkLoopTodayAutoSquashTest < Minitest::Test
     end
   end
 
+  def test_execute_with_today_auto_squash_continues_on_urgent_bug_pending
+    call_count = [0]
+    mock = Object.new
+    mock.define_singleton_method(:run) do
+      call_count[0] += 1
+      if call_count[0] == 1
+        { 'status' => 'urgent_bug_pending', 'bug_task_id' => 9999,
+          'hours' => { 'per_day' => 8, 'task_estimated' => 1 } }
+      else
+        { 'status' => 'no_more_tasks' }
+      end
+    end
+
+    with_triage_stub do
+      McptaskRunner::ClaudeCode::TodayAutoSquash.stub(:new, mock) do
+        Kernel.stub(:sleep, nil) do
+          Time.stub(:now, Time.new(2025, 1, 15, 19, 0)) do
+            loop_instance = McptaskRunner::WorkLoop.new
+            results = loop_instance.execute(:today_auto_squash)
+
+            assert_equal 2, results.length
+            assert_equal 'urgent_bug_pending', results.first['status']
+            assert_equal 'no_more_tasks', results.last['status']
+          end
+        end
+      end
+    end
+  end
+
   def test_execute_with_today_auto_squash_checks_quota
     mock = Object.new
     def mock.run

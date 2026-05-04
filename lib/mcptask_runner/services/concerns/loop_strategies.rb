@@ -89,6 +89,11 @@ module McptaskRunner
           results << result
           Logger.info_stdout("[WorkLoop] Task ##{iteration_count} completed with status: #{result['status']}")
 
+          if result['status'] == 'urgent_bug_pending'
+            Logger.info_stdout("[WorkLoop] Urgent bug ##{result['bug_task_id']} pending — exiting story manual loop")
+            break
+          end
+
           break if %w[no_more_tasks failure task_already_started quota_exceeded quota_exceeded_mid_task].include?(result['status'])
           break if quota_exceeded?(results)
 
@@ -227,6 +232,11 @@ module McptaskRunner
             next
           end
 
+          if status == 'urgent_bug_pending'
+            Logger.info_stdout("[WorkLoop] Urgent bug ##{result['bug_task_id']} pending — exiting story loop, parent will re-triage")
+            break
+          end
+
           break if %w[no_more_tasks failure task_already_started ci_failed merge_failed merge_unverified quota_exceeded quota_exceeded_mid_task].include?(status)
           break if quota_exceeded?(results)
 
@@ -266,6 +276,17 @@ module McptaskRunner
 
           if status == 'already_done'
             Logger.info_stdout('[WorkLoop] Task already resolved (no code changes needed), continuing to next task...')
+            sleep(2)
+            next
+          end
+
+          if status == 'urgent_bug_pending'
+            if @story_id
+              Logger.info_stdout("[WorkLoop] Urgent bug ##{result['bug_task_id']} pending — exiting #{label} loop")
+              break
+            end
+
+            Logger.info_stdout("[WorkLoop] Urgent bug ##{result['bug_task_id']} pending — re-triaging globally")
             sleep(2)
             next
           end

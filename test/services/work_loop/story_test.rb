@@ -334,6 +334,46 @@ class WorkLoopStoryTest < Minitest::Test
     end
   end
 
+  def test_execute_with_story_manual_stops_on_urgent_bug_pending
+    executor_mock = Object.new
+    def executor_mock.run
+      { 'status' => 'urgent_bug_pending', 'bug_task_id' => 9999, 'task_id' => 456,
+        'hours' => { 'per_day' => 8, 'task_estimated' => 1 } }
+    end
+
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_mock) do
+      McptaskRunner::ClaudeCode::StoryManual.stub(:new, executor_mock) do
+        loop_instance = McptaskRunner::WorkLoop.new(story_id: 123)
+        results = loop_instance.execute(:story_manual)
+
+        assert_instance_of Array, results
+        assert_equal 1, results.length
+        assert_equal 'urgent_bug_pending', results.first['status']
+        assert_equal 9999, results.first['bug_task_id']
+      end
+    end
+  end
+
+  def test_execute_with_story_auto_squash_stops_on_urgent_bug_pending
+    executor_mock = Object.new
+    def executor_mock.run
+      { 'status' => 'urgent_bug_pending', 'bug_task_id' => 9999, 'task_id' => 456,
+        'hours' => { 'per_day' => 8, 'task_estimated' => 1 } }
+    end
+
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_mock) do
+      McptaskRunner::ClaudeCode::StoryAutoSquash.stub(:new, executor_mock) do
+        loop_instance = McptaskRunner::WorkLoop.new(story_id: 123)
+        results = loop_instance.execute(:story_auto_squash)
+
+        assert_instance_of Array, results
+        assert_equal 1, results.length
+        assert_equal 'urgent_bug_pending', results.first['status']
+        assert_equal 9999, results.first['bug_task_id']
+      end
+    end
+  end
+
   def test_story_manual_triage_passes_model_and_task_id_to_executor
     triage_mock_obj = Object.new
     def triage_mock_obj.run
