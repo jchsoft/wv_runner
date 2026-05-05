@@ -129,6 +129,23 @@ class ClaudeCodeTriageTest < Minitest::Test
     end
   end
 
+  def test_instructions_force_opus_on_resume
+    File.stub :exist?, true do
+      File.stub :read, 'project_relative_id=7' do
+        instructions = McptaskRunner::ClaudeCode::Triage.new.send(:build_instructions)
+
+        assert_includes instructions, 'RESUMING OVERRIDE'
+        assert_includes instructions, 'resuming=true'
+      end
+    end
+  end
+
+  def test_story_triage_instructions_force_opus_on_resume
+    instructions = McptaskRunner::ClaudeCode::Triage.new(story_id: 8965).send(:build_instructions)
+
+    assert_includes instructions, 'RESUMING OVERRIDE'
+  end
+
   def test_instructions_default_to_sonnet
     File.stub :exist?, true do
       File.stub :read, 'project_relative_id=7' do

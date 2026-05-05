@@ -54,6 +54,8 @@ module McptaskRunner
             <<~RULES.strip
               MODEL SELECTION (pick one: "opus"/"sonnet"/"haiku"):
 
+              RESUMING OVERRIDE: if resuming=true → recommended_model="opus" ALWAYS (previous attempt didn't finish — needs strongest model regardless of complexity)
+
               "haiku": trivial — typo fix, single CSS change, one-line config
 
               "opus" ONLY: UI elements/improvements/beautification, complex architecture (models+associations, multi-service, migrations w/ data transforms), security (auth/encryption), ambiguous requirements, Story type, FIXING FAILING TESTS / debugging test failures (red→green, flaky tests, CI-failing specs — Sonnet historically struggles here)

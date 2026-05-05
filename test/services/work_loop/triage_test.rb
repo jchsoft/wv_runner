@@ -178,6 +178,88 @@ class WorkLoopTriageTest < Minitest::Test
     end
   end
 
+  def test_resuming_upgrades_sonnet_to_opus
+    triage_result_mock = Object.new
+    def triage_result_mock.run
+      { 'status' => 'success', 'recommended_model' => 'sonnet', 'task_id' => 9508,
+        'resuming' => true, 'hours' => { 'per_day' => 8, 'task_estimated' => 2, 'already_worked' => 1 } }
+    end
+
+    received_kwargs = nil
+    executor_mock = Object.new
+    def executor_mock.run
+      { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2 } }
+    end
+
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_result_mock) do
+      McptaskRunner::ClaudeCode::Honest.stub(:new, ->(**kwargs) { received_kwargs = kwargs; executor_mock }) do
+        loop_instance = McptaskRunner::WorkLoop.new
+        loop_instance.execute(:once)
+
+        assert_equal 'opus', received_kwargs[:model_override],
+                     'Resuming task must run on opus even when triage recommended sonnet'
+        assert_equal true, received_kwargs[:resuming]
+      end
+    end
+  end
+
+  def test_resuming_upgrades_haiku_to_opus
+    triage_result_mock = Object.new
+    def triage_result_mock.run
+      { 'status' => 'success', 'recommended_model' => 'haiku', 'task_id' => 9508,
+        'resuming' => true, 'hours' => { 'per_day' => 8, 'task_estimated' => 2, 'already_worked' => 1 } }
+    end
+
+    received_kwargs = nil
+    executor_mock = Object.new
+    def executor_mock.run
+      { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2 } }
+    end
+
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_result_mock) do
+      McptaskRunner::ClaudeCode::Honest.stub(:new, ->(**kwargs) { received_kwargs = kwargs; executor_mock }) do
+        loop_instance = McptaskRunner::WorkLoop.new
+        loop_instance.execute(:once)
+
+        assert_equal 'opus', received_kwargs[:model_override]
+      end
+    end
+  end
+
+  def test_resuming_false_keeps_sonnet
+    triage_result_mock = Object.new
+    def triage_result_mock.run
+      { 'status' => 'success', 'recommended_model' => 'sonnet', 'task_id' => 9508,
+        'resuming' => false, 'hours' => { 'per_day' => 8, 'task_estimated' => 2, 'already_worked' => 1 } }
+    end
+
+    received_kwargs = nil
+    executor_mock = Object.new
+    def executor_mock.run
+      { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2 } }
+    end
+
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_result_mock) do
+      McptaskRunner::ClaudeCode::Honest.stub(:new, ->(**kwargs) { received_kwargs = kwargs; executor_mock }) do
+        loop_instance = McptaskRunner::WorkLoop.new
+        loop_instance.execute(:once)
+
+        assert_equal 'sonnet', received_kwargs[:model_override],
+                     'Fresh tasks must keep triage recommendation'
+      end
+    end
+  end
+
+  def test_upgrade_model_for_resume_unit
+    loop_instance = McptaskRunner::WorkLoop.new
+
+    assert_equal 'opus',   loop_instance.send(:upgrade_model_for_resume, 'sonnet', true)
+    assert_equal 'opus',   loop_instance.send(:upgrade_model_for_resume, 'haiku',  true)
+    assert_equal 'opus',   loop_instance.send(:upgrade_model_for_resume, 'opus',   true)
+    assert_equal 'sonnet', loop_instance.send(:upgrade_model_for_resume, 'sonnet', false)
+    assert_equal 'haiku',  loop_instance.send(:upgrade_model_for_resume, 'haiku',  false)
+  end
+
   # Story detection from @next tests
 
   def test_story_executor_mapping

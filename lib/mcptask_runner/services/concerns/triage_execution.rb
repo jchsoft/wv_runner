@@ -40,6 +40,7 @@ module McptaskRunner
         return { 'status' => 'error', 'message' => 'Triage completed but no task_id returned' } unless triaged_task_id
 
         resuming = triage_result['resuming'] == true
+        model_override = upgrade_model_for_resume(model_override, resuming)
         Logger.info_stdout("[WorkLoop] Triage recommended model: #{model_override} (task_id: #{triaged_task_id}, resuming: #{resuming})")
 
         # Story detected from @next — switch to story loop
@@ -145,6 +146,16 @@ module McptaskRunner
           Logger.warn("[WorkLoop] Unknown triage model '#{recommended}', defaulting to opus")
           'opus'
         end
+      end
+
+      # Resuming = previous attempt did not finish (context overflow, quota cutoff, urgent_bug interrupt).
+      # Force opus on resume so a stronger model gets a shot at closing the task.
+      def upgrade_model_for_resume(model, resuming)
+        return model unless resuming
+        return model if model == 'opus'
+
+        Logger.info_stdout("[WorkLoop] Resuming task — upgrading model from '#{model}' to 'opus' (previous attempt likely couldn't finish)")
+        'opus'
       end
 
       def story_executor_for(executor_class)
