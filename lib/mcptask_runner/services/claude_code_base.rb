@@ -49,7 +49,7 @@ module McptaskRunner
     # at ~200K instead of growing to 1M across --continue retry chains.
     # Update IDs when newer models are released.
     MODEL_IDS = {
-      'opus' => 'claude-opus-4-6',
+      'opus' => 'claude-opus-4-7',
       'sonnet' => 'claude-sonnet-4-6',
       'haiku' => 'claude-haiku-4-5-20251001'
     }.freeze
