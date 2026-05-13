@@ -6,6 +6,7 @@ require 'json'
 require 'shellwords'
 require 'timeout'
 require_relative 'output_formatter'
+require_relative 'stall_detector'
 require_relative 'concerns/process_management'
 require_relative 'concerns/retry_handling'
 require_relative 'concerns/stream_processing'
@@ -29,6 +30,18 @@ module McptaskRunner
   # Raised when daily quota crosses per_day while a Claude run is in progress.
   # Terminal: heartbeat already SIGTERMed the subprocess; caller must NOT retry.
   class QuotaExceededMidTaskError < StandardError; end
+
+  # Raised when StallDetector flags the session as spinning (repeated failed tool calls,
+  # edit-failure streak, no progress in a window). Terminal: the task stays in_progress
+  # so the next triage promotes to Opus via TriageExecution#upgrade_model_for_resume.
+  class StalledError < StandardError
+    attr_reader :stall
+
+    def initialize(stall)
+      super("Stalled: reason=#{stall.reason} signature=#{stall.signature} count=#{stall.count}")
+      @stall = stall
+    end
+  end
 
   # Base class for Claude Code executors
   # Handles common execution, streaming, and JSON parsing logic
@@ -70,12 +83,13 @@ module McptaskRunner
       @result_received = false
       @runtime_state = {
         quota_watch: nil, quota_exceeded: false, inactivity_timeout: false,
-        api_overload: false, context_overflow: false
+        api_overload: false, context_overflow: false, stalled: nil
       }
       @child_pid = nil
       @stream_line_count = 0
       @active_tool_calls = {}
       @log_tag = self.class.name.split('::').last
+      @stall_detector = StallDetector.new(@log_tag)
       OutputFormatter.verbose_mode = verbose
     end
 
@@ -139,6 +153,8 @@ module McptaskRunner
       handle_api_overload(start_time)
     rescue ContextOverflowError
       handle_context_overflow(start_time)
+    rescue StalledError => e
+      handle_stalled(e.stall, start_time)
     end
 
     def resolve_claude_path
@@ -180,9 +196,11 @@ module McptaskRunner
       @runtime_state[:quota_exceeded] = false
       @runtime_state[:api_overload] = false
       @runtime_state[:context_overflow] = false
+      @runtime_state[:stalled] = nil
       @stream_line_count = 0
       @active_tool_calls = {}
       @child_pid = nil
+      @stall_detector = StallDetector.new(@log_tag)
     end
 
     def quota_exceeded_now?(execution_start, now)
@@ -195,6 +213,7 @@ module McptaskRunner
     end
 
     def raise_streaming_errors_if_any(stream_error)
+      raise StalledError, @runtime_state[:stalled] if @runtime_state[:stalled]
       raise StreamClosedError, stream_error if stream_error && !@stopping
       raise Timeout::Error, "Claude inactive for #{INACTIVITY_TIMEOUT}s" if @runtime_state[:inactivity_timeout]
       raise QuotaExceededMidTaskError, 'daily quota exceeded during run' if @runtime_state[:quota_exceeded]

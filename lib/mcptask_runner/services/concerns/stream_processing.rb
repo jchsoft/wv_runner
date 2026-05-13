@@ -32,16 +32,41 @@ module McptaskRunner
           when 'tool_use'
             @active_tool_calls[item['id']] = { name: item['name'], started_at: now }
             Logger.debug "[#{@log_tag}] [tool_tracking] Tool started: #{item['name']} (#{item['id']})"
+            check_stall(@stall_detector&.observe_tool_use(item))
           when 'tool_result'
             removed = @active_tool_calls.delete(item['tool_use_id'])
             if removed
               duration = (now - removed[:started_at]).round(1)
               Logger.debug "[#{@log_tag}] [tool_tracking] Tool finished: #{removed[:name]} after #{duration}s"
             end
+            check_stall(@stall_detector&.observe_tool_result(item))
           end
         end
       rescue JSON::ParserError
         # Not JSON, ignore
+      end
+
+      def check_stall(stall)
+        return unless stall
+        return if @runtime_state[:stalled]
+
+        @runtime_state[:stalled] = stall
+        @stopping = true
+        Logger.error "[#{@log_tag}] Stall detected: reason=#{stall.reason} signature=#{stall.signature} " \
+                     "count=#{stall.count}#{" detail=#{stall.detail}" if stall.detail} — terminating for Opus escalation"
+        emit_stall_event(stall)
+        kill_process(@child_pid)
+        release_test_lock
+      end
+
+      def emit_stall_event(stall)
+        EventStream.emit('stall.detected', {
+                           executor: @log_tag,
+                           reason: stall.reason.to_s,
+                           signature: stall.signature,
+                           count: stall.count,
+                           detail: stall.detail
+                         })
       end
 
       def format_active_tools(now = nil)
