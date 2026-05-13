@@ -42,6 +42,7 @@ module McptaskRunner
         resuming = triage_result['resuming'] == true
         model_override = upgrade_model_for_resume(model_override, resuming)
         Logger.info_stdout("[WorkLoop] Triage recommended model: #{model_override} (task_id: #{triaged_task_id}, resuming: #{resuming})")
+        EventStream.emit("triage.completed", { model: model_override, task_id: triaged_task_id })
 
         # Story detected from @next — switch to story loop
         if triage_result['piece_type'] == 'Story' && !kwargs[:story_id]
