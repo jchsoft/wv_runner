@@ -230,6 +230,7 @@ module McptaskRunner
       stderr_content = ''.dup
       stream_error = nil
       reset_streaming_state
+      EventStream.emit("execution.started", { model: effective_model_name })
       execution_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
       Open3.popen3(*command, pgroup: true) do |stdin, stdout, stderr, wait_thr|
@@ -294,6 +295,7 @@ module McptaskRunner
 
             Logger.info_stdout "[#{@log_tag}] [heartbeat] Claude is working... " \
                                "(#{current_count} stream events, inactive: #{inactive_seconds}s#{tool_info})"
+            EventStream.emit("execution.heartbeat", { stream_events: current_count, inactive_s: inactive_seconds })
 
             break if heartbeat_quota_terminate(execution_start, now)
 
@@ -328,6 +330,7 @@ module McptaskRunner
 
       elapsed = (Process.clock_gettime(Process::CLOCK_MONOTONIC) - execution_start).round(1)
       Logger.info_stdout "[#{@log_tag}] Execution finished in #{elapsed}s (#{@stream_line_count} stream events)"
+      EventStream.emit("execution.completed", { elapsed_s: elapsed, stream_events: @stream_line_count })
 
       stdout_content
     end

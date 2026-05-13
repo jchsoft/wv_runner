@@ -30,8 +30,13 @@ module McptaskRunner
     def execute(how)
       validate_how(how)
       ApprovalCollector.clear
+      EventStream.start_session(mode: how)
+      EventStream.emit("session.started", { mode: how.to_s })
 
       send("run_#{how}").tap { ApprovalCollector.print_summary }
+    ensure
+      EventStream.emit("session.completed", {})
+      EventStream.end_session
     end
 
     private
