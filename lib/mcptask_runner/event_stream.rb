@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "json"
+require "uri"
 
 module McptaskRunner
   # Streams runner events to mcptask.online via ActionCable WebSocket.
@@ -15,6 +16,8 @@ module McptaskRunner
         return unless enabled?
 
         @subscribed = false
+        @failed = false
+        @error_logged = false
         @mutex = Mutex.new
         @subscribed_cv = ConditionVariable.new
 
@@ -65,7 +68,7 @@ module McptaskRunner
         url = cable_url
         Logger.info_stdout "[EventStream] Connecting to ActionCable..."
 
-        client = WebSocket::Client::Simple.connect(url) do |c|
+        client = WebSocket::Client::Simple.connect(url, headers: handshake_headers) do |c|
           c.on(:open) do
             Logger.debug "[EventStream] WebSocket connected, subscribing..."
             c.send(JSON.generate({ command: "subscribe", identifier: CHANNEL_IDENTIFIER }))
@@ -73,13 +76,43 @@ module McptaskRunner
 
           c.on(:message) { |msg| handle_message(msg.data) }
 
-          c.on(:error) { |e| Logger.warn "[EventStream] WebSocket error: #{e.message}" }
+          c.on(:error) { |e| handle_error(c, e) }
 
           c.on(:close) { Logger.debug "[EventStream] WebSocket closed" }
         end
 
         @mutex.synchronize { @ws = client }
         wait_for_subscription
+      end
+
+      def handle_error(client, error)
+        should_log = @mutex.synchronize do
+          break false if @error_logged
+
+          @error_logged = true
+          @failed = true
+          @subscribed_cv.signal
+          true
+        end
+        Logger.warn "[EventStream] WebSocket error: #{error.message} — disabling stream" if should_log
+        client.close
+      rescue StandardError
+        nil
+      end
+
+      def handshake_headers
+        origin = origin_from_cable_url
+        origin ? { "Origin" => origin } : {}
+      end
+
+      def origin_from_cable_url
+        uri = URI.parse(resolved_cable_url)
+        scheme = uri.scheme == "wss" ? "https" : "http"
+        return nil if uri.host.nil?
+
+        "#{scheme}://#{uri.host}"
+      rescue URI::InvalidURIError
+        nil
       end
 
       def handle_message(data)
@@ -101,9 +134,9 @@ module McptaskRunner
 
       def wait_for_subscription(timeout: 10)
         @mutex.synchronize do
-          @subscribed_cv.wait(@mutex, timeout) unless @subscribed
+          @subscribed_cv.wait(@mutex, timeout) unless @subscribed || @failed
         end
-        Logger.warn "[EventStream] Subscription timed out" unless @subscribed
+        Logger.warn "[EventStream] Subscription timed out" unless @subscribed || @failed
       end
 
       def cable_url
