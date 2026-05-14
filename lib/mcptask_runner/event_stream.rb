@@ -2,6 +2,7 @@
 
 require "json"
 require "uri"
+require "securerandom"
 
 module McptaskRunner
   # Streams runner events to mcptask.online via ActionCable WebSocket.
@@ -20,6 +21,8 @@ module McptaskRunner
         @error_logged = false
         @mutex = Mutex.new
         @subscribed_cv = ConditionVariable.new
+        @session_id = SecureRandom.uuid
+        @machine_id = ENV.fetch("HOSTNAME") { `hostname`.strip }
 
         connect
       rescue StandardError => e
@@ -31,7 +34,9 @@ module McptaskRunner
         return unless enabled? && ws&.open?
 
         data = JSON.generate({
-          action: "emit",
+          action: "event",
+          session_id: @session_id,
+          machine_id: @machine_id,
           event_type: event_type,
           payload: payload
         })
