@@ -30,15 +30,16 @@ module McptaskRunner
         content_items.each do |item|
           case item['type']
           when 'tool_use'
-            @active_tool_calls[item['id']] = { name: item['name'], started_at: now }
-            EventStream.emit("tool.started", { tool_name: item['name'], tool_id: item['id'] })
-            Logger.debug "[#{@log_tag}] [tool_tracking] Tool started: #{item['name']} (#{item['id']})"
+            summary = summarize_tool_input(item['name'], item['input'])
+            @active_tool_calls[item['id']] = { name: item['name'], started_at: now, summary: summary }
+            EventStream.emit("tool.started", { tool_name: item['name'], tool_id: item['id'], summary: summary })
+            Logger.debug "[#{@log_tag}] [tool_tracking] Tool started: #{item['name']} (#{item['id']}) #{summary}"
             check_stall(@stall_detector&.observe_tool_use(item))
           when 'tool_result'
             removed = @active_tool_calls.delete(item['tool_use_id'])
             if removed
               duration = (now - removed[:started_at]).round(1)
-              EventStream.emit("tool.finished", { tool_name: removed[:name], duration_s: duration })
+              EventStream.emit("tool.finished", { tool_name: removed[:name], tool_id: item['tool_use_id'], summary: removed[:summary], duration_s: duration })
               Logger.debug "[#{@log_tag}] [tool_tracking] Tool finished: #{removed[:name]} after #{duration}s"
             end
             check_stall(@stall_detector&.observe_tool_result(item))
@@ -46,6 +47,36 @@ module McptaskRunner
         end
       rescue JSON::ParserError
         # Not JSON, ignore
+      end
+
+      def summarize_tool_input(name, input)
+        return '' unless input.is_a?(Hash)
+
+        raw = case name
+              when 'Bash' then input['command']
+              when 'Edit', 'Write', 'Read', 'NotebookEdit' then input['file_path'] || input['notebook_path']
+              when 'Grep' then [input['pattern'], input['path']].compact.join(' in ')
+              when 'Glob' then input['pattern']
+              when 'WebFetch' then input['url']
+              when 'WebSearch' then input['query']
+              when 'Task' then input['description'] || input['subagent_type']
+              when 'TodoWrite' then summarize_todos(input['todos'])
+              else input['file_path'] || input['path'] || input['query'] || input['pattern'] || input['command'] || input.values.first
+        end
+
+        truncate_summary(raw.to_s)
+      end
+
+      def summarize_todos(todos)
+        return '' unless todos.is_a?(Array)
+
+        current = todos.find { |t| t['status'] == 'in_progress' } || todos.find { |t| t['status'] == 'pending' }
+        current ? current['content'] : "#{todos.count} todos"
+      end
+
+      def truncate_summary(text)
+        clean = text.to_s.tr("\n\r\t", ' ').squeeze(' ').strip
+        clean.length > 120 ? "#{clean[0, 117]}..." : clean
       end
 
       def check_stall(stall)
