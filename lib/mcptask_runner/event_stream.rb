@@ -68,15 +68,16 @@ module McptaskRunner
         url = cable_url
         Logger.info_stdout "[EventStream] Connecting to ActionCable..."
 
+        stream = self
         client = WebSocket::Client::Simple.connect(url, headers: handshake_headers) do |c|
           c.on(:open) do
             Logger.debug "[EventStream] WebSocket connected, subscribing..."
             c.send(JSON.generate({ command: "subscribe", identifier: CHANNEL_IDENTIFIER }))
           end
 
-          c.on(:message) { |msg| handle_message(msg.data) }
+          c.on(:message) { |msg| stream.send(:handle_message, msg.data) }
 
-          c.on(:error) { |e| handle_error(c, e) }
+          c.on(:error) { |e| stream.send(:handle_error, c, e) }
 
           c.on(:close) { Logger.debug "[EventStream] WebSocket closed" }
         end
