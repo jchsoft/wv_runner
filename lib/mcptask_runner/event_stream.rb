@@ -4,9 +4,11 @@ require "json"
 
 module McptaskRunner
   # Streams runner events to mcptask.online via ActionCable WebSocket.
-  # Disabled when WV_RUNNER_CABLE_URL env var is not set.
+  # Cable URL and token auto-resolved from project's .mcp.json (mcptask-online server).
+  # Disabled when no token is available.
   module EventStream
     CHANNEL_IDENTIFIER = JSON.generate({ channel: "RunnerSessionChannel" })
+    MCP_SERVER_KEY = "mcptask-online"
 
     class << self
       def start_session(mode:)
@@ -52,7 +54,7 @@ module McptaskRunner
       end
 
       def enabled?
-        !ENV.fetch("WV_RUNNER_CABLE_URL", "").empty?
+        !resolved_token.to_s.empty? && !resolved_cable_url.to_s.empty?
       end
 
       private
@@ -105,9 +107,49 @@ module McptaskRunner
       end
 
       def cable_url
-        base = ENV.fetch("WV_RUNNER_CABLE_URL").delete_suffix("/")
-        token = ENV.fetch("WORKVECTOR_TOKEN", "")
-        "#{base}?token=#{token}"
+        "#{resolved_cable_url.delete_suffix('/')}?token=#{resolved_token}"
+      end
+
+      def resolved_cable_url
+        ENV["MCPT_RUNNER_CABLE_URL"].to_s.empty? ? cable_url_from_mcp_json : ENV.fetch("MCPT_RUNNER_CABLE_URL")
+      end
+
+      def resolved_token
+        env_token_name = mcp_token_env_name || "MCPTASK_TOKEN"
+        ENV.fetch(env_token_name, "")
+      end
+
+      def cable_url_from_mcp_json
+        mcp_server_url&.sub(%r{\Ahttps://}, "wss://")&.sub(%r{/mcp/sse\z}, "/cable").to_s
+      end
+
+      def mcp_server_url
+        mcp_server_config&.dig("url")
+      end
+
+      def mcp_token_env_name
+        return nil unless mcp_server_config
+
+        auth = mcp_server_config.dig("headers", "Authorization").to_s
+        match = auth.match(/\$\{(\w+)\}/)
+        match && match[1]
+      end
+
+      def mcp_server_config
+        mcp_json&.dig("mcpServers", MCP_SERVER_KEY)
+      end
+
+      def mcp_json
+        @mcp_json ||= load_mcp_json
+      end
+
+      def load_mcp_json
+        path = File.join(Dir.pwd, ".mcp.json")
+        return nil unless File.exist?(path)
+
+        JSON.parse(File.read(path))
+      rescue StandardError
+        nil
       end
     end
   end

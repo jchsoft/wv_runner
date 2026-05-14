@@ -6,47 +6,65 @@ class EventStreamTest < Minitest::Test
   def setup
     McptaskRunner::EventStream.instance_variable_set(:@ws, nil)
     McptaskRunner::EventStream.instance_variable_set(:@subscribed, false)
+    McptaskRunner::EventStream.instance_variable_set(:@mcp_json, nil)
   end
 
   def test_disabled_when_cable_url_not_set
-    with_env("WV_RUNNER_CABLE_URL" => nil) do
+    with_env("MCPT_RUNNER_CABLE_URL" => nil, "MCPTASK_TOKEN" => nil) do
       refute McptaskRunner::EventStream.enabled?
     end
   end
 
-  def test_enabled_when_cable_url_set
-    with_env("WV_RUNNER_CABLE_URL" => "ws://localhost:3000/cable") do
+  def test_enabled_when_cable_url_and_token_set
+    with_env("MCPT_RUNNER_CABLE_URL" => "ws://localhost:3000/cable", "MCPTASK_TOKEN" => "abc") do
       assert McptaskRunner::EventStream.enabled?
     end
   end
 
-  def test_disabled_when_cable_url_empty
-    with_env("WV_RUNNER_CABLE_URL" => "") do
+  def test_disabled_when_token_missing
+    with_env("MCPT_RUNNER_CABLE_URL" => "ws://localhost:3000/cable", "MCPTASK_TOKEN" => nil) do
       refute McptaskRunner::EventStream.enabled?
     end
   end
 
+  def test_auto_resolves_url_from_mcp_json
+    fake_mcp = {
+      "mcpServers" => {
+        "mcptask-online" => {
+          "url" => "https://mcptask.online/mcp/sse",
+          "headers" => { "Authorization" => "Bearer ${MCPTASK_TOKEN}" }
+        }
+      }
+    }
+    McptaskRunner::EventStream.instance_variable_set(:@mcp_json, fake_mcp)
+    with_env("MCPT_RUNNER_CABLE_URL" => nil, "MCPTASK_TOKEN" => "abc") do
+      assert McptaskRunner::EventStream.enabled?
+      assert_equal "wss://mcptask.online/cable",
+                   McptaskRunner::EventStream.send(:resolved_cable_url)
+    end
+  end
+
   def test_start_session_noop_when_disabled
-    with_env("WV_RUNNER_CABLE_URL" => nil) do
+    with_env("MCPT_RUNNER_CABLE_URL" => nil, "MCPTASK_TOKEN" => nil) do
       # Should not raise, should not attempt connection
       McptaskRunner::EventStream.start_session(mode: :honest)
     end
   end
 
   def test_emit_noop_when_disabled
-    with_env("WV_RUNNER_CABLE_URL" => nil) do
+    with_env("MCPT_RUNNER_CABLE_URL" => nil, "MCPTASK_TOKEN" => nil) do
       McptaskRunner::EventStream.emit("session.started", { session_id: "123" })
     end
   end
 
   def test_end_session_noop_when_disabled
-    with_env("WV_RUNNER_CABLE_URL" => nil) do
+    with_env("MCPT_RUNNER_CABLE_URL" => nil, "MCPTASK_TOKEN" => nil) do
       McptaskRunner::EventStream.end_session
     end
   end
 
   def test_emit_noop_when_ws_not_connected
-    with_env("WV_RUNNER_CABLE_URL" => "ws://localhost:3000/cable") do
+    with_env("MCPT_RUNNER_CABLE_URL" => "ws://localhost:3000/cable", "MCPTASK_TOKEN" => "abc") do
       McptaskRunner::EventStream.instance_variable_set(:@ws, nil)
       # Should not raise
       McptaskRunner::EventStream.emit("session.started", { session_id: "123" })
