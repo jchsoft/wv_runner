@@ -21,6 +21,7 @@ module McptaskRunner
         story_id_for_triage = kwargs[:story_id]
 
         Logger.info_stdout('[WorkLoop] Running triage to select optimal model...')
+        EventStream.emit('triage.started', { task_id: task_id_for_triage, story_id: story_id_for_triage, phase: 'triage' })
         triage_result = ClaudeCode::Triage.new(verbose: @verbose, task_id: task_id_for_triage, story_id: story_id_for_triage, ignore_quota: @ignore_quota).run
 
         return triage_result if triage_result['status'] == 'no_more_tasks'
@@ -42,7 +43,7 @@ module McptaskRunner
         resuming = triage_result['resuming'] == true
         model_override = upgrade_model_for_resume(model_override, resuming)
         Logger.info_stdout("[WorkLoop] Triage recommended model: #{model_override} (task_id: #{triaged_task_id}, resuming: #{resuming})")
-        EventStream.emit("triage.completed", { model: model_override, task_id: triaged_task_id })
+        EventStream.emit("triage.completed", { model: model_override, task_id: triaged_task_id, phase: 'execution' })
 
         # Story detected from @next — switch to story loop
         if triage_result['piece_type'] == 'Story' && !kwargs[:story_id]

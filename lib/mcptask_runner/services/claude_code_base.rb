@@ -57,6 +57,7 @@ module McptaskRunner
 
     INACTIVITY_TIMEOUT = 1200 # 20 minutes - kill only if stream_line_count stops changing
     HEARTBEAT_INTERVAL = 120 # 2 minutes between heartbeat messages
+    TOOL_HANG_TIMEOUT = 3600 # 60 minutes - kill if a single tool call hasn't returned (long system tests/CI can run ~30min, so 60min is the safety ceiling)
 
     # Pin to standard 200K-context model IDs (no [1m] suffix) so context overflows fail fast
     # at ~200K instead of growing to 1M across --continue retry chains.
@@ -249,7 +250,7 @@ module McptaskRunner
       stderr_content = ''.dup
       stream_error = nil
       reset_streaming_state
-      EventStream.emit("execution.started", { model: effective_model_name })
+      EventStream.emit("execution.started", { model: effective_model_name, phase: event_phase })
       execution_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
       Open3.popen3(*command, pgroup: true) do |stdin, stdout, stderr, wait_thr|
@@ -309,14 +310,37 @@ module McptaskRunner
               last_activity_time = now
             end
 
+            # A running tool (e.g. long Bash/system test) is real activity even if Claude
+            # stops streaming during it — reset the inactivity timer so we don't kill
+            # healthy tasks and don't flap the UI badge to "stale". TOOL_HANG_TIMEOUT
+            # below still kills if a single tool genuinely hangs forever.
+            last_activity_time = now if @active_tool_calls.any?
+
             inactive_seconds = (now - last_activity_time).to_i
             tool_info = format_active_tools(now)
+            longest_tool_seconds = longest_active_tool_seconds(now)
 
             Logger.info_stdout "[#{@log_tag}] [heartbeat] Claude is working... " \
                                "(#{current_count} stream events, inactive: #{inactive_seconds}s#{tool_info})"
-            EventStream.emit("execution.heartbeat", { stream_events: current_count, inactive_s: inactive_seconds })
+            EventStream.emit("execution.heartbeat", {
+                               stream_events: current_count,
+                               inactive_s: inactive_seconds,
+                               phase: event_phase,
+                               active_tools: active_tool_names,
+                               active_tools_count: @active_tool_calls.size
+                             })
 
             break if heartbeat_quota_terminate(execution_start, now)
+
+            if longest_tool_seconds >= TOOL_HANG_TIMEOUT
+              Logger.error "[#{@log_tag}] Tool hung for #{longest_tool_seconds}s (>#{TOOL_HANG_TIMEOUT}s), terminating..."
+              write_debug_dump(stderr_content, @child_pid)
+              @stopping = true
+              @runtime_state[:inactivity_timeout] = true
+              kill_process(@child_pid)
+              release_test_lock
+              break
+            end
 
             next unless inactive_seconds >= INACTIVITY_TIMEOUT
 
@@ -349,7 +373,11 @@ module McptaskRunner
 
       elapsed = (Process.clock_gettime(Process::CLOCK_MONOTONIC) - execution_start).round(1)
       Logger.info_stdout "[#{@log_tag}] Execution finished in #{elapsed}s (#{@stream_line_count} stream events)"
-      EventStream.emit("execution.completed", { elapsed_s: elapsed, stream_events: @stream_line_count })
+      EventStream.emit("execution.completed", {
+                         elapsed_s: elapsed,
+                         stream_events: @stream_line_count,
+                         phase: event_phase
+                       })
 
       stdout_content
     end
@@ -365,6 +393,23 @@ module McptaskRunner
     def error_result(message)
       Logger.debug "[#{@log_tag}] [error_result] Creating error result: #{message}"
       { 'status' => 'error', 'message' => message }
+    end
+
+    # Phase label attached to EventStream payloads so the UI can distinguish
+    # triage runs from main task execution. Subclasses override for special phases.
+    def event_phase
+      'execution'
+    end
+
+    def active_tool_names
+      @active_tool_calls.values.map { |info| info[:name] }
+    end
+
+    def longest_active_tool_seconds(now)
+      return 0 if @active_tool_calls.empty?
+
+      oldest = @active_tool_calls.values.map { |info| info[:started_at] }.min
+      (now - oldest).to_i
     end
 
     def release_test_lock

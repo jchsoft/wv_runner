@@ -7,6 +7,8 @@ class EventStreamTest < Minitest::Test
     McptaskRunner::EventStream.instance_variable_set(:@ws, nil)
     McptaskRunner::EventStream.instance_variable_set(:@subscribed, false)
     McptaskRunner::EventStream.instance_variable_set(:@mcp_json, nil)
+    McptaskRunner::EventStream.instance_variable_set(:@session_id, nil)
+    McptaskRunner::EventStream.instance_variable_set(:@last_reconnect_attempt, nil)
   end
 
   def test_disabled_when_cable_url_not_set

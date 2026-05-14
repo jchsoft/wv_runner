@@ -98,7 +98,8 @@ module McptaskRunner
                            reason: stall.reason.to_s,
                            signature: stall.signature,
                            count: stall.count,
-                           detail: stall.detail
+                           detail: stall.detail,
+                           phase: 'stalled'
                          })
       end
 

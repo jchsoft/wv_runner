@@ -11,6 +11,7 @@ module McptaskRunner
   module EventStream
     CHANNEL_IDENTIFIER = JSON.generate({ channel: "RunnerSessionChannel" })
     MCP_SERVER_KEY = "mcptask-online"
+    RECONNECT_THROTTLE_S = 30
 
     class << self
       def start_session(mode:)
@@ -23,6 +24,7 @@ module McptaskRunner
         @subscribed_cv = ConditionVariable.new
         @session_id = SecureRandom.uuid
         @machine_id = ENV.fetch("HOSTNAME") { `hostname`.strip }
+        @last_reconnect_attempt = nil
 
         connect
       rescue StandardError => e
@@ -30,8 +32,13 @@ module McptaskRunner
       end
 
       def emit(event_type, payload)
+        return unless enabled?
+
         ws = @mutex&.synchronize { @ws }
-        return unless enabled? && ws&.open?
+        unless ws&.open?
+          attempt_async_reconnect
+          return
+        end
 
         data = JSON.generate({
           action: "event",
@@ -48,6 +55,7 @@ module McptaskRunner
         }))
       rescue StandardError => e
         Logger.warn "[EventStream] Failed to emit #{event_type}: #{e.message}"
+        attempt_async_reconnect
       end
 
       def end_session
@@ -56,6 +64,7 @@ module McptaskRunner
         @mutex&.synchronize do
           @ws&.close
           @ws = nil
+          @session_id = nil
         end
       rescue StandardError => e
         Logger.warn "[EventStream] Failed to end session: #{e.message}"
@@ -66,6 +75,34 @@ module McptaskRunner
       end
 
       private
+
+      def attempt_async_reconnect
+        return unless @mutex && @session_id
+        return if Thread.current[:eventstream_reconnecting]
+
+        should_attempt = @mutex.synchronize do
+          now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          next false if @last_reconnect_attempt && now - @last_reconnect_attempt < RECONNECT_THROTTLE_S
+
+          @last_reconnect_attempt = now
+          true
+        end
+
+        return unless should_attempt
+
+        Thread.new do
+          Thread.current[:eventstream_reconnecting] = true
+          Logger.info_stdout "[EventStream] WebSocket closed, attempting reconnect..."
+          @mutex.synchronize do
+            @subscribed = false
+            @error_logged = false
+            @failed = false
+          end
+          connect
+        rescue StandardError => e
+          Logger.warn "[EventStream] Reconnect failed: #{e.message}"
+        end
+      end
 
       def connect
         require "websocket-client-simple"
