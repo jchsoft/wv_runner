@@ -238,4 +238,40 @@ class DeciderTest < Minitest::Test
 
     refute decider.quota_exceeded_mid_task?
   end
+
+  # REST truth path: when TimeStatusClient succeeds, server hours win over local estimates.
+  # This is the fix for "session ran 10h with 8h quota" — estimate drift no longer leaks budget.
+  def test_remaining_hours_uses_server_truth_when_available
+    results = [
+      # local estimates would say remaining=4.5h (8 - 0 - 1.5 - 2.0), but server says 7h already burned.
+      { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 1.5, 'task_worked' => 3.0 } },
+      { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2.0, 'task_worked' => 4.0 } }
+    ]
+    decider = McptaskRunner::Decider.new(task_results: results)
+
+    McptaskRunner::TimeStatusClient.stub :fetch, { worked_today: 7.0, per_day: 8.0 } do
+      assert_equal 1.0, decider.remaining_hours
+      refute decider.should_stop?
+    end
+  end
+
+  def test_should_stop_when_server_says_quota_exceeded
+    results = [
+      { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 1.0, 'task_worked' => 1.0 } }
+    ]
+    decider = McptaskRunner::Decider.new(task_results: results)
+
+    McptaskRunner::TimeStatusClient.stub :fetch, { worked_today: 8.5, per_day: 8.0 } do
+      assert decider.should_stop?, 'server-reported worked_today >= per_day must trigger stop'
+    end
+  end
+
+  def test_falls_back_to_estimates_when_rest_fails
+    # Default test env has MCPTASK_TOKEN deleted, so fetch raises → fallback path.
+    # 8 - 0 - 2 (estimated) = 6 from estimates.
+    task_result = { 'status' => 'success', 'hours' => { 'per_day' => 8, 'task_estimated' => 2.0, 'task_worked' => 2.0 } }
+    decider = McptaskRunner::Decider.new(task_results: [task_result])
+
+    assert_equal 6.0, decider.remaining_hours
+  end
 end

@@ -39,12 +39,18 @@ module McptaskRunner
         return 0
       end
 
+      if (truth = server_truth)
+        remaining = (truth[:per_day] - truth[:worked_today]).round(2)
+        Logger.debug("[Decider] [remaining_hours] (server) per_day: #{truth[:per_day]}h, worked_today: #{truth[:worked_today]}h, Remaining: #{remaining}h")
+        return remaining
+      end
+
       daily_goal = daily_hour_goal
       already_worked = already_worked_before_session
-      total_estimated = total_hours_estimated # Using estimated because we simulate human-like behavior
+      total_estimated = total_hours_estimated # fallback: REST unavailable, use snapshot + estimates
       remaining = (daily_goal - already_worked - total_estimated).round(2)
 
-      Logger.debug("[Decider] [remaining_hours] Daily goal: #{daily_goal}h, Already worked: #{already_worked}h, Total estimated: #{total_estimated}h, Remaining: #{remaining}h")
+      Logger.debug("[Decider] [remaining_hours] (fallback) Daily goal: #{daily_goal}h, Already worked: #{already_worked}h, Total estimated: #{total_estimated}h, Remaining: #{remaining}h")
       remaining
     end
 
@@ -63,6 +69,20 @@ module McptaskRunner
     end
 
     private
+
+    # Authoritative quota from mcptask.online time_status endpoint.
+    # Memoized per-instance: should_stop? and summary share one HTTP call.
+    # Returns nil on any failure so callers fall back to estimate-based math.
+    def server_truth
+      return @server_truth if defined?(@server_truth)
+
+      @server_truth = TimeStatusClient.fetch
+      Logger.debug("[Decider] [server_truth] worked_today=#{@server_truth[:worked_today]}h per_day=#{@server_truth[:per_day]}h")
+      @server_truth
+    rescue TimeStatusClient::Error => e
+      Logger.warn("[Decider] TimeStatusClient failed (#{e.message}); falling back to estimate-based math")
+      @server_truth = nil
+    end
 
     def tasks_failed?
       failed_count = @task_results.count { |r| r['status'] == 'error' }
