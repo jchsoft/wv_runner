@@ -1209,6 +1209,185 @@ class ClaudeCodeBaseTest < Minitest::Test
     assert_equal stall, error.stall
   end
 
+  # Tests for per-tool hang timeout — fast tools (MCP, Read/Edit/Grep) get a shorter ceiling than
+  # long tools (Bash/Task running tests, CI, subagents). Catches MCP server hangs without
+  # waiting the full 60min long-tool ceiling.
+  def test_quick_tool_hang_timeout_constant_is_defined
+    assert_equal 120, McptaskRunner::ClaudeCodeBase::QUICK_TOOL_HANG_TIMEOUT
+  end
+
+  def test_long_running_tools_constant_includes_bash_and_task
+    assert_includes McptaskRunner::ClaudeCodeBase::LONG_RUNNING_TOOLS, 'Bash'
+    assert_includes McptaskRunner::ClaudeCodeBase::LONG_RUNNING_TOOLS, 'Task'
+  end
+
+  def test_tool_hang_timeout_for_bash_uses_long_ceiling
+    base = McptaskRunner::ClaudeCodeBase.new
+    assert_equal McptaskRunner::ClaudeCodeBase::TOOL_HANG_TIMEOUT,
+                 base.send(:tool_hang_timeout_for, 'Bash')
+  end
+
+  def test_tool_hang_timeout_for_task_uses_long_ceiling
+    base = McptaskRunner::ClaudeCodeBase.new
+    assert_equal McptaskRunner::ClaudeCodeBase::TOOL_HANG_TIMEOUT,
+                 base.send(:tool_hang_timeout_for, 'Task')
+  end
+
+  def test_tool_hang_timeout_for_mcp_tool_uses_quick_ceiling
+    base = McptaskRunner::ClaudeCodeBase.new
+    assert_equal McptaskRunner::ClaudeCodeBase::QUICK_TOOL_HANG_TIMEOUT,
+                 base.send(:tool_hang_timeout_for, 'mcp__mcptask-online__LogWorkProgressTool')
+  end
+
+  def test_tool_hang_timeout_for_read_uses_quick_ceiling
+    base = McptaskRunner::ClaudeCodeBase.new
+    assert_equal McptaskRunner::ClaudeCodeBase::QUICK_TOOL_HANG_TIMEOUT,
+                 base.send(:tool_hang_timeout_for, 'Read')
+  end
+
+  def test_hung_tool_returns_nil_when_no_active_tools
+    base = McptaskRunner::ClaudeCodeBase.new
+    assert_nil base.send(:hung_tool, Process.clock_gettime(Process::CLOCK_MONOTONIC))
+  end
+
+  def test_hung_tool_returns_nil_when_quick_tool_within_limit
+    base = McptaskRunner::ClaudeCodeBase.new
+    now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    base.instance_variable_set(:@active_tool_calls, {
+                                 'id1' => { name: 'mcp__mcptask-online__LogWorkProgressTool', started_at: now - 60 }
+                               })
+    assert_nil base.send(:hung_tool, now)
+  end
+
+  def test_hung_tool_detects_quick_tool_past_quick_limit
+    base = McptaskRunner::ClaudeCodeBase.new
+    now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    base.instance_variable_set(:@active_tool_calls, {
+                                 'id1' => { name: 'mcp__mcptask-online__LogWorkProgressTool', started_at: now - 200 }
+                               })
+    hung = base.send(:hung_tool, now)
+    refute_nil hung, 'Quick MCP tool stuck >120s should be flagged hung'
+    assert_equal 'mcp__mcptask-online__LogWorkProgressTool', hung[:name]
+  end
+
+  def test_hung_tool_ignores_bash_within_long_limit
+    base = McptaskRunner::ClaudeCodeBase.new
+    now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    # 25 min Bash run (system tests) — well under 60min long ceiling
+    base.instance_variable_set(:@active_tool_calls, {
+                                 'id1' => { name: 'Bash', started_at: now - 1500 }
+                               })
+    assert_nil base.send(:hung_tool, now), 'Bash within long ceiling must not be flagged'
+  end
+
+  def test_hung_tool_detects_bash_past_long_limit
+    base = McptaskRunner::ClaudeCodeBase.new
+    now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    base.instance_variable_set(:@active_tool_calls, {
+                                 'id1' => { name: 'Bash', started_at: now - 3700 }
+                               })
+    refute_nil base.send(:hung_tool, now), 'Bash past 60min ceiling should be flagged'
+  end
+
+  def test_hung_tool_picks_quick_tool_over_long_bash
+    base = McptaskRunner::ClaudeCodeBase.new
+    now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    # Bash legitimately running 20min + MCP tool hung 3min — quick tool is the issue
+    base.instance_variable_set(:@active_tool_calls, {
+                                 'bash1' => { name: 'Bash', started_at: now - 1200 },
+                                 'mcp1' => { name: 'mcp__mcptask-online__AddMessageTool', started_at: now - 180 }
+                               })
+    hung = base.send(:hung_tool, now)
+    refute_nil hung
+    assert_equal 'mcp__mcptask-online__AddMessageTool', hung[:name]
+  end
+
+  # Tests for marker_parse_failed? — distinguishes "marker absent / parse failed" from
+  # Claude legitimately reporting status=error inside TASKRUNNER_RESULT.
+  def test_marker_parse_failed_true_when_marker_absent
+    base = McptaskRunner::ClaudeCodeBase.new
+    assert base.send(:marker_parse_failed?, { 'status' => 'error', 'message' => 'No TASKRUNNER_RESULT found in output' })
+  end
+
+  def test_marker_parse_failed_false_when_status_success
+    base = McptaskRunner::ClaudeCodeBase.new
+    refute base.send(:marker_parse_failed?, { 'status' => 'success', 'pr_number' => 1158 })
+  end
+
+  def test_marker_parse_failed_false_when_claude_reports_legit_error
+    base = McptaskRunner::ClaudeCodeBase.new
+    # Claude emitted TASKRUNNER_RESULT with status=error reporting a real task failure
+    refute base.send(:marker_parse_failed?, { 'status' => 'error', 'message' => 'CI failed after fix attempts' })
+  end
+
+  # Bug fix: TASKRUNNER_RESULT must win over context_overflow / api_overload patterns that
+  # appeared earlier in the stream (e.g., a sub-agent hit overflow but main task completed).
+  # Without this, a successful task gets reclassified as terminal context_overflow error.
+  def test_attempt_execution_trusts_result_received_over_context_overflow_pattern
+    base = McptaskRunner::ClaudeCodeBase.new
+    base.define_singleton_method(:model_name) { 'sonnet' }
+    base.define_singleton_method(:build_instructions) { 'noop' }
+
+    success_result = { 'status' => 'success', 'pr_number' => 1158, 'hours' => { 'task_worked' => 0.5 } }
+    base.stub(:resolve_claude_path, '/fake/claude') do
+      base.stub(:execute_with_streaming, '') do
+        base.stub(:parse_result, success_result) do
+          # Simulate streaming had picked up "Prompt is too long" earlier in output...
+          base.instance_variable_set(:@accumulated_output, +'noise Prompt is too long noise')
+          # ...but Claude recovered and emitted TASKRUNNER_RESULT marker
+          base.instance_variable_set(:@result_received, true)
+
+          result = base.send(:attempt_execution, Time.now)
+
+          assert_equal 'success', result['status']
+          assert_equal 1158, result['pr_number']
+        end
+      end
+    end
+  end
+
+  def test_attempt_execution_emits_context_overflow_terminal_error_when_no_result_received
+    base = McptaskRunner::ClaudeCodeBase.new
+    base.define_singleton_method(:model_name) { 'sonnet' }
+    base.define_singleton_method(:build_instructions) { 'noop' }
+
+    error_result = { 'status' => 'error', 'message' => 'No TASKRUNNER_RESULT found in output' }
+    base.stub(:resolve_claude_path, '/fake/claude') do
+      base.stub(:execute_with_streaming, '') do
+        base.stub(:parse_result, error_result) do
+          base.instance_variable_set(:@accumulated_output, +'Prompt is too long here')
+          base.instance_variable_set(:@result_received, false)
+
+          result = base.send(:attempt_execution, Time.now)
+          assert_equal 'error', result['status']
+          assert_equal 'context_overflow', result['reason']
+        end
+      end
+    end
+  end
+
+  def test_attempt_execution_triggers_marker_retry_when_parse_failed_without_result_received
+    base = McptaskRunner::ClaudeCodeBase.new
+    base.define_singleton_method(:model_name) { 'sonnet' }
+    base.define_singleton_method(:build_instructions) { 'noop' }
+
+    error_result = { 'status' => 'error', 'message' => 'No TASKRUNNER_RESULT found in output' }
+    base.stub(:resolve_claude_path, '/fake/claude') do
+      base.stub(:execute_with_streaming, '') do
+        base.stub(:parse_result, error_result) do
+          base.instance_variable_set(:@accumulated_output, +'no marker no overflow')
+          base.instance_variable_set(:@result_received, false)
+
+          # retry_state.count = 0 → handle_marker_retry returns nil to signal retry
+          # AND flips marker_retry_mode = true
+          result = base.send(:attempt_execution, Time.now)
+          assert_nil result, 'Should return nil to signal retry attempt'
+          assert base.instance_variable_get(:@retry_state).marker_retry_mode
+        end
+      end
+    end
+  end
+
   def test_kill_process_handles_eperm_on_group_kill
     base = McptaskRunner::ClaudeCodeBase.new
     kill_targets = []

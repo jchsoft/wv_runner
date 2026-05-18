@@ -57,7 +57,11 @@ module McptaskRunner
 
     INACTIVITY_TIMEOUT = 1200 # 20 minutes - kill only if stream_line_count stops changing
     HEARTBEAT_INTERVAL = 120 # 2 minutes between heartbeat messages
-    TOOL_HANG_TIMEOUT = 3600 # 60 minutes - kill if a single tool call hasn't returned (long system tests/CI can run ~30min, so 60min is the safety ceiling)
+    TOOL_HANG_TIMEOUT = 3600 # 60 minutes - long tools (Bash/Task): system tests/CI/subagents can run ~30min
+    QUICK_TOOL_HANG_TIMEOUT = 120 # 2 minutes - fast tools (MCP, Read, Edit, Grep, ToolSearch...) should respond quickly;
+    # catches MCP server hangs (e.g. mcptask.online restart drops connection mid-call)
+    # without waiting the full hour the long-tool ceiling allows.
+    LONG_RUNNING_TOOLS = %w[Bash Task].freeze
 
     # Pin to standard 200K-context model IDs (no [1m] suffix) so context overflows fail fast
     # at ~200K instead of growing to 1M across --continue retry chains.
@@ -129,6 +133,11 @@ module McptaskRunner
 
       result = parse_result(@accumulated_output, elapsed_hours)
 
+      # Claude emitted TASKRUNNER_RESULT — trust its terminal output even if context-overflow
+      # or 529 patterns appeared earlier in the stream. Those may be sub-agent or transient
+      # errors Claude already recovered from; overriding here would discard a real success.
+      return result if @result_received && !marker_parse_failed?(result)
+
       # Detect context overflow BEFORE other errors - session is dead, --continue cannot recover
       raise ContextOverflowError if context_overflow_detected?
 
@@ -136,7 +145,7 @@ module McptaskRunner
       raise ApiOverloadError if api_overload_detected?
 
       # If marker not found and Claude completed successfully, retry with marker-only instruction
-      raise MissingMarkerError if result['status'] == 'error' && result['message'].include?('TASKRUNNER_RESULT')
+      raise MissingMarkerError if marker_parse_failed?(result)
 
       result
     rescue Timeout::Error
@@ -318,7 +327,6 @@ module McptaskRunner
 
             inactive_seconds = (now - last_activity_time).to_i
             tool_info = format_active_tools(now)
-            longest_tool_seconds = longest_active_tool_seconds(now)
 
             Logger.info_stdout "[#{@log_tag}] [heartbeat] Claude is working... " \
                                "(#{current_count} stream events, inactive: #{inactive_seconds}s#{tool_info})"
@@ -332,13 +340,10 @@ module McptaskRunner
 
             break if heartbeat_quota_terminate(execution_start, now)
 
-            if longest_tool_seconds >= TOOL_HANG_TIMEOUT
-              Logger.error "[#{@log_tag}] Tool hung for #{longest_tool_seconds}s (>#{TOOL_HANG_TIMEOUT}s), terminating..."
-              write_debug_dump(stderr_content, @child_pid)
-              @stopping = true
-              @runtime_state[:inactivity_timeout] = true
-              kill_process(@child_pid)
-              release_test_lock
+            if (hung = hung_tool(now))
+              Logger.error "[#{@log_tag}] Tool '#{hung[:name]}' hung for #{(now - hung[:started_at]).to_i}s " \
+                           "(>#{tool_hang_timeout_for(hung[:name])}s), terminating..."
+              terminate_for_inactivity(stderr_content)
               break
             end
 
@@ -346,11 +351,7 @@ module McptaskRunner
 
             Logger.error "[#{@log_tag}] Claude inactive for #{inactive_seconds}s " \
                          "(stream count stuck at #{current_count}), terminating..."
-            write_debug_dump(stderr_content, @child_pid)
-            @stopping = true
-            @runtime_state[:inactivity_timeout] = true
-            kill_process(@child_pid)
-            release_test_lock
+            terminate_for_inactivity(stderr_content)
             break
           end
         rescue StandardError => e
@@ -405,11 +406,26 @@ module McptaskRunner
       @active_tool_calls.values.map { |info| info[:name] }
     end
 
-    def longest_active_tool_seconds(now)
-      return 0 if @active_tool_calls.empty?
+    def terminate_for_inactivity(stderr_content)
+      write_debug_dump(stderr_content, @child_pid)
+      @stopping = true
+      @runtime_state[:inactivity_timeout] = true
+      kill_process(@child_pid)
+      release_test_lock
+    end
 
-      oldest = @active_tool_calls.values.map { |info| info[:started_at] }.min
-      (now - oldest).to_i
+    def hung_tool(now)
+      @active_tool_calls.values.find do |info|
+        (now - info[:started_at]) >= tool_hang_timeout_for(info[:name])
+      end
+    end
+
+    def tool_hang_timeout_for(name)
+      LONG_RUNNING_TOOLS.include?(name) ? TOOL_HANG_TIMEOUT : QUICK_TOOL_HANG_TIMEOUT
+    end
+
+    def marker_parse_failed?(result)
+      result['status'] == 'error' && result['message'].to_s.include?('TASKRUNNER_RESULT')
     end
 
     def release_test_lock
