@@ -31,11 +31,13 @@ module McptaskRunner
       validate_how(how)
       ApprovalCollector.clear
       EventStream.start_session(mode: how)
-      EventStream.emit("session.started", { mode: how.to_s, phase: "starting" })
+      @builder = EventStream.builder
+      EventStream.emit_snapshot(@builder.to_h, force: true) if @builder
 
       send("run_#{how}").tap { ApprovalCollector.print_summary }
     ensure
-      EventStream.emit("session.completed", { phase: "completed" })
+      @builder&.close
+      EventStream.emit_snapshot(@builder.to_h, force: true) if @builder
       EventStream.end_session
     end
 

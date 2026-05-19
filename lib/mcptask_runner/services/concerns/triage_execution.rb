@@ -21,8 +21,10 @@ module McptaskRunner
         story_id_for_triage = kwargs[:story_id]
 
         Logger.info_stdout('[WorkLoop] Running triage to select optimal model...')
-        EventStream.emit('triage.started', { task_id: task_id_for_triage, story_id: story_id_for_triage, phase: 'triage' })
-        triage_result = ClaudeCode::Triage.new(verbose: @verbose, task_id: task_id_for_triage, story_id: story_id_for_triage, ignore_quota: @ignore_quota).run
+        @builder&.set_task(task_id: task_id_for_triage)
+        @builder&.set_status(:triage)
+        EventStream.emit_snapshot(@builder.to_h, force: true) if @builder
+        triage_result = ClaudeCode::Triage.new(verbose: @verbose, task_id: task_id_for_triage, story_id: story_id_for_triage, ignore_quota: @ignore_quota, snapshot_builder: @builder).run
 
         return triage_result if triage_result['status'] == 'no_more_tasks'
 
@@ -43,7 +45,10 @@ module McptaskRunner
         resuming = triage_result['resuming'] == true
         model_override = upgrade_model_for_resume(model_override, resuming)
         Logger.info_stdout("[WorkLoop] Triage recommended model: #{model_override} (task_id: #{triaged_task_id}, resuming: #{resuming})")
-        EventStream.emit("triage.completed", { model: model_override, task_id: triaged_task_id, phase: 'execution' })
+        @builder&.set_model(model_override)
+        @builder&.set_task(task_id: triaged_task_id)
+        @builder&.set_status(:processing)
+        EventStream.emit_snapshot(@builder.to_h, force: true) if @builder
 
         # Story detected from @next — switch to story loop
         if triage_result['piece_type'] == 'Story' && !kwargs[:story_id]
@@ -59,7 +64,7 @@ module McptaskRunner
 
       def execute_with_triage(executor_class, task_id, model_override, resuming, **kwargs)
         triage_result = kwargs.delete(:triage_result)
-        executor_kwargs = kwargs.merge(verbose: @verbose, model_override: model_override, resuming: resuming, task_id: task_id)
+        executor_kwargs = kwargs.merge(verbose: @verbose, model_override: model_override, resuming: resuming, task_id: task_id, snapshot_builder: @builder)
 
         result = run_with_quota_guard(executor_class.new(**executor_kwargs), triage_result, task_id)
         Logger.info_stdout("[WorkLoop] Task completed with status: #{result['status']}")

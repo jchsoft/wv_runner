@@ -406,41 +406,41 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_initialize_sets_api_overload_flag_to_false
     base = McptaskRunner::ClaudeCodeBase.new
-    refute base.instance_variable_get(:@runtime_state)[:api_overload]
+    refute base.instance_variable_get(:@api_overload)
   end
 
   def test_check_for_api_overload_sets_flag_on_529
     base = McptaskRunner::ClaudeCodeBase.new
     base.send(:check_for_api_overload, '{"type":"system","subtype":"api_retry","error_status": 529}')
 
-    assert base.instance_variable_get(:@runtime_state)[:api_overload], 'Should set flag on 529 error'
+    assert base.instance_variable_get(:@api_overload), 'Should set flag on 529 error'
   end
 
   def test_check_for_api_overload_sets_flag_on_repeated_529
     base = McptaskRunner::ClaudeCodeBase.new
     base.send(:check_for_api_overload, '[Claude] API Error: Repeated 529 Overloaded errors')
 
-    assert base.instance_variable_get(:@runtime_state)[:api_overload], 'Should set flag on repeated 529'
+    assert base.instance_variable_get(:@api_overload), 'Should set flag on repeated 529'
   end
 
   def test_check_for_api_overload_does_not_set_flag_on_normal_output
     base = McptaskRunner::ClaudeCodeBase.new
     base.send(:check_for_api_overload, '{"type":"assistant","message":"Hello"}')
 
-    refute base.instance_variable_get(:@runtime_state)[:api_overload], 'Should not set flag on normal output'
+    refute base.instance_variable_get(:@api_overload), 'Should not set flag on normal output'
   end
 
   def test_api_overload_detected_via_flag
     base = McptaskRunner::ClaudeCodeBase.new
     base.instance_variable_set(:@accumulated_output, '')
-    base.instance_variable_get(:@runtime_state)[:api_overload] = true
+    base.instance_variable_set(:@api_overload, true)
 
     assert base.send(:api_overload_detected?), 'Should detect overload via flag even with empty accumulated_output'
   end
 
   def test_stream_closed_with_529_raises_api_overload
     base = McptaskRunner::ClaudeCodeBase.new
-    base.instance_variable_get(:@runtime_state)[:api_overload] = true
+    base.instance_variable_set(:@api_overload, true)
 
     # attempt_execution rescues StreamClosedError, checks flag, re-raises as ApiOverloadError
     # which is then caught and handled by handle_api_overload
@@ -454,14 +454,14 @@ class ClaudeCodeBaseTest < Minitest::Test
   # Tests for context overflow detection — session exceeded 1M token limit, cannot --continue
   def test_initialize_sets_context_overflow_flag_to_false
     base = McptaskRunner::ClaudeCodeBase.new
-    refute base.instance_variable_get(:@runtime_state)[:context_overflow]
+    refute base.instance_variable_get(:@context_overflow)
   end
 
   def test_check_for_context_overflow_sets_flag_on_prompt_too_long
     base = McptaskRunner::ClaudeCodeBase.new
     base.send(:check_for_context_overflow, '[Claude] Prompt is too long')
 
-    assert base.instance_variable_get(:@runtime_state)[:context_overflow], 'Should set flag on "Prompt is too long"'
+    assert base.instance_variable_get(:@context_overflow), 'Should set flag on "Prompt is too long"'
     assert base.instance_variable_get(:@stopping), 'Should mark stopping to treat stream closure as expected'
   end
 
@@ -469,20 +469,20 @@ class ClaudeCodeBaseTest < Minitest::Test
     base = McptaskRunner::ClaudeCodeBase.new
     base.send(:check_for_context_overflow, '{"error":{"type":"context_length_exceeded"}}')
 
-    assert base.instance_variable_get(:@runtime_state)[:context_overflow]
+    assert base.instance_variable_get(:@context_overflow)
   end
 
   def test_check_for_context_overflow_does_not_set_flag_on_normal_output
     base = McptaskRunner::ClaudeCodeBase.new
     base.send(:check_for_context_overflow, '{"type":"assistant","message":"Hello"}')
 
-    refute base.instance_variable_get(:@runtime_state)[:context_overflow]
+    refute base.instance_variable_get(:@context_overflow)
   end
 
   def test_context_overflow_detected_via_flag
     base = McptaskRunner::ClaudeCodeBase.new
     base.instance_variable_set(:@accumulated_output, '')
-    base.instance_variable_get(:@runtime_state)[:context_overflow] = true
+    base.instance_variable_set(:@context_overflow, true)
 
     assert base.send(:context_overflow_detected?), 'Should detect via flag even with empty accumulated_output'
   end
@@ -638,7 +638,7 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_initialize_sets_inactivity_timeout_to_false
     base = McptaskRunner::ClaudeCodeBase.new
-    refute base.instance_variable_get(:@runtime_state)[:inactivity_timeout]
+    refute base.instance_variable_get(:@inactivity_timeout)
   end
 
   # Tests for release_test_lock method
@@ -920,45 +920,44 @@ class ClaudeCodeBaseTest < Minitest::Test
     assert_includes instruction, 'task_id MUST be numeric'
   end
 
-  # Tests for tool tracking
-  def test_initialize_sets_active_tool_calls_to_empty_hash
+  # Tests for tool tracking (via SnapshotBuilder)
+  def test_initialize_has_no_active_tools
     base = McptaskRunner::ClaudeCodeBase.new
-    assert_equal({}, base.instance_variable_get(:@active_tool_calls))
+    assert_equal 0, base.instance_variable_get(:@snapshot_builder).active_tool_count
   end
 
   def test_track_tool_event_adds_tool_use
     base = McptaskRunner::ClaudeCodeBase.new
     line = '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"tool_123","name":"Skill","input":{}}]}}'
 
-    base.send(:track_tool_event, line)
+    McptaskRunner::EventStream.stub(:emit_snapshot, nil) { base.send(:track_tool_event, line) }
 
-    tools = base.instance_variable_get(:@active_tool_calls)
-    assert_equal 1, tools.size
-    assert_equal 'Skill', tools['tool_123'][:name]
-    assert_kind_of Float, tools['tool_123'][:started_at]
+    builder = base.instance_variable_get(:@snapshot_builder)
+    assert_equal 1, builder.active_tool_count
+    assert_includes builder.active_tool_names, 'Skill'
   end
 
   def test_track_tool_event_removes_on_tool_result
     base = McptaskRunner::ClaudeCodeBase.new
-    now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-    base.instance_variable_set(:@active_tool_calls, { 'tool_123' => { name: 'Skill', started_at: now } })
+    builder = base.instance_variable_get(:@snapshot_builder)
+    builder.tool_started(tool_id: 'tool_123', name: 'Skill', summary: '')
 
     line = '{"type":"assistant","message":{"content":[{"type":"tool_result","tool_use_id":"tool_123","content":"ok"}]}}'
-    base.send(:track_tool_event, line)
+    McptaskRunner::EventStream.stub(:emit_snapshot, nil) { base.send(:track_tool_event, line) }
 
-    assert_empty base.instance_variable_get(:@active_tool_calls)
+    assert_equal 0, builder.active_tool_count
   end
 
   def test_track_tool_event_ignores_non_json
     base = McptaskRunner::ClaudeCodeBase.new
-    base.send(:track_tool_event, 'not json at all')
-    assert_empty base.instance_variable_get(:@active_tool_calls)
+    McptaskRunner::EventStream.stub(:emit_snapshot, nil) { base.send(:track_tool_event, 'not json at all') }
+    assert_equal 0, base.instance_variable_get(:@snapshot_builder).active_tool_count
   end
 
   def test_track_tool_event_ignores_lines_without_content
     base = McptaskRunner::ClaudeCodeBase.new
-    base.send(:track_tool_event, '{"type":"result","cost_usd":0.05}')
-    assert_empty base.instance_variable_get(:@active_tool_calls)
+    McptaskRunner::EventStream.stub(:emit_snapshot, nil) { base.send(:track_tool_event, '{"type":"result","cost_usd":0.05}') }
+    assert_equal 0, base.instance_variable_get(:@snapshot_builder).active_tool_count
   end
 
   def test_format_active_tools_empty
@@ -969,9 +968,11 @@ class ClaudeCodeBaseTest < Minitest::Test
   def test_format_active_tools_with_tools
     base = McptaskRunner::ClaudeCodeBase.new
     now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-    base.instance_variable_set(:@active_tool_calls, {
-                                 'tool_1' => { name: 'Skill', started_at: now - 300 }
-                               })
+    builder = base.instance_variable_get(:@snapshot_builder)
+    # Directly backdate mono_started_at for testing
+    builder.instance_variable_get(:@active_actions)['tool_1'] = {
+      name: 'Skill', summary: '', mono_started_at: now - 300, started_at: Time.now.utc.iso8601(3)
+    }
 
     result = base.send(:format_active_tools, now)
     assert_includes result, 'waiting for:'
@@ -982,7 +983,6 @@ class ClaudeCodeBaseTest < Minitest::Test
     base = McptaskRunner::ClaudeCodeBase.new
     base.instance_variable_set(:@stream_line_count, 198)
     base.instance_variable_set(:@text_content, "line 1\nline 2\n")
-    base.instance_variable_set(:@active_tool_calls, {})
     base.instance_variable_set(:@log_tag, 'test')
 
     Dir.mktmpdir do |dir|
@@ -1008,18 +1008,18 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_initialize_sets_quota_watch_to_nil
     base = McptaskRunner::ClaudeCodeBase.new
-    assert_nil base.instance_variable_get(:@runtime_state)[:quota_watch]
+    assert_nil base.instance_variable_get(:@quota_watch)
   end
 
   def test_initialize_sets_quota_exceeded_to_false
     base = McptaskRunner::ClaudeCodeBase.new
-    refute base.instance_variable_get(:@runtime_state)[:quota_exceeded]
+    refute base.instance_variable_get(:@quota_exceeded)
   end
 
   def test_quota_watch_writer_accepts_hash
     base = McptaskRunner::ClaudeCodeBase.new
     base.quota_watch = { per_day_hours: 8.0, already_worked_hours: 7.0 }
-    assert_equal 8.0, base.instance_variable_get(:@runtime_state)[:quota_watch][:per_day_hours]
+    assert_equal 8.0, base.instance_variable_get(:@quota_watch)[:per_day_hours]
   end
 
   def test_quota_exceeded_now_returns_false_when_quota_watch_nil
@@ -1061,9 +1061,9 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_reset_streaming_state_clears_quota_exceeded_flag
     base = McptaskRunner::ClaudeCodeBase.new
-    base.instance_variable_get(:@runtime_state)[:quota_exceeded] = true
+    base.instance_variable_set(:@quota_exceeded, true)
     base.send(:reset_streaming_state)
-    refute base.instance_variable_get(:@runtime_state)[:quota_exceeded]
+    refute base.instance_variable_get(:@quota_exceeded)
   end
 
   # Tests for StalledError exception
@@ -1081,10 +1081,10 @@ class ClaudeCodeBaseTest < Minitest::Test
     assert_match(/sig/, error.message)
   end
 
-  # Tests for stall integration into runtime_state
+  # Tests for stall integration
   def test_initialize_sets_stalled_to_nil
     base = McptaskRunner::ClaudeCodeBase.new
-    assert_nil base.instance_variable_get(:@runtime_state)[:stalled]
+    assert_nil base.instance_variable_get(:@stalled)
   end
 
   def test_initialize_creates_stall_detector
@@ -1094,79 +1094,88 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_reset_streaming_state_clears_stalled_flag_and_replaces_detector
     base = McptaskRunner::ClaudeCodeBase.new
-    base.instance_variable_get(:@runtime_state)[:stalled] = :something
+    base.instance_variable_set(:@stalled, :something)
     old_detector = base.instance_variable_get(:@stall_detector)
 
     base.send(:reset_streaming_state)
 
-    assert_nil base.instance_variable_get(:@runtime_state)[:stalled]
+    assert_nil base.instance_variable_get(:@stalled)
     refute_same old_detector, base.instance_variable_get(:@stall_detector),
                 'Detector must be recreated so accumulated state from prior attempt is dropped'
   end
 
-  # check_stall integration — verifies SIGTERM and runtime_state are set
-  def test_check_stall_sets_runtime_state_and_stops
+  # check_stall integration — verifies SIGTERM and stall ivar are set
+  def test_check_stall_sets_stalled_and_stops
     base = McptaskRunner::ClaudeCodeBase.new
     base.instance_variable_set(:@child_pid, nil) # nil PID → kill_process is a no-op
+    base.instance_variable_get(:@snapshot_builder).set_status(:triage)
+    base.instance_variable_get(:@snapshot_builder).set_status(:processing)
     stall = McptaskRunner::StallDetector::Stall.new(reason: :edit_failures, signature: 'sig', count: 3)
 
-    base.send(:check_stall, stall)
+    McptaskRunner::EventStream.stub(:emit_snapshot, nil) { base.send(:check_stall, stall) }
 
-    assert_equal stall, base.instance_variable_get(:@runtime_state)[:stalled]
+    assert_equal stall, base.instance_variable_get(:@stalled)
     assert base.instance_variable_get(:@stopping)
   end
 
   def test_check_stall_ignores_nil
     base = McptaskRunner::ClaudeCodeBase.new
     base.send(:check_stall, nil)
-    assert_nil base.instance_variable_get(:@runtime_state)[:stalled]
+    assert_nil base.instance_variable_get(:@stalled)
     refute base.instance_variable_get(:@stopping)
   end
 
-  def test_check_stall_emits_event_stream_telemetry
+  def test_check_stall_emits_snapshot_with_stalled_status
     base = McptaskRunner::ClaudeCodeBase.new
+    base.instance_variable_get(:@snapshot_builder).set_status(:triage)
+    base.instance_variable_get(:@snapshot_builder).set_status(:processing)
     stall = McptaskRunner::StallDetector::Stall.new(reason: :edit_failures, signature: 'sig', count: 3, detail: nil)
-    emitted = []
+    emitted_snapshots = []
 
-    McptaskRunner::EventStream.stub(:emit, ->(type, payload) { emitted << [type, payload] }) do
+    McptaskRunner::EventStream.stub(:emit_snapshot, ->(snapshot, force: false) { emitted_snapshots << snapshot }) do
       base.send(:check_stall, stall)
     end
 
-    assert_equal 1, emitted.size
-    type, payload = emitted.first
-    assert_equal 'stall.detected', type
-    assert_equal 'edit_failures', payload[:reason]
-    assert_equal 'sig', payload[:signature]
-    assert_equal 3, payload[:count]
+    assert_equal 1, emitted_snapshots.size
+    assert_equal 'stalled', emitted_snapshots.first[:status]
+    assert_match(/edit_failures/, emitted_snapshots.first[:error_message])
+    assert_match(/sig/, emitted_snapshots.first[:error_message])
   end
 
   def test_check_stall_does_not_overwrite_first_stall
     base = McptaskRunner::ClaudeCodeBase.new
+    base.instance_variable_get(:@snapshot_builder).set_status(:triage)
+    base.instance_variable_get(:@snapshot_builder).set_status(:processing)
     first = McptaskRunner::StallDetector::Stall.new(reason: :edit_failures, signature: 'a', count: 3)
     second = McptaskRunner::StallDetector::Stall.new(reason: :loop_signature, signature: 'b', count: 4)
 
-    base.send(:check_stall, first)
-    base.send(:check_stall, second)
+    McptaskRunner::EventStream.stub(:emit_snapshot, nil) do
+      base.send(:check_stall, first)
+      base.send(:check_stall, second)
+    end
 
-    assert_equal first, base.instance_variable_get(:@runtime_state)[:stalled],
+    assert_equal first, base.instance_variable_get(:@stalled),
                  'First stall wins; subsequent detections are ignored'
   end
 
   # track_tool_event integration — feeds StallDetector via parsed JSONL
   def test_track_tool_event_triggers_stall_after_three_edit_failures
     base = McptaskRunner::ClaudeCodeBase.new
+    base.instance_variable_get(:@snapshot_builder).set_status(:triage)
+    base.instance_variable_get(:@snapshot_builder).set_status(:processing)
     use_line = '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"u1","name":"Edit","input":{"file_path":"/a.rb","old_string":"foo"}}]}}'
     err_line = '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"u1","is_error":true,"content":"String not found"}]}}'
 
-    3.times do |i|
-      base.instance_variable_set(:@active_tool_calls, {})
-      indexed_use = use_line.gsub('"u1"', "\"u#{i}\"")
-      indexed_err = err_line.gsub('"u1"', "\"u#{i}\"")
-      base.send(:track_tool_event, indexed_use)
-      base.send(:track_tool_event, indexed_err)
+    McptaskRunner::EventStream.stub(:emit_snapshot, nil) do
+      3.times do |i|
+        indexed_use = use_line.gsub('"u1"', "\"u#{i}\"")
+        indexed_err = err_line.gsub('"u1"', "\"u#{i}\"")
+        base.send(:track_tool_event, indexed_use)
+        base.send(:track_tool_event, indexed_err)
+      end
     end
 
-    stall = base.instance_variable_get(:@runtime_state)[:stalled]
+    stall = base.instance_variable_get(:@stalled)
     refute_nil stall
     assert_equal :edit_failures, stall.reason
     assert base.instance_variable_get(:@stopping)
@@ -1201,7 +1210,7 @@ class ClaudeCodeBaseTest < Minitest::Test
   def test_raise_streaming_errors_raises_stalled_before_stream_closed
     base = McptaskRunner::ClaudeCodeBase.new
     stall = McptaskRunner::StallDetector::Stall.new(reason: :edit_failures, signature: 'sig', count: 3)
-    base.instance_variable_get(:@runtime_state)[:stalled] = stall
+    base.instance_variable_set(:@stalled, stall)
 
     error = assert_raises(McptaskRunner::StalledError) do
       base.send(:raise_streaming_errors_if_any, 'unrelated stream error')
@@ -1253,18 +1262,18 @@ class ClaudeCodeBaseTest < Minitest::Test
   def test_hung_tool_returns_nil_when_quick_tool_within_limit
     base = McptaskRunner::ClaudeCodeBase.new
     now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-    base.instance_variable_set(:@active_tool_calls, {
-                                 'id1' => { name: 'mcp__mcptask-online__LogWorkProgressTool', started_at: now - 60 }
-                               })
+    base.instance_variable_get(:@snapshot_builder).instance_variable_get(:@active_actions)['id1'] = {
+      name: 'mcp__mcptask-online__LogWorkProgressTool', summary: '', mono_started_at: now - 60, started_at: Time.now.utc.iso8601(3)
+    }
     assert_nil base.send(:hung_tool, now)
   end
 
   def test_hung_tool_detects_quick_tool_past_quick_limit
     base = McptaskRunner::ClaudeCodeBase.new
     now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-    base.instance_variable_set(:@active_tool_calls, {
-                                 'id1' => { name: 'mcp__mcptask-online__LogWorkProgressTool', started_at: now - 200 }
-                               })
+    base.instance_variable_get(:@snapshot_builder).instance_variable_get(:@active_actions)['id1'] = {
+      name: 'mcp__mcptask-online__LogWorkProgressTool', summary: '', mono_started_at: now - 200, started_at: Time.now.utc.iso8601(3)
+    }
     hung = base.send(:hung_tool, now)
     refute_nil hung, 'Quick MCP tool stuck >120s should be flagged hung'
     assert_equal 'mcp__mcptask-online__LogWorkProgressTool', hung[:name]
@@ -1274,29 +1283,28 @@ class ClaudeCodeBaseTest < Minitest::Test
     base = McptaskRunner::ClaudeCodeBase.new
     now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     # 25 min Bash run (system tests) — well under 60min long ceiling
-    base.instance_variable_set(:@active_tool_calls, {
-                                 'id1' => { name: 'Bash', started_at: now - 1500 }
-                               })
+    base.instance_variable_get(:@snapshot_builder).instance_variable_get(:@active_actions)['id1'] = {
+      name: 'Bash', summary: '', mono_started_at: now - 1500, started_at: Time.now.utc.iso8601(3)
+    }
     assert_nil base.send(:hung_tool, now), 'Bash within long ceiling must not be flagged'
   end
 
   def test_hung_tool_detects_bash_past_long_limit
     base = McptaskRunner::ClaudeCodeBase.new
     now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-    base.instance_variable_set(:@active_tool_calls, {
-                                 'id1' => { name: 'Bash', started_at: now - 3700 }
-                               })
+    base.instance_variable_get(:@snapshot_builder).instance_variable_get(:@active_actions)['id1'] = {
+      name: 'Bash', summary: '', mono_started_at: now - 3700, started_at: Time.now.utc.iso8601(3)
+    }
     refute_nil base.send(:hung_tool, now), 'Bash past 60min ceiling should be flagged'
   end
 
   def test_hung_tool_picks_quick_tool_over_long_bash
     base = McptaskRunner::ClaudeCodeBase.new
     now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    actions = base.instance_variable_get(:@snapshot_builder).instance_variable_get(:@active_actions)
     # Bash legitimately running 20min + MCP tool hung 3min — quick tool is the issue
-    base.instance_variable_set(:@active_tool_calls, {
-                                 'bash1' => { name: 'Bash', started_at: now - 1200 },
-                                 'mcp1' => { name: 'mcp__mcptask-online__AddMessageTool', started_at: now - 180 }
-                               })
+    actions['bash1'] = { name: 'Bash', summary: '', mono_started_at: now - 1200, started_at: Time.now.utc.iso8601(3) }
+    actions['mcp1'] = { name: 'mcp__mcptask-online__AddMessageTool', summary: '', mono_started_at: now - 180, started_at: Time.now.utc.iso8601(3) }
     hung = base.send(:hung_tool, now)
     refute_nil hung
     assert_equal 'mcp__mcptask-online__AddMessageTool', hung[:name]

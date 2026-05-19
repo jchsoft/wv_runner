@@ -21,7 +21,6 @@ module McptaskRunner
 
       def model_name = 'sonnet'
       def max_turns = 30
-      def event_phase = 'triage'
 
       private
 

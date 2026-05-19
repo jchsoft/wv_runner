@@ -15,13 +15,13 @@ module McptaskRunner
     # Explicit allowed transitions per task #10358 spec.
     # Additionally: any → frozen (server watchdog), any → closed (end_session).
     TRANSITIONS = {
-      "starting"   => %w[triage error],
+      "starting"   => %w[triage waiting error],
       "triage"     => %w[processing waiting error],
       "processing" => %w[waiting finished stalled frozen error],
-      "waiting"    => %w[processing finished error],
+      "waiting"    => %w[processing triage finished error],
       "stalled"    => %w[processing error closed],
       "frozen"     => %w[processing error closed],
-      "finished"   => %w[closed],
+      "finished"   => %w[closed waiting triage],
       "error"      => %w[closed],
       "closed"     => []
     }.freeze
@@ -42,7 +42,7 @@ module McptaskRunner
       @last_activity_at = Time.now.utc
     end
 
-    def set_task(task_id:, task_name:)
+    def set_task(task_id:, task_name: nil)
       @mutex.synchronize do
         @task_id = task_id
         @task_name = task_name
@@ -109,6 +109,39 @@ module McptaskRunner
 
     def to_h
       @mutex.synchronize { build_snapshot }
+    end
+
+    def status
+      @mutex.synchronize { @status }
+    end
+
+    def has_active_tools?
+      @mutex.synchronize { @active_actions.any? }
+    end
+
+    def active_tool_count
+      @mutex.synchronize { @active_actions.size }
+    end
+
+    def active_tool_names
+      @mutex.synchronize { @active_actions.values.map { |a| a[:name] } }
+    end
+
+    def active_actions_snapshot
+      @mutex.synchronize { @active_actions.dup }
+    end
+
+    def format_active_tools(now = nil)
+      @mutex.synchronize do
+        return '' if @active_actions.empty?
+
+        now_val = now || Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        tools = @active_actions.map do |_id, info|
+          duration = (now_val - info[:mono_started_at]).to_i
+          "#{info[:name]} since #{duration}s"
+        end
+        ", waiting for: #{tools.join(', ')}"
+      end
     end
 
     private

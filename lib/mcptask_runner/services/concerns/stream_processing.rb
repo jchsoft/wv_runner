@@ -31,16 +31,17 @@ module McptaskRunner
           case item['type']
           when 'tool_use'
             summary = summarize_tool_input(item['name'], item['input'])
-            @active_tool_calls[item['id']] = { name: item['name'], started_at: now, summary: summary }
-            EventStream.emit("tool.started", { tool_name: item['name'], tool_id: item['id'], summary: summary })
+            @snapshot_builder.tool_started(tool_id: item['id'], name: item['name'], summary: summary)
+            EventStream.emit_snapshot(@snapshot_builder.to_h)
             Logger.debug "[#{@log_tag}] [tool_tracking] Tool started: #{item['name']} (#{item['id']}) #{summary}"
             check_stall(@stall_detector&.observe_tool_use(item))
           when 'tool_result'
-            removed = @active_tool_calls.delete(item['tool_use_id'])
-            if removed
-              duration = (now - removed[:started_at]).round(1)
-              EventStream.emit("tool.finished", { tool_name: removed[:name], tool_id: item['tool_use_id'], summary: removed[:summary], duration_s: duration })
-              Logger.debug "[#{@log_tag}] [tool_tracking] Tool finished: #{removed[:name]} after #{duration}s"
+            action = @snapshot_builder.active_actions_snapshot[item['tool_use_id']]
+            if action
+              duration = (now - action[:mono_started_at]).round(1)
+              @snapshot_builder.tool_finished(tool_id: item['tool_use_id'])
+              EventStream.emit_snapshot(@snapshot_builder.to_h)
+              Logger.debug "[#{@log_tag}] [tool_tracking] Tool finished: #{action[:name]} after #{duration}s"
             end
             check_stall(@stall_detector&.observe_tool_result(item))
           end
@@ -81,37 +82,21 @@ module McptaskRunner
 
       def check_stall(stall)
         return unless stall
-        return if @runtime_state[:stalled]
+        return if @stalled
 
-        @runtime_state[:stalled] = stall
+        @stalled = stall
         @stopping = true
         Logger.error "[#{@log_tag}] Stall detected: reason=#{stall.reason} signature=#{stall.signature} " \
                      "count=#{stall.count}#{" detail=#{stall.detail}" if stall.detail} — terminating for Opus escalation"
-        emit_stall_event(stall)
+        error_msg = "#{stall.reason}: #{stall.signature} (#{stall.count}x)#{" #{stall.detail}" if stall.detail}"
+        @snapshot_builder.set_status(:stalled, error_message: error_msg)
+        EventStream.emit_snapshot(@snapshot_builder.to_h, force: true)
         kill_process(@child_pid)
         release_test_lock
       end
 
-      def emit_stall_event(stall)
-        EventStream.emit('stall.detected', {
-                           executor: @log_tag,
-                           reason: stall.reason.to_s,
-                           signature: stall.signature,
-                           count: stall.count,
-                           detail: stall.detail,
-                           phase: 'stalled'
-                         })
-      end
-
       def format_active_tools(now = nil)
-        return '' if @active_tool_calls.empty?
-
-        now ||= Process.clock_gettime(Process::CLOCK_MONOTONIC)
-        tools = @active_tool_calls.map do |_id, info|
-          duration = (now - info[:started_at]).to_i
-          "#{info[:name]} since #{duration}s"
-        end
-        ", waiting for: #{tools.join(', ')}"
+        @snapshot_builder.format_active_tools(now)
       end
 
       def check_for_mcp_server_status(line)
@@ -132,20 +117,20 @@ module McptaskRunner
       end
 
       def check_for_api_overload(line)
-        return if @runtime_state[:api_overload]
+        return if @api_overload
 
-        @runtime_state[:api_overload] = true if line.include?('"error_status": 529') ||
-                                                line.include?('"error_status":529') ||
-                                                line.include?('Repeated 529 Overloaded')
+        @api_overload = true if line.include?('"error_status": 529') ||
+                                line.include?('"error_status":529') ||
+                                line.include?('Repeated 529 Overloaded')
       end
 
       def check_for_context_overflow(line)
-        return if @runtime_state[:context_overflow]
+        return if @context_overflow
         return unless line.include?('Prompt is too long') ||
                       line.include?('prompt is too long') ||
                       line.include?('context_length_exceeded')
 
-        @runtime_state[:context_overflow] = true
+        @context_overflow = true
         @stopping = true
         Logger.error "[#{@log_tag}] Context overflow detected ('Prompt is too long') — session is dead, marking terminal"
       end
@@ -195,11 +180,12 @@ module McptaskRunner
         sections << ""
 
         sections << "=== ACTIVE TOOL CALLS ==="
-        if @active_tool_calls.empty?
+        active_actions = @snapshot_builder.active_actions_snapshot
+        if active_actions.empty?
           sections << "(none)"
         else
-          @active_tool_calls.each do |id, info|
-            duration = (now - info[:started_at]).to_i
+          active_actions.each do |id, info|
+            duration = (now - info[:mono_started_at]).to_i
             sections << "  #{info[:name]} (#{id}) - waiting #{duration}s"
           end
         end

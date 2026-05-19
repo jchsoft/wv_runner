@@ -3,6 +3,7 @@
 require 'fileutils'
 require 'open3'
 require 'json'
+require 'securerandom'
 require 'shellwords'
 require 'timeout'
 require_relative 'output_formatter'
@@ -76,24 +77,30 @@ module McptaskRunner
     # Hash with :per_day_hours and :already_worked_hours (both Float).
     # nil = no guard (used by Triage / Review / Dry executors).
     def quota_watch=(val)
-      @runtime_state[:quota_watch] = val
+      @quota_watch = val
+      @snapshot_builder.set_quota(per_day_hours: val[:per_day_hours], already_worked_hours: val[:already_worked_hours]) if val
     end
 
-    def initialize(verbose: false, model_override: nil, resuming: false, **)
+    def initialize(verbose: false, model_override: nil, resuming: false, snapshot_builder: nil, **)
       @verbose = verbose
       @model_override = model_override
       @resuming = resuming
       @stopping = false
       @retry_state = Concerns::RetryHandling::RetryState.initial
       @result_received = false
-      @runtime_state = {
-        quota_watch: nil, quota_exceeded: false, inactivity_timeout: false,
-        api_overload: false, context_overflow: false, stalled: nil
-      }
+      @quota_watch = nil
+      @quota_exceeded = false
+      @inactivity_timeout = false
+      @api_overload = false
+      @context_overflow = false
+      @stalled = nil
       @child_pid = nil
       @stream_line_count = 0
-      @active_tool_calls = {}
       @log_tag = self.class.name.split('::').last
+      @snapshot_builder = snapshot_builder || SnapshotBuilder.new(
+        session_id: SecureRandom.uuid,
+        machine_id: ENV.fetch("HOSTNAME") { `hostname`.strip }
+      )
       @stall_detector = StallDetector.new(@log_tag)
       OutputFormatter.verbose_mode = verbose
     end
@@ -202,19 +209,18 @@ module McptaskRunner
 
     def reset_streaming_state
       @result_received = false
-      @runtime_state[:inactivity_timeout] = false
-      @runtime_state[:quota_exceeded] = false
-      @runtime_state[:api_overload] = false
-      @runtime_state[:context_overflow] = false
-      @runtime_state[:stalled] = nil
+      @inactivity_timeout = false
+      @quota_exceeded = false
+      @api_overload = false
+      @context_overflow = false
+      @stalled = nil
       @stream_line_count = 0
-      @active_tool_calls = {}
       @child_pid = nil
       @stall_detector = StallDetector.new(@log_tag)
     end
 
     def quota_exceeded_now?(execution_start, now)
-      watch = @runtime_state[:quota_watch] or return false
+      watch = @quota_watch or return false
 
       per_day = watch[:per_day_hours].to_f
       return false unless per_day.positive?
@@ -223,10 +229,10 @@ module McptaskRunner
     end
 
     def raise_streaming_errors_if_any(stream_error)
-      raise StalledError, @runtime_state[:stalled] if @runtime_state[:stalled]
+      raise StalledError, @stalled if @stalled
       raise StreamClosedError, stream_error if stream_error && !@stopping
-      raise Timeout::Error, "Claude inactive for #{INACTIVITY_TIMEOUT}s" if @runtime_state[:inactivity_timeout]
-      raise QuotaExceededMidTaskError, 'daily quota exceeded during run' if @runtime_state[:quota_exceeded]
+      raise Timeout::Error, "Claude inactive for #{INACTIVITY_TIMEOUT}s" if @inactivity_timeout
+      raise QuotaExceededMidTaskError, 'daily quota exceeded during run' if @quota_exceeded
     end
 
     def log_exit_status(exit_status, stderr_content)
@@ -242,13 +248,13 @@ module McptaskRunner
     def heartbeat_quota_terminate(execution_start, now)
       return false unless quota_exceeded_now?(execution_start, now)
 
-      watch = @runtime_state[:quota_watch]
+      watch = @quota_watch
       elapsed_h = ((now - execution_start) / 3600.0).round(2)
       Logger.error "[#{@log_tag}] Daily quota exceeded mid-task " \
                    "(per_day=#{watch[:per_day_hours]}h, already_worked=#{watch[:already_worked_hours]}h, " \
                    "this_run=#{elapsed_h}h), terminating..."
       @stopping = true
-      @runtime_state[:quota_exceeded] = true
+      @quota_exceeded = true
       kill_process(@child_pid)
       release_test_lock
       true
@@ -259,7 +265,8 @@ module McptaskRunner
       stderr_content = ''.dup
       stream_error = nil
       reset_streaming_state
-      EventStream.emit("execution.started", { model: effective_model_name, phase: event_phase })
+      @snapshot_builder.set_model(effective_model_name)
+      EventStream.emit_snapshot(@snapshot_builder.to_h, force: true)
       execution_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
       Open3.popen3(*command, pgroup: true) do |stdin, stdout, stderr, wait_thr|
@@ -323,20 +330,15 @@ module McptaskRunner
             # stops streaming during it — reset the inactivity timer so we don't kill
             # healthy tasks and don't flap the UI badge to "stale". TOOL_HANG_TIMEOUT
             # below still kills if a single tool genuinely hangs forever.
-            last_activity_time = now if @active_tool_calls.any?
+            last_activity_time = now if @snapshot_builder.has_active_tools?
 
             inactive_seconds = (now - last_activity_time).to_i
-            tool_info = format_active_tools(now)
+            tool_info = @snapshot_builder.format_active_tools(now)
 
             Logger.info_stdout "[#{@log_tag}] [heartbeat] Claude is working... " \
                                "(#{current_count} stream events, inactive: #{inactive_seconds}s#{tool_info})"
-            EventStream.emit("execution.heartbeat", {
-                               stream_events: current_count,
-                               inactive_s: inactive_seconds,
-                               phase: event_phase,
-                               active_tools: active_tool_names,
-                               active_tools_count: @active_tool_calls.size
-                             })
+            @snapshot_builder.mark_activity
+            EventStream.emit_snapshot(@snapshot_builder.to_h)
 
             break if heartbeat_quota_terminate(execution_start, now)
 
@@ -374,11 +376,10 @@ module McptaskRunner
 
       elapsed = (Process.clock_gettime(Process::CLOCK_MONOTONIC) - execution_start).round(1)
       Logger.info_stdout "[#{@log_tag}] Execution finished in #{elapsed}s (#{@stream_line_count} stream events)"
-      EventStream.emit("execution.completed", {
-                         elapsed_s: elapsed,
-                         stream_events: @stream_line_count,
-                         phase: event_phase
-                       })
+      if @snapshot_builder.status == "processing"
+        @snapshot_builder.set_status(:finished)
+        EventStream.emit_snapshot(@snapshot_builder.to_h, force: true)
+      end
 
       stdout_content
     end
@@ -396,28 +397,19 @@ module McptaskRunner
       { 'status' => 'error', 'message' => message }
     end
 
-    # Phase label attached to EventStream payloads so the UI can distinguish
-    # triage runs from main task execution. Subclasses override for special phases.
-    def event_phase
-      'execution'
-    end
-
-    def active_tool_names
-      @active_tool_calls.values.map { |info| info[:name] }
-    end
-
     def terminate_for_inactivity(stderr_content)
       write_debug_dump(stderr_content, @child_pid)
       @stopping = true
-      @runtime_state[:inactivity_timeout] = true
+      @inactivity_timeout = true
       kill_process(@child_pid)
       release_test_lock
     end
 
     def hung_tool(now)
-      @active_tool_calls.values.find do |info|
-        (now - info[:started_at]) >= tool_hang_timeout_for(info[:name])
+      @snapshot_builder.active_actions_snapshot.each_value do |info|
+        return info if (now - info[:mono_started_at]) >= tool_hang_timeout_for(info[:name])
       end
+      nil
     end
 
     def tool_hang_timeout_for(name)

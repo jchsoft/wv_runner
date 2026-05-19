@@ -15,6 +15,7 @@ test_files = [
   'test/services/decider_test.rb',
   'test/services/output_formatter_test.rb',
   'test/services/permission_syncer_test.rb',
+  'test/services/snapshot_builder_test.rb',
   'test/services/waiting_strategy_test.rb',
   'test/services/work_loop/basics_test.rb',
   'test/services/work_loop/once_test.rb',
