@@ -13,6 +13,7 @@ require_relative 'concerns/retry_handling'
 require_relative 'concerns/stream_processing'
 require_relative 'concerns/result_parsing'
 require_relative 'concerns/instruction_building'
+require_relative 'concerns/heartbeat_monitoring'
 
 module McptaskRunner
   # Raised when IO stream unexpectedly closes during Claude execution
@@ -55,14 +56,7 @@ module McptaskRunner
     include Concerns::StreamProcessing
     include Concerns::ResultParsing
     include Concerns::InstructionBuilding
-
-    INACTIVITY_TIMEOUT = 1200 # 20 minutes - kill only if stream_line_count stops changing
-    HEARTBEAT_INTERVAL = 120 # 2 minutes between heartbeat messages
-    TOOL_HANG_TIMEOUT = 3600 # 60 minutes - long tools (Bash/Task): system tests/CI/subagents can run ~30min
-    QUICK_TOOL_HANG_TIMEOUT = 120 # 2 minutes - fast tools (MCP, Read, Edit, Grep, ToolSearch...) should respond quickly;
-    # catches MCP server hangs (e.g. mcptask.online restart drops connection mid-call)
-    # without waiting the full hour the long-tool ceiling allows.
-    LONG_RUNNING_TOOLS = %w[Bash Task].freeze
+    include Concerns::HeartbeatMonitoring
 
     # Pin to standard 200K-context model IDs (no [1m] suffix) so context overflows fail fast
     # at ~200K instead of growing to 1M across --continue retry chains.
@@ -243,21 +237,6 @@ module McptaskRunner
       Logger.debug "[#{@log_tag}] stderr: #{stderr_content}" unless stderr_content.empty?
     end
 
-    def heartbeat_quota_terminate(execution_start, now)
-      return false unless quota_exceeded_now?(execution_start, now)
-
-      watch = @quota_watch
-      elapsed_h = ((now - execution_start) / 3600.0).round(2)
-      Logger.error "[#{@log_tag}] Daily quota exceeded mid-task " \
-                   "(per_day=#{watch[:per_day_hours]}h, already_worked=#{watch[:already_worked_hours]}h, " \
-                   "this_run=#{elapsed_h}h), terminating..."
-      @state.stopping = true
-      @state.quota_exceeded = true
-      kill_process(@state.child_pid)
-      release_test_lock
-      true
-    end
-
     def execute_with_streaming(command)
       stdout_content = ''.dup
       stderr_content = ''.dup
@@ -338,61 +317,6 @@ module McptaskRunner
       end
     end
 
-    # A running tool (e.g. long Bash/system test) is real activity even if Claude
-    # stops streaming during it — reset the inactivity timer so we don't kill
-    # healthy tasks and don't flap the UI badge to "stale". TOOL_HANG_TIMEOUT
-    # below still kills if a single tool genuinely hangs forever.
-    def heartbeat_loop(stderr_content, execution_start)
-      last_known_count = @state.stream_line_count
-      last_activity_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-
-      loop do
-        sleep(HEARTBEAT_INTERVAL)
-        break if @state.result_received || @state.stopping
-
-        now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-        current_count = @state.stream_line_count
-        last_activity_time = now if current_count != last_known_count || @snapshot_builder.has_active_tools?
-        last_known_count = current_count
-
-        emit_heartbeat(current_count, last_activity_time, now)
-        break if heartbeat_quota_terminate(execution_start, now)
-        break if terminate_for_hung_tool(now, stderr_content)
-        break if terminate_for_inactivity_if_idle(current_count, last_activity_time, now, stderr_content)
-      end
-    rescue StandardError => e
-      Logger.debug "[#{@log_tag}] Heartbeat thread error: #{e.message}"
-    end
-
-    def emit_heartbeat(current_count, last_activity_time, now)
-      inactive_seconds = (now - last_activity_time).to_i
-      tool_info = @snapshot_builder.format_active_tools(now)
-      Logger.info_stdout "[#{@log_tag}] [heartbeat] Claude is working... " \
-                         "(#{current_count} stream events, inactive: #{inactive_seconds}s#{tool_info})"
-      @snapshot_builder.mark_activity
-      EventStream.emit_snapshot(@snapshot_builder.to_h)
-    end
-
-    def terminate_for_hung_tool(now, stderr_content)
-      hung = hung_tool(now)
-      return false unless hung
-
-      Logger.error "[#{@log_tag}] Tool '#{hung[:name]}' hung for #{(now - hung[:started_at]).to_i}s " \
-                   "(>#{tool_hang_timeout_for(hung[:name])}s), terminating..."
-      terminate_for_inactivity(stderr_content)
-      true
-    end
-
-    def terminate_for_inactivity_if_idle(current_count, last_activity_time, now, stderr_content)
-      inactive_seconds = (now - last_activity_time).to_i
-      return false unless inactive_seconds >= INACTIVITY_TIMEOUT
-
-      Logger.error "[#{@log_tag}] Claude inactive for #{inactive_seconds}s " \
-                   "(stream count stuck at #{current_count}), terminating..."
-      terminate_for_inactivity(stderr_content)
-      true
-    end
-
     def finalize_streaming(execution_start)
       elapsed = (Process.clock_gettime(Process::CLOCK_MONOTONIC) - execution_start).round(1)
       Logger.info_stdout "[#{@log_tag}] Execution finished in #{elapsed}s (#{@state.stream_line_count} stream events)"
@@ -413,25 +337,6 @@ module McptaskRunner
     def error_result(message)
       Logger.debug "[#{@log_tag}] [error_result] Creating error result: #{message}"
       { 'status' => 'error', 'message' => message }
-    end
-
-    def terminate_for_inactivity(stderr_content)
-      write_debug_dump(stderr_content, @state.child_pid)
-      @state.stopping = true
-      @state.inactivity_timeout = true
-      kill_process(@state.child_pid)
-      release_test_lock
-    end
-
-    def hung_tool(now)
-      @snapshot_builder.active_actions_snapshot.each_value do |info|
-        return info if (now - info[:mono_started_at]) >= tool_hang_timeout_for(info[:name])
-      end
-      nil
-    end
-
-    def tool_hang_timeout_for(name)
-      LONG_RUNNING_TOOLS.include?(name) ? TOOL_HANG_TIMEOUT : QUICK_TOOL_HANG_TIMEOUT
     end
 
     def marker_parse_failed?(result)
