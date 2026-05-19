@@ -226,7 +226,7 @@ class ClaudeCodeBaseTest < Minitest::Test
   # Tests for handle_stream_error method
   def test_handle_stream_error_returns_early_when_stopping
     base = McptaskRunner::ClaudeCodeBase.new
-    base.instance_variable_set(:@stopping, true)
+    base.instance_variable_get(:@state).stopping = true
 
     yielded = false
     base.send(:handle_stream_error, IOError.new('test'), 'stdout') { yielded = true }
@@ -236,7 +236,7 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_handle_stream_error_yields_error_message_when_not_stopping
     base = McptaskRunner::ClaudeCodeBase.new
-    base.instance_variable_set(:@stopping, false)
+    base.instance_variable_get(:@state).stopping = false
 
     error_msg = nil
     base.send(:handle_stream_error, IOError.new('stream closed'), 'stdout') { |msg| error_msg = msg }
@@ -270,7 +270,7 @@ class ClaudeCodeBaseTest < Minitest::Test
   # Tests for initialization of new instance variables
   def test_initialize_sets_stopping_to_false
     base = McptaskRunner::ClaudeCodeBase.new
-    refute base.instance_variable_get(:@stopping)
+    refute base.instance_variable_get(:@state).stopping
   end
 
   def test_initialize_sets_retry_state
@@ -406,41 +406,41 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_initialize_sets_api_overload_flag_to_false
     base = McptaskRunner::ClaudeCodeBase.new
-    refute base.instance_variable_get(:@api_overload)
+    refute base.instance_variable_get(:@state).api_overload
   end
 
   def test_check_for_api_overload_sets_flag_on_529
     base = McptaskRunner::ClaudeCodeBase.new
     base.send(:check_for_api_overload, '{"type":"system","subtype":"api_retry","error_status": 529}')
 
-    assert base.instance_variable_get(:@api_overload), 'Should set flag on 529 error'
+    assert base.instance_variable_get(:@state).api_overload, 'Should set flag on 529 error'
   end
 
   def test_check_for_api_overload_sets_flag_on_repeated_529
     base = McptaskRunner::ClaudeCodeBase.new
     base.send(:check_for_api_overload, '[Claude] API Error: Repeated 529 Overloaded errors')
 
-    assert base.instance_variable_get(:@api_overload), 'Should set flag on repeated 529'
+    assert base.instance_variable_get(:@state).api_overload, 'Should set flag on repeated 529'
   end
 
   def test_check_for_api_overload_does_not_set_flag_on_normal_output
     base = McptaskRunner::ClaudeCodeBase.new
     base.send(:check_for_api_overload, '{"type":"assistant","message":"Hello"}')
 
-    refute base.instance_variable_get(:@api_overload), 'Should not set flag on normal output'
+    refute base.instance_variable_get(:@state).api_overload, 'Should not set flag on normal output'
   end
 
   def test_api_overload_detected_via_flag
     base = McptaskRunner::ClaudeCodeBase.new
     base.instance_variable_set(:@accumulated_output, '')
-    base.instance_variable_set(:@api_overload, true)
+    base.instance_variable_get(:@state).api_overload = true
 
     assert base.send(:api_overload_detected?), 'Should detect overload via flag even with empty accumulated_output'
   end
 
   def test_stream_closed_with_529_raises_api_overload
     base = McptaskRunner::ClaudeCodeBase.new
-    base.instance_variable_set(:@api_overload, true)
+    base.instance_variable_get(:@state).api_overload = true
 
     # attempt_execution rescues StreamClosedError, checks flag, re-raises as ApiOverloadError
     # which is then caught and handled by handle_api_overload
@@ -454,35 +454,35 @@ class ClaudeCodeBaseTest < Minitest::Test
   # Tests for context overflow detection — session exceeded 1M token limit, cannot --continue
   def test_initialize_sets_context_overflow_flag_to_false
     base = McptaskRunner::ClaudeCodeBase.new
-    refute base.instance_variable_get(:@context_overflow)
+    refute base.instance_variable_get(:@state).context_overflow
   end
 
   def test_check_for_context_overflow_sets_flag_on_prompt_too_long
     base = McptaskRunner::ClaudeCodeBase.new
     base.send(:check_for_context_overflow, '[Claude] Prompt is too long')
 
-    assert base.instance_variable_get(:@context_overflow), 'Should set flag on "Prompt is too long"'
-    assert base.instance_variable_get(:@stopping), 'Should mark stopping to treat stream closure as expected'
+    assert base.instance_variable_get(:@state).context_overflow, 'Should set flag on "Prompt is too long"'
+    assert base.instance_variable_get(:@state).stopping, 'Should mark stopping to treat stream closure as expected'
   end
 
   def test_check_for_context_overflow_matches_context_length_exceeded
     base = McptaskRunner::ClaudeCodeBase.new
     base.send(:check_for_context_overflow, '{"error":{"type":"context_length_exceeded"}}')
 
-    assert base.instance_variable_get(:@context_overflow)
+    assert base.instance_variable_get(:@state).context_overflow
   end
 
   def test_check_for_context_overflow_does_not_set_flag_on_normal_output
     base = McptaskRunner::ClaudeCodeBase.new
     base.send(:check_for_context_overflow, '{"type":"assistant","message":"Hello"}')
 
-    refute base.instance_variable_get(:@context_overflow)
+    refute base.instance_variable_get(:@state).context_overflow
   end
 
   def test_context_overflow_detected_via_flag
     base = McptaskRunner::ClaudeCodeBase.new
     base.instance_variable_set(:@accumulated_output, '')
-    base.instance_variable_set(:@context_overflow, true)
+    base.instance_variable_get(:@state).context_overflow = true
 
     assert base.send(:context_overflow_detected?), 'Should detect via flag even with empty accumulated_output'
   end
@@ -509,7 +509,7 @@ class ClaudeCodeBaseTest < Minitest::Test
   # Tests for result_received flag and early stream termination
   def test_initialize_sets_result_received_to_false
     base = McptaskRunner::ClaudeCodeBase.new
-    refute base.instance_variable_get(:@result_received)
+    refute base.instance_variable_get(:@state).result_received
   end
 
   def test_check_for_result_message_ignores_interim_result_without_marker
@@ -518,8 +518,8 @@ class ClaudeCodeBaseTest < Minitest::Test
 
     base.send(:check_for_result_message, result_line)
 
-    refute base.instance_variable_get(:@result_received)
-    refute base.instance_variable_get(:@stopping)
+    refute base.instance_variable_get(:@state).result_received
+    refute base.instance_variable_get(:@state).stopping
   end
 
   def test_check_for_result_message_sets_flag_on_final_result_with_marker
@@ -528,8 +528,8 @@ class ClaudeCodeBaseTest < Minitest::Test
 
     base.send(:check_for_result_message, result_line)
 
-    assert base.instance_variable_get(:@result_received)
-    assert base.instance_variable_get(:@stopping)
+    assert base.instance_variable_get(:@state).result_received
+    assert base.instance_variable_get(:@state).stopping
   end
 
   def test_check_for_result_message_ignores_non_result_types
@@ -538,7 +538,7 @@ class ClaudeCodeBaseTest < Minitest::Test
 
     base.send(:check_for_result_message, assistant_line)
 
-    refute base.instance_variable_get(:@result_received)
+    refute base.instance_variable_get(:@state).result_received
   end
 
   def test_check_for_result_message_ignores_invalid_json
@@ -547,19 +547,19 @@ class ClaudeCodeBaseTest < Minitest::Test
 
     base.send(:check_for_result_message, invalid_line)
 
-    refute base.instance_variable_get(:@result_received)
+    refute base.instance_variable_get(:@state).result_received
   end
 
   def test_check_for_result_message_skips_when_already_received
     base = McptaskRunner::ClaudeCodeBase.new
-    base.instance_variable_set(:@result_received, true)
-    base.instance_variable_set(:@stopping, false)
+    base.instance_variable_get(:@state).result_received = true
+    base.instance_variable_get(:@state).stopping = false
     result_line = '{"type": "result", "cost_usd": 0.05}'
 
     base.send(:check_for_result_message, result_line)
 
     # @stopping should remain false since we skipped processing
-    refute base.instance_variable_get(:@stopping)
+    refute base.instance_variable_get(:@state).stopping
   end
 
   def test_stream_lines_breaks_when_result_received
@@ -570,7 +570,7 @@ class ClaudeCodeBaseTest < Minitest::Test
     base.send(:stream_lines, io) do |line|
       lines << line.strip
       # Simulate result received after line2
-      base.instance_variable_set(:@result_received, true) if line.strip == 'line2'
+      base.instance_variable_get(:@state).result_received = true if line.strip == 'line2'
     end
 
     assert_equal %w[line1 line2], lines, 'Should stop after result_received is set'
@@ -584,7 +584,7 @@ class ClaudeCodeBaseTest < Minitest::Test
   # Tests for @child_pid initialization
   def test_initialize_sets_child_pid_to_nil
     base = McptaskRunner::ClaudeCodeBase.new
-    assert_nil base.instance_variable_get(:@child_pid)
+    assert_nil base.instance_variable_get(:@state).child_pid
   end
 
   # Tests for kill_process method
@@ -638,7 +638,7 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_initialize_sets_inactivity_timeout_to_false
     base = McptaskRunner::ClaudeCodeBase.new
-    refute base.instance_variable_get(:@inactivity_timeout)
+    refute base.instance_variable_get(:@state).inactivity_timeout
   end
 
   # Tests for release_test_lock method
@@ -701,7 +701,7 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_initialize_sets_stream_line_count_to_zero
     base = McptaskRunner::ClaudeCodeBase.new
-    assert_equal 0, base.instance_variable_get(:@stream_line_count)
+    assert_equal 0, base.instance_variable_get(:@state).stream_line_count
   end
 
   def test_stdout_sync_is_enabled
@@ -981,7 +981,7 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_write_debug_dump_creates_file
     base = McptaskRunner::ClaudeCodeBase.new
-    base.instance_variable_set(:@stream_line_count, 198)
+    base.instance_variable_get(:@state).stream_line_count = 198
     base.instance_variable_set(:@text_content, "line 1\nline 2\n")
     base.instance_variable_set(:@log_tag, 'test')
 
@@ -1013,7 +1013,7 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_initialize_sets_quota_exceeded_to_false
     base = McptaskRunner::ClaudeCodeBase.new
-    refute base.instance_variable_get(:@quota_exceeded)
+    refute base.instance_variable_get(:@state).quota_exceeded
   end
 
   def test_quota_watch_writer_accepts_hash
@@ -1061,9 +1061,9 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_reset_streaming_state_clears_quota_exceeded_flag
     base = McptaskRunner::ClaudeCodeBase.new
-    base.instance_variable_set(:@quota_exceeded, true)
+    base.instance_variable_get(:@state).quota_exceeded = true
     base.send(:reset_streaming_state)
-    refute base.instance_variable_get(:@quota_exceeded)
+    refute base.instance_variable_get(:@state).quota_exceeded
   end
 
   # Tests for StalledError exception
@@ -1084,7 +1084,7 @@ class ClaudeCodeBaseTest < Minitest::Test
   # Tests for stall integration
   def test_initialize_sets_stalled_to_nil
     base = McptaskRunner::ClaudeCodeBase.new
-    assert_nil base.instance_variable_get(:@stalled)
+    assert_nil base.instance_variable_get(:@state).stalled
   end
 
   def test_initialize_creates_stall_detector
@@ -1094,12 +1094,12 @@ class ClaudeCodeBaseTest < Minitest::Test
 
   def test_reset_streaming_state_clears_stalled_flag_and_replaces_detector
     base = McptaskRunner::ClaudeCodeBase.new
-    base.instance_variable_set(:@stalled, :something)
+    base.instance_variable_get(:@state).stalled = :something
     old_detector = base.instance_variable_get(:@stall_detector)
 
     base.send(:reset_streaming_state)
 
-    assert_nil base.instance_variable_get(:@stalled)
+    assert_nil base.instance_variable_get(:@state).stalled
     refute_same old_detector, base.instance_variable_get(:@stall_detector),
                 'Detector must be recreated so accumulated state from prior attempt is dropped'
   end
@@ -1107,22 +1107,22 @@ class ClaudeCodeBaseTest < Minitest::Test
   # check_stall integration — verifies SIGTERM and stall ivar are set
   def test_check_stall_sets_stalled_and_stops
     base = McptaskRunner::ClaudeCodeBase.new
-    base.instance_variable_set(:@child_pid, nil) # nil PID → kill_process is a no-op
+    base.instance_variable_get(:@state).child_pid = nil # nil PID → kill_process is a no-op
     base.instance_variable_get(:@snapshot_builder).set_status(:triage)
     base.instance_variable_get(:@snapshot_builder).set_status(:processing)
     stall = McptaskRunner::StallDetector::Stall.new(reason: :edit_failures, signature: 'sig', count: 3)
 
     McptaskRunner::EventStream.stub(:emit_snapshot, nil) { base.send(:check_stall, stall) }
 
-    assert_equal stall, base.instance_variable_get(:@stalled)
-    assert base.instance_variable_get(:@stopping)
+    assert_equal stall, base.instance_variable_get(:@state).stalled
+    assert base.instance_variable_get(:@state).stopping
   end
 
   def test_check_stall_ignores_nil
     base = McptaskRunner::ClaudeCodeBase.new
     base.send(:check_stall, nil)
-    assert_nil base.instance_variable_get(:@stalled)
-    refute base.instance_variable_get(:@stopping)
+    assert_nil base.instance_variable_get(:@state).stalled
+    refute base.instance_variable_get(:@state).stopping
   end
 
   def test_check_stall_emits_snapshot_with_stalled_status
@@ -1154,7 +1154,7 @@ class ClaudeCodeBaseTest < Minitest::Test
       base.send(:check_stall, second)
     end
 
-    assert_equal first, base.instance_variable_get(:@stalled),
+    assert_equal first, base.instance_variable_get(:@state).stalled,
                  'First stall wins; subsequent detections are ignored'
   end
 
@@ -1175,10 +1175,10 @@ class ClaudeCodeBaseTest < Minitest::Test
       end
     end
 
-    stall = base.instance_variable_get(:@stalled)
+    stall = base.instance_variable_get(:@state).stalled
     refute_nil stall
     assert_equal :edit_failures, stall.reason
-    assert base.instance_variable_get(:@stopping)
+    assert base.instance_variable_get(:@state).stopping
   end
 
   # handle_stalled — terminal status='stalled_for_opus', NOT 'error'
@@ -1210,7 +1210,7 @@ class ClaudeCodeBaseTest < Minitest::Test
   def test_raise_streaming_errors_raises_stalled_before_stream_closed
     base = McptaskRunner::ClaudeCodeBase.new
     stall = McptaskRunner::StallDetector::Stall.new(reason: :edit_failures, signature: 'sig', count: 3)
-    base.instance_variable_set(:@stalled, stall)
+    base.instance_variable_get(:@state).stalled = stall
 
     error = assert_raises(McptaskRunner::StalledError) do
       base.send(:raise_streaming_errors_if_any, 'unrelated stream error')
@@ -1343,7 +1343,7 @@ class ClaudeCodeBaseTest < Minitest::Test
           # Simulate streaming had picked up "Prompt is too long" earlier in output...
           base.instance_variable_set(:@accumulated_output, +'noise Prompt is too long noise')
           # ...but Claude recovered and emitted TASKRUNNER_RESULT marker
-          base.instance_variable_set(:@result_received, true)
+          base.instance_variable_get(:@state).result_received = true
 
           result = base.send(:attempt_execution, Time.now)
 
@@ -1364,7 +1364,7 @@ class ClaudeCodeBaseTest < Minitest::Test
       base.stub(:execute_with_streaming, '') do
         base.stub(:parse_result, error_result) do
           base.instance_variable_set(:@accumulated_output, +'Prompt is too long here')
-          base.instance_variable_set(:@result_received, false)
+          base.instance_variable_get(:@state).result_received = false
 
           result = base.send(:attempt_execution, Time.now)
           assert_equal 'error', result['status']
@@ -1384,7 +1384,7 @@ class ClaudeCodeBaseTest < Minitest::Test
       base.stub(:execute_with_streaming, '') do
         base.stub(:parse_result, error_result) do
           base.instance_variable_set(:@accumulated_output, +'no marker no overflow')
-          base.instance_variable_set(:@result_received, false)
+          base.instance_variable_get(:@state).result_received = false
 
           # retry_state.count = 0 → handle_marker_retry returns nil to signal retry
           # AND flips marker_retry_mode = true

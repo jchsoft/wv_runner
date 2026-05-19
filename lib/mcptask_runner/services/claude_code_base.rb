@@ -73,6 +73,20 @@ module McptaskRunner
       'haiku' => 'claude-haiku-4-5-20251001'
     }.freeze
 
+    # Per-attempt streaming/termination flags. Collected into one struct so the host
+    # class stays under Reek's TooManyInstanceVariables threshold.
+    ExecutionState = Struct.new(
+      :stopping, :result_received, :inactivity_timeout, :quota_exceeded,
+      :api_overload, :context_overflow, :stalled, :child_pid, :stream_line_count,
+      keyword_init: true
+    ) do
+      def self.fresh
+        new(stopping: false, result_received: false, inactivity_timeout: false,
+            quota_exceeded: false, api_overload: false, context_overflow: false,
+            stalled: nil, child_pid: nil, stream_line_count: 0)
+      end
+    end
+
     # Set by WorkLoop before #run when mid-task quota guarding is desired.
     # Hash with :per_day_hours and :already_worked_hours (both Float).
     # nil = no guard (used by Triage / Review / Dry executors).
@@ -85,17 +99,9 @@ module McptaskRunner
       @verbose = verbose
       @model_override = model_override
       @resuming = resuming
-      @stopping = false
       @retry_state = Concerns::RetryHandling::RetryState.initial
-      @result_received = false
       @quota_watch = nil
-      @quota_exceeded = false
-      @inactivity_timeout = false
-      @api_overload = false
-      @context_overflow = false
-      @stalled = nil
-      @child_pid = nil
-      @stream_line_count = 0
+      @state = ExecutionState.fresh
       @log_tag = self.class.name.split('::').last
       @snapshot_builder = snapshot_builder || SnapshotBuilder.new(
         session_id: SecureRandom.uuid,
@@ -128,7 +134,6 @@ module McptaskRunner
       Logger.info_stdout "[#{@log_tag}] Marker retry mode: ON" if @retry_state.marker_retry_mode
       Logger.info_stdout '-' * 80
 
-      @stopping = false
       stdout_content = execute_with_streaming(command)
       @accumulated_output << stdout_content
 
@@ -143,7 +148,7 @@ module McptaskRunner
       # Claude emitted TASKRUNNER_RESULT — trust its terminal output even if context-overflow
       # or 529 patterns appeared earlier in the stream. Those may be sub-agent or transient
       # errors Claude already recovered from; overriding here would discard a real success.
-      return result if @result_received && !marker_parse_failed?(result)
+      return result if @state.result_received && !marker_parse_failed?(result)
 
       # Detect context overflow BEFORE other errors - session is dead, --continue cannot recover
       raise ContextOverflowError if context_overflow_detected?
@@ -156,12 +161,12 @@ module McptaskRunner
 
       result
     rescue Timeout::Error
-      raise ContextOverflowError if @runtime_state[:context_overflow]
+      raise ContextOverflowError if @state.context_overflow
 
       handle_recoverable_error('Timeout', start_time)
     rescue StreamClosedError => e
-      raise ContextOverflowError if @runtime_state[:context_overflow]
-      raise ApiOverloadError if @runtime_state[:api_overload]
+      raise ContextOverflowError if @state.context_overflow
+      raise ApiOverloadError if @state.api_overload
 
       handle_recoverable_error("Stream closed: #{e.message}", start_time)
     rescue MissingMarkerError
@@ -208,14 +213,7 @@ module McptaskRunner
     end
 
     def reset_streaming_state
-      @result_received = false
-      @inactivity_timeout = false
-      @quota_exceeded = false
-      @api_overload = false
-      @context_overflow = false
-      @stalled = nil
-      @stream_line_count = 0
-      @child_pid = nil
+      @state = ExecutionState.fresh
       @stall_detector = StallDetector.new(@log_tag)
     end
 
@@ -229,17 +227,17 @@ module McptaskRunner
     end
 
     def raise_streaming_errors_if_any(stream_error)
-      raise StalledError, @stalled if @stalled
-      raise StreamClosedError, stream_error if stream_error && !@stopping
-      raise Timeout::Error, "Claude inactive for #{INACTIVITY_TIMEOUT}s" if @inactivity_timeout
-      raise QuotaExceededMidTaskError, 'daily quota exceeded during run' if @quota_exceeded
+      raise StalledError, @state.stalled if @state.stalled
+      raise StreamClosedError, stream_error if stream_error && !@state.stopping
+      raise Timeout::Error, "Claude inactive for #{INACTIVITY_TIMEOUT}s" if @state.inactivity_timeout
+      raise QuotaExceededMidTaskError, 'daily quota exceeded during run' if @state.quota_exceeded
     end
 
     def log_exit_status(exit_status, stderr_content)
       return unless exit_status
 
       Logger.debug "[#{@log_tag}] Process exit status: #{exit_status.exitstatus}"
-      return unless exit_status.exitstatus != 0 && !@result_received
+      return unless exit_status.exitstatus != 0 && !@state.result_received
 
       Logger.debug "[#{@log_tag}] WARNING: Claude exited with non-zero status!"
       Logger.debug "[#{@log_tag}] stderr: #{stderr_content}" unless stderr_content.empty?
@@ -253,9 +251,9 @@ module McptaskRunner
       Logger.error "[#{@log_tag}] Daily quota exceeded mid-task " \
                    "(per_day=#{watch[:per_day_hours]}h, already_worked=#{watch[:already_worked_hours]}h, " \
                    "this_run=#{elapsed_h}h), terminating..."
-      @stopping = true
-      @quota_exceeded = true
-      kill_process(@child_pid)
+      @state.stopping = true
+      @state.quota_exceeded = true
+      kill_process(@state.child_pid)
       release_test_lock
       true
     end
@@ -263,125 +261,145 @@ module McptaskRunner
     def execute_with_streaming(command)
       stdout_content = ''.dup
       stderr_content = ''.dup
-      stream_error = nil
       reset_streaming_state
       @snapshot_builder.set_model(effective_model_name)
       EventStream.emit_snapshot(@snapshot_builder.to_h, force: true)
       execution_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
       Open3.popen3(*command, pgroup: true) do |stdin, stdout, stderr, wait_thr|
-        @child_pid = wait_thr.pid
+        @state.child_pid = wait_thr.pid
         stdin.close
 
-        stdout_thread = Thread.new do
-          stream_lines(stdout) do |line|
-            stdout_content << line.dup
-            @stream_line_count += 1
-            @text_content << extract_text_from_line(line)
-            track_tool_event(line)
-            check_for_mcp_server_status(line)
-            check_for_context_overflow(line)
-            check_for_api_overload(line)
-            check_for_result_message(line)
-            if OutputFormatter.should_log_to_stdout?(line)
-              formatted = OutputFormatter.format_line(line)
-              puts formatted
-              Logger.info(formatted)
-            else
-              Logger.debug("[#{@log_tag}] [streaming] #{line.strip}")
-            end
-          end
-        rescue IOError, Errno::EBADF => e
-          handle_stream_error(e, 'stdout') { |err| stream_error = err }
-        rescue StandardError => e
-          Logger.error "[#{@log_tag}] stdout thread crashed: #{e.class}: #{e.message}"
-          stream_error = "stdout thread crashed: #{e.message}" unless @stopping
-        end
+        stdout_thread    = start_stdout_thread(stdout, stdout_content)
+        stderr_thread    = start_stderr_thread(stderr, stderr_content)
+        heartbeat_thread = Thread.new { heartbeat_loop(stderr_content, execution_start) }
 
-        stderr_thread = Thread.new do
-          stream_lines(stderr) do |line|
-            Logger.warn "\n[Claude STDERR] #{line}"
-            stderr_content << line.dup
-            check_for_context_overflow(line)
-          end
-        rescue IOError, Errno::EBADF => e
-          handle_stream_error(e, 'stderr') { |err| stream_error ||= err }
-        rescue StandardError => e
-          Logger.error "[#{@log_tag}] stderr thread crashed: #{e.class}: #{e.message}"
-        end
-
-        heartbeat_thread = Thread.new do
-          last_known_count = @stream_line_count
-          last_activity_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-
-          loop do
-            sleep(HEARTBEAT_INTERVAL)
-            break if @result_received || @stopping
-
-            current_count = @stream_line_count
-            now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-
-            if current_count != last_known_count
-              last_known_count = current_count
-              last_activity_time = now
-            end
-
-            # A running tool (e.g. long Bash/system test) is real activity even if Claude
-            # stops streaming during it — reset the inactivity timer so we don't kill
-            # healthy tasks and don't flap the UI badge to "stale". TOOL_HANG_TIMEOUT
-            # below still kills if a single tool genuinely hangs forever.
-            last_activity_time = now if @snapshot_builder.has_active_tools?
-
-            inactive_seconds = (now - last_activity_time).to_i
-            tool_info = @snapshot_builder.format_active_tools(now)
-
-            Logger.info_stdout "[#{@log_tag}] [heartbeat] Claude is working... " \
-                               "(#{current_count} stream events, inactive: #{inactive_seconds}s#{tool_info})"
-            @snapshot_builder.mark_activity
-            EventStream.emit_snapshot(@snapshot_builder.to_h)
-
-            break if heartbeat_quota_terminate(execution_start, now)
-
-            if (hung = hung_tool(now))
-              Logger.error "[#{@log_tag}] Tool '#{hung[:name]}' hung for #{(now - hung[:started_at]).to_i}s " \
-                           "(>#{tool_hang_timeout_for(hung[:name])}s), terminating..."
-              terminate_for_inactivity(stderr_content)
-              break
-            end
-
-            next unless inactive_seconds >= INACTIVITY_TIMEOUT
-
-            Logger.error "[#{@log_tag}] Claude inactive for #{inactive_seconds}s " \
-                         "(stream count stuck at #{current_count}), terminating..."
-            terminate_for_inactivity(stderr_content)
-            break
-          end
-        rescue StandardError => e
-          Logger.debug "[#{@log_tag}] Heartbeat thread error: #{e.message}"
-        end
-
-        begin
-          # Kill process first if result received, so streams close and threads unblock
-          kill_process(@child_pid) if @result_received
-
-          stdout_thread.join
-          stderr_thread.join(30)
-          raise_streaming_errors_if_any(stream_error)
-          log_exit_status(wait_for_process(wait_thr), stderr_content)
-        ensure
-          heartbeat_thread&.kill
-          kill_process(@child_pid) unless @result_received
-        end
+        join_streaming_threads(stdout_thread, stderr_thread, heartbeat_thread, wait_thr, stderr_content)
       end
 
-      elapsed = (Process.clock_gettime(Process::CLOCK_MONOTONIC) - execution_start).round(1)
-      Logger.info_stdout "[#{@log_tag}] Execution finished in #{elapsed}s (#{@stream_line_count} stream events)"
-      if @snapshot_builder.status == "processing"
-        @snapshot_builder.set_status(:finished)
-        EventStream.emit_snapshot(@snapshot_builder.to_h, force: true)
-      end
-
+      finalize_streaming(execution_start)
       stdout_content
+    end
+
+    def join_streaming_threads(stdout_thread, stderr_thread, heartbeat_thread, wait_thr, stderr_content)
+      # Kill process first if result received, so streams close and threads unblock
+      kill_process(@state.child_pid) if @state.result_received
+
+      stdout_thread.join
+      stderr_thread.join(30)
+      stream_error = stdout_thread[:stream_error] || stderr_thread[:stream_error]
+      raise_streaming_errors_if_any(stream_error)
+      log_exit_status(wait_for_process(wait_thr), stderr_content)
+    ensure
+      heartbeat_thread&.kill
+      kill_process(@state.child_pid) unless @state.result_received
+    end
+
+    def start_stdout_thread(stdout, stdout_content)
+      Thread.new do
+        stream_lines(stdout) { |line| process_stdout_line(line, stdout_content) }
+      rescue IOError, Errno::EBADF => e
+        handle_stream_error(e, 'stdout') { |err| Thread.current[:stream_error] = err }
+      rescue StandardError => e
+        Logger.error "[#{@log_tag}] stdout thread crashed: #{e.class}: #{e.message}"
+        Thread.current[:stream_error] = "stdout thread crashed: #{e.message}" unless @state.stopping
+      end
+    end
+
+    def process_stdout_line(line, stdout_content)
+      stdout_content << line.dup
+      @state.stream_line_count += 1
+      @text_content << extract_text_from_line(line)
+      track_tool_event(line)
+      check_for_mcp_server_status(line)
+      check_for_context_overflow(line)
+      check_for_api_overload(line)
+      check_for_result_message(line)
+      if OutputFormatter.should_log_to_stdout?(line)
+        formatted = OutputFormatter.format_line(line)
+        puts formatted
+        Logger.info(formatted)
+      else
+        Logger.debug("[#{@log_tag}] [streaming] #{line.strip}")
+      end
+    end
+
+    def start_stderr_thread(stderr, stderr_content)
+      Thread.new do
+        stream_lines(stderr) do |line|
+          Logger.warn "\n[Claude STDERR] #{line}"
+          stderr_content << line.dup
+          check_for_context_overflow(line)
+        end
+      rescue IOError, Errno::EBADF => e
+        handle_stream_error(e, 'stderr') { |err| Thread.current[:stream_error] = err }
+      rescue StandardError => e
+        Logger.error "[#{@log_tag}] stderr thread crashed: #{e.class}: #{e.message}"
+      end
+    end
+
+    # A running tool (e.g. long Bash/system test) is real activity even if Claude
+    # stops streaming during it — reset the inactivity timer so we don't kill
+    # healthy tasks and don't flap the UI badge to "stale". TOOL_HANG_TIMEOUT
+    # below still kills if a single tool genuinely hangs forever.
+    def heartbeat_loop(stderr_content, execution_start)
+      last_known_count = @state.stream_line_count
+      last_activity_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+      loop do
+        sleep(HEARTBEAT_INTERVAL)
+        break if @state.result_received || @state.stopping
+
+        now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        current_count = @state.stream_line_count
+        last_activity_time = now if current_count != last_known_count || @snapshot_builder.has_active_tools?
+        last_known_count = current_count
+
+        emit_heartbeat(current_count, last_activity_time, now)
+        break if heartbeat_quota_terminate(execution_start, now)
+        break if terminate_for_hung_tool(now, stderr_content)
+        break if terminate_for_inactivity_if_idle(current_count, last_activity_time, now, stderr_content)
+      end
+    rescue StandardError => e
+      Logger.debug "[#{@log_tag}] Heartbeat thread error: #{e.message}"
+    end
+
+    def emit_heartbeat(current_count, last_activity_time, now)
+      inactive_seconds = (now - last_activity_time).to_i
+      tool_info = @snapshot_builder.format_active_tools(now)
+      Logger.info_stdout "[#{@log_tag}] [heartbeat] Claude is working... " \
+                         "(#{current_count} stream events, inactive: #{inactive_seconds}s#{tool_info})"
+      @snapshot_builder.mark_activity
+      EventStream.emit_snapshot(@snapshot_builder.to_h)
+    end
+
+    def terminate_for_hung_tool(now, stderr_content)
+      hung = hung_tool(now)
+      return false unless hung
+
+      Logger.error "[#{@log_tag}] Tool '#{hung[:name]}' hung for #{(now - hung[:started_at]).to_i}s " \
+                   "(>#{tool_hang_timeout_for(hung[:name])}s), terminating..."
+      terminate_for_inactivity(stderr_content)
+      true
+    end
+
+    def terminate_for_inactivity_if_idle(current_count, last_activity_time, now, stderr_content)
+      inactive_seconds = (now - last_activity_time).to_i
+      return false unless inactive_seconds >= INACTIVITY_TIMEOUT
+
+      Logger.error "[#{@log_tag}] Claude inactive for #{inactive_seconds}s " \
+                   "(stream count stuck at #{current_count}), terminating..."
+      terminate_for_inactivity(stderr_content)
+      true
+    end
+
+    def finalize_streaming(execution_start)
+      elapsed = (Process.clock_gettime(Process::CLOCK_MONOTONIC) - execution_start).round(1)
+      Logger.info_stdout "[#{@log_tag}] Execution finished in #{elapsed}s (#{@state.stream_line_count} stream events)"
+      return unless @snapshot_builder.status == "processing"
+
+      @snapshot_builder.set_status(:finished)
+      EventStream.emit_snapshot(@snapshot_builder.to_h, force: true)
     end
 
     def build_instructions
@@ -398,10 +416,10 @@ module McptaskRunner
     end
 
     def terminate_for_inactivity(stderr_content)
-      write_debug_dump(stderr_content, @child_pid)
-      @stopping = true
-      @inactivity_timeout = true
-      kill_process(@child_pid)
+      write_debug_dump(stderr_content, @state.child_pid)
+      @state.stopping = true
+      @state.inactivity_timeout = true
+      kill_process(@state.child_pid)
       release_test_lock
     end
 

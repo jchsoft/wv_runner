@@ -55,7 +55,7 @@ module McptaskRunner
     def set_status(status, error_message: nil)
       status = status.to_s
       @mutex.synchronize do
-        validate_transition!(@status, status)
+        assert_valid_transition(@status, status)
         @status = status
         @error_message = error_message
         touch_activity
@@ -185,7 +185,7 @@ module McptaskRunner
       end
     end
 
-    def validate_transition!(from, to)
+    def assert_valid_transition(from, to)
       return if to == "frozen" # any → frozen: server watchdog can always freeze
       return if to == "closed" # any → closed: end_session always allowed
 
