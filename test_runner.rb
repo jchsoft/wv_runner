@@ -11,6 +11,8 @@ test_files = [
   'test/services/claude_code_step_tests.rb',
   'test/services/claude_code_test.rb',
   'test/services/claude_code_triage_test.rb',
+  'test/services/claude_code/auto_squash_preflight_test.rb',
+  'test/services/claude_code/executor_kwarg_plumbing_test.rb',
   'test/services/daily_scheduler_test.rb',
   'test/services/decider_test.rb',
   'test/services/output_formatter_test.rb',

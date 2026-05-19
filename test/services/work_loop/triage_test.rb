@@ -340,6 +340,38 @@ class WorkLoopTriageTest < Minitest::Test
     end
   end
 
+  # Regression: run_story_loop iter 1 used to call story_executor.new without
+  # snapshot_builder:, so it built a fresh SnapshotBuilder. The WorkLoop builder
+  # stayed at "processing" (set by outer triage_and_execute) and iter 2's
+  # set_status(:triage) raised InvalidTransitionError.
+  def test_story_loop_first_iteration_passes_workloop_builder_to_executor
+    triage_mock_obj = Object.new
+    def triage_mock_obj.run
+      { 'status' => 'success', 'recommended_model' => 'opus', 'task_id' => 100,
+        'piece_type' => 'Story', 'story_id' => 8965,
+        'hours' => { 'per_day' => 8, 'task_estimated' => 1, 'already_worked' => 0 } }
+    end
+
+    captured_kwargs = nil
+    executor_mock = Object.new
+    executor_mock.define_singleton_method(:run) do
+      { 'status' => 'no_more_tasks', 'hours' => { 'per_day' => 8, 'task_estimated' => 1 } }
+    end
+    executor_mock.define_singleton_method(:quota_watch=) { |_| nil }
+
+    McptaskRunner::ClaudeCode::Triage.stub(:new, triage_mock_obj) do
+      McptaskRunner::ClaudeCode::StoryManual.stub(:new, ->(**kwargs) { captured_kwargs = kwargs; executor_mock }) do
+        loop_instance = McptaskRunner::WorkLoop.new
+        loop_instance.execute(:once)
+
+        refute_nil captured_kwargs, 'StoryManual.new should have been called for iter 1'
+        builder = loop_instance.instance_variable_get(:@builder)
+        assert_equal builder.object_id, captured_kwargs[:snapshot_builder].object_id,
+                     'story_executor.new must receive the WorkLoop builder so state transitions stay coherent'
+      end
+    end
+  end
+
   def test_story_loop_processes_multiple_subtasks
     triage_call_count = 0
     triage_mock_obj = Object.new

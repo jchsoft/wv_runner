@@ -14,15 +14,17 @@ module McptaskRunner
 
     # Explicit allowed transitions per task #10358 spec.
     # Additionally: any → frozen (server watchdog), any → closed (end_session).
+    # processing → triage: loop iterations skipping finished (story loop, executor crashed
+    # before its finished-transition guard). Without it, FSM rejects legitimate loop resets.
     TRANSITIONS = {
       "starting"   => %w[triage waiting error],
-      "triage"     => %w[processing waiting error],
-      "processing" => %w[waiting finished stalled frozen error],
+      "triage"     => %w[processing waiting triage error],
+      "processing" => %w[waiting finished stalled frozen triage error],
       "waiting"    => %w[processing triage finished error],
-      "stalled"    => %w[processing error closed],
-      "frozen"     => %w[processing error closed],
+      "stalled"    => %w[processing triage error closed],
+      "frozen"     => %w[processing triage error closed],
       "finished"   => %w[closed waiting triage],
-      "error"      => %w[closed],
+      "error"      => %w[closed triage],
       "closed"     => []
     }.freeze
 

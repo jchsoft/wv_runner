@@ -103,6 +103,24 @@ class SnapshotBuilderTest < Minitest::Test
     end
   end
 
+  # Loop iteration may re-enter triage when the prior task did not formally finish:
+  # story_loop iter 1 reuses the WorkLoop builder; if the executor crashed before its
+  # processing → finished transition guard, iter 2 still legitimately triages a new task.
+  def test_loop_reset_processing_to_triage_allowed
+    @builder.set_status("triage")
+    @builder.set_status("processing")
+    @builder.set_status("triage")
+    assert_equal "triage", @builder.to_h[:status]
+  end
+
+  def test_loop_reset_stalled_to_triage_allowed
+    @builder.set_status("triage")
+    @builder.set_status("processing")
+    @builder.set_status("stalled")
+    @builder.set_status("triage")
+    assert_equal "triage", @builder.to_h[:status]
+  end
+
   def test_any_state_can_transition_to_frozen
     @builder.set_status("frozen")
     assert_equal "frozen", @builder.to_h[:status]

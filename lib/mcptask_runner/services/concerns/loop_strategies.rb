@@ -216,7 +216,8 @@ module McptaskRunner
           iteration_count += 1
 
           result = if iteration_count == 1 && first_task_id
-            executor = story_executor.new(story_id: story_id, task_id: first_task_id, verbose: @verbose, model_override: model_override)
+            executor = story_executor.new(story_id: story_id, task_id: first_task_id, verbose: @verbose,
+                                          model_override: model_override, snapshot_builder: @builder)
             run_with_quota_guard(executor, triage_result, first_task_id)
           else
             triage_and_execute(story_executor, story_id: story_id, skip_story_load: true)
