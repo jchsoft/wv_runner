@@ -25,6 +25,25 @@ class ClaudeCodeBaseToolsTest < Minitest::Test
     assert_equal 0, builder.active_tool_count
   end
 
+  def test_track_tool_event_captures_todos_from_todowrite
+    base = McptaskRunner::ClaudeCodeBase.new
+    todos = [
+      { content: "Plan", status: "completed", activeForm: "Planning" },
+      { content: "Code", status: "in_progress", activeForm: "Coding" }
+    ]
+    line = JSON.generate(
+      type: "assistant",
+      message: { content: [{ type: "tool_use", id: "todo_1", name: "TodoWrite", input: { todos: todos } }] }
+    )
+
+    McptaskRunner::EventStream.stub(:emit_snapshot, nil) { base.send(:track_tool_event, line) }
+
+    todo_list = base.instance_variable_get(:@snapshot_builder).to_h[:todo_list]
+    assert_equal 2, todo_list.size
+    assert_equal "Plan", todo_list[0][:content]
+    assert_equal "in_progress", todo_list[1][:status]
+  end
+
   def test_track_tool_event_ignores_non_json
     base = McptaskRunner::ClaudeCodeBase.new
     McptaskRunner::EventStream.stub(:emit_snapshot, nil) { base.send(:track_tool_event, 'not json at all') }

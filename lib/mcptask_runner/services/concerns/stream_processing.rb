@@ -31,6 +31,7 @@ module McptaskRunner
           case item['type']
           when 'tool_use'
             summary = summarize_tool_input(item['name'], item['input'])
+            @snapshot_builder.set_todos(item.dig('input', 'todos')) if item['name'] == 'TodoWrite'
             @snapshot_builder.tool_started(tool_id: item['id'], name: item['name'], summary: summary)
             EventStream.emit_snapshot(@snapshot_builder.to_h)
             Logger.debug "[#{@log_tag}] [tool_tracking] Tool started: #{item['name']} (#{item['id']}) #{summary}"
