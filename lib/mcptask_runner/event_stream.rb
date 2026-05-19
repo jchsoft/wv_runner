@@ -12,6 +12,7 @@ module McptaskRunner
     CHANNEL_IDENTIFIER = JSON.generate({ channel: "RunnerSessionChannel" })
     MCP_SERVER_KEY = "mcptask-online"
     RECONNECT_THROTTLE_S = 30
+    SNAPSHOT_THROTTLE_S = 0.5
 
     class << self
       def start_session(mode:)
@@ -25,10 +26,51 @@ module McptaskRunner
         @session_id = SecureRandom.uuid
         @machine_id = ENV.fetch("HOSTNAME") { `hostname`.strip }
         @last_reconnect_attempt = nil
+        @last_snapshot_emit = nil
+        @builder = SnapshotBuilder.new(session_id: @session_id, machine_id: @machine_id)
 
         connect
       rescue StandardError => e
         Logger.warn "[EventStream] Failed to start session: #{e.message}"
+      end
+
+      def builder
+        @builder
+      end
+
+      def emit_snapshot(snapshot_hash, force: false)
+        return unless enabled?
+
+        ws = @mutex&.synchronize { @ws }
+        unless ws&.open?
+          attempt_async_reconnect
+          return
+        end
+
+        unless force
+          now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          last = @last_snapshot_emit
+          return if last && (now - last) < SNAPSHOT_THROTTLE_S
+
+          @last_snapshot_emit = now
+        end
+
+        data = JSON.generate({
+          action: "event",
+          session_id: @session_id,
+          machine_id: @machine_id,
+          event_type: "runner.snapshot",
+          payload: snapshot_hash
+        })
+
+        ws.send(JSON.generate({
+          command: "message",
+          identifier: CHANNEL_IDENTIFIER,
+          data: data
+        }))
+      rescue StandardError => e
+        Logger.warn "[EventStream] Failed to emit snapshot: #{e.message}"
+        attempt_async_reconnect
       end
 
       def emit(event_type, payload)

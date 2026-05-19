@@ -216,4 +216,112 @@ class SnapshotBuilderTest < Minitest::Test
       assert h.key?(key), "Missing key: #{key}"
     end
   end
+
+  # ---- public query helpers ----
+
+  def test_status_reader
+    assert_equal "starting", @builder.status
+    @builder.set_status(:triage)
+    assert_equal "triage", @builder.status
+  end
+
+  def test_active_tool_count_empty
+    assert_equal 0, @builder.active_tool_count
+  end
+
+  def test_active_tool_count_with_tools
+    @builder.tool_started(tool_id: "t1", name: "Bash", summary: "ls")
+    @builder.tool_started(tool_id: "t2", name: "Read", summary: "file.rb")
+    assert_equal 2, @builder.active_tool_count
+    @builder.tool_finished(tool_id: "t1")
+    assert_equal 1, @builder.active_tool_count
+  end
+
+  def test_has_active_tools_false_when_empty
+    refute @builder.has_active_tools?
+  end
+
+  def test_has_active_tools_true_when_present
+    @builder.tool_started(tool_id: "t1", name: "Bash", summary: "ls")
+    assert @builder.has_active_tools?
+  end
+
+  def test_active_tool_names
+    @builder.tool_started(tool_id: "t1", name: "Bash", summary: "ls")
+    @builder.tool_started(tool_id: "t2", name: "Read", summary: "f.rb")
+    assert_equal %w[Bash Read], @builder.active_tool_names.sort
+  end
+
+  def test_format_active_tools_empty
+    assert_equal "", @builder.format_active_tools
+  end
+
+  def test_format_active_tools_with_tool
+    now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    @builder.instance_variable_get(:@active_actions)["t1"] = {
+      name: "Bash", summary: "ls", mono_started_at: now - 30, started_at: Time.now.utc.iso8601(3)
+    }
+    result = @builder.format_active_tools(now)
+    assert_includes result, "waiting for:"
+    assert_includes result, "Bash since 30s"
+  end
+
+  def test_active_actions_snapshot_returns_copy
+    @builder.tool_started(tool_id: "t1", name: "Bash", summary: "ls")
+    snap = @builder.active_actions_snapshot
+    assert_equal 1, snap.size
+    snap.delete("t1")
+    assert_equal 1, @builder.active_tool_count, "Snapshot is a copy, original unchanged"
+  end
+
+  # ---- full state cycle integration ----
+
+  def test_full_session_state_cycle
+    emitted = []
+    record = ->(snap, force: false) { emitted << snap[:status] }
+
+    McptaskRunner::EventStream.stub(:emit_snapshot, record) do
+      # Simulate WorkLoop.execute start
+      McptaskRunner::EventStream.stub(:builder, @builder) do
+        # starting → emit
+        McptaskRunner::EventStream.emit_snapshot(@builder.to_h, force: true)
+        assert_equal "starting", emitted.last
+
+        # triage
+        @builder.set_status(:triage)
+        McptaskRunner::EventStream.emit_snapshot(@builder.to_h, force: true)
+        assert_equal "triage", emitted.last
+
+        # triage completes: model + task + processing
+        @builder.set_model("claude-opus-4-7")
+        @builder.set_task(task_id: 9999, task_name: "Fix bug")
+        @builder.set_status(:processing)
+        McptaskRunner::EventStream.emit_snapshot(@builder.to_h, force: true)
+        assert_equal "processing", emitted.last
+        assert_equal "claude-opus-4-7", @builder.to_h[:model]
+        assert_equal 9999, @builder.to_h[:task_id]
+
+        # tool events during execution
+        @builder.tool_started(tool_id: "t1", name: "Bash", summary: "rspec")
+        McptaskRunner::EventStream.emit_snapshot(@builder.to_h)
+        assert_equal 1, @builder.active_tool_count
+
+        @builder.tool_finished(tool_id: "t1")
+        McptaskRunner::EventStream.emit_snapshot(@builder.to_h)
+        assert_equal 0, @builder.active_tool_count
+
+        # execution finishes
+        @builder.set_status(:finished)
+        McptaskRunner::EventStream.emit_snapshot(@builder.to_h, force: true)
+        assert_equal "finished", emitted.last
+
+        # WorkLoop ensure: close
+        @builder.close
+        McptaskRunner::EventStream.emit_snapshot(@builder.to_h, force: true)
+        assert_equal "closed", emitted.last
+      end
+    end
+
+    assert_equal %w[starting triage processing processing processing finished closed], emitted
+  end
 end
