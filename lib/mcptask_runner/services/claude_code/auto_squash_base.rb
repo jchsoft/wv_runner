@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'json'
+require 'open3'
 require_relative '../claude_code_base'
 
 module McptaskRunner
@@ -12,7 +14,100 @@ module McptaskRunner
 
       def max_turns = 300
 
+      # Pre-flight gate: if a merged PR already references @task_id, skip the
+      # full implementation/CI/merge session and run a minimal Claude that only
+      # logs 100% progress + emits already_done. Prevents wasting ~200K tokens
+      # re-discovering a task that finished but whose previous run crashed
+      # before logging final progress (the merge_unverified failure mode).
+      def run
+        preflight = preflight_merged_pr_match
+        return run_fast_track_already_done(preflight) if preflight
+
+        super
+      end
+
       private
+
+      def preflight_merged_pr_match
+        return nil unless @task_id
+
+        out, status = Open3.capture2('gh', 'pr', 'list',
+                                     '--state', 'merged',
+                                     '--search', @task_id.to_s,
+                                     '--json', 'number,title,body,headRefName,mergeCommit',
+                                     '--limit', '10')
+        return nil unless status.success?
+
+        prs = JSON.parse(out)
+        match = prs.find { |pr| pr_matches_task?(pr, @task_id) } or return nil
+
+        Logger.info_stdout("[#{@log_tag}] [preflight] Task ##{@task_id} found in merged PR ##{match['number']} — fast-track already_done")
+        { pr_number: match['number'], merge_commit: match.dig('mergeCommit', 'oid').to_s }
+      rescue JSON::ParserError, StandardError => e
+        Logger.warn("[#{@log_tag}] [preflight] check failed (#{e.class}: #{e.message}) — proceeding with full execution")
+        nil
+      end
+
+      # Match a PR to a task_id via: title word-match, body containing the
+      # mcptask URI, or branch name with the id as a path/segment.
+      def pr_matches_task?(pr, task_id)
+        id = task_id.to_s
+        pattern_word = /(?<!\d)#{id}(?!\d)/
+        return true if pr['title'].to_s.match?(pattern_word)
+        return true if pr['body'].to_s.include?("pieces/jchsoft/#{id}")
+
+        pr['headRefName'].to_s.match?(%r{(?:^|[/-])#{id}(?:-|$)})
+      end
+
+      # Build the minimal fast-track instruction (no implementation, no CI,
+      # no merge) and execute it. Uses a singleton-method override so we
+      # don't need a separate executor class or a flag in subclass dispatch.
+      def run_fast_track_already_done(preflight)
+        ensure_on_main_branch
+        define_singleton_method(:build_instructions) { fast_track_already_done_instructions(preflight) }
+        Logger.info_stdout("[#{@log_tag}] Starting FAST-TRACK already_done (PR ##{preflight[:pr_number]} already merged)")
+        @accumulated_output = ''.dup
+        @text_content = ''.dup
+        run_with_retry(Time.now)
+      end
+
+      def ensure_on_main_branch
+        branch, status = Open3.capture2('git', 'branch', '--show-current')
+        branch = branch.to_s.strip
+        return if !status.success? || branch.empty? || %w[main master].include?(branch)
+
+        Logger.info_stdout("[#{@log_tag}] [preflight] on '#{branch}' — switching to main")
+        out, st = Open3.capture2e('git', 'checkout', 'main')
+        if st.success?
+          Open3.capture2e('git', 'pull')
+        else
+          Logger.warn("[#{@log_tag}] [preflight] git checkout main failed: #{out.strip}")
+        end
+      end
+
+      def fast_track_already_done_instructions(preflight)
+        pr_number = preflight[:pr_number]
+        sha7 = preflight[:merge_commit][0, 7]
+        commit_note = sha7.empty? ? '' : " (commit #{sha7})"
+
+        <<~INSTRUCTIONS
+          [FAST-TRACK already_done]
+          Runner preflight found task ##{@task_id} already merged in PR ##{pr_number}#{commit_note}.
+
+          DO NOT touch git. DO NOT run tests/CI. Only close the task in mcptask:
+
+          1. Read mcptask://user (server="mcptask-online", LITERAL URI — no account suffix)
+             → get current user relative_id
+          2. LogWorkProgressTool:
+             account_code="jchsoft", piece_id=#{@task_id}, progress_percent=100,
+             duration_minutes=1,
+             description="Preflight: merged PR ##{pr_number}#{commit_note} already resolves this task"
+          3. Output the final result line and STOP:
+
+          TASKRUNNER_RESULT:
+          {"status":"already_done","task_id":#{@task_id},"pr_number":#{pr_number},"preflight_skipped":true}
+        INSTRUCTIONS
+      end
 
       # Builds complete instructions for @next-based auto-squash runners (once/queue/today).
       # Subclasses only need to provide task_description and workflow_notice strings.
@@ -165,12 +260,17 @@ module McptaskRunner
                 Disabled CI workflow (ci.yml.disabled) irrelevant — signoff is local. PR IS mergeable.
               - CI PASSES:
                 → gh pr merge --squash --delete-branch
-                → git checkout main && git pull → status "success"
+                → git checkout main && git pull
+                → **COMPACT CONTEXT (MANDATORY)** — invoke `/compact` slash command NOW,
+                  BEFORE final progress logging. CI logs + tool churn bloat the session;
+                  past runs hit "Prompt is too long" while emitting the final TASKRUNNER_RESULT.
+                  If `/compact` is unavailable in this mode, proceed (no-op).
+                → status "success"
               - CI FAILS:
                 → Analyze, fix, commit, push
                 → Retry bin/ci
-                → Retry passes → merge (above)
-                → Retry fails → status "ci_failed" (PR stays open)
+                → Retry passes → merge (above; including /compact)
+                → Retry fails → invoke `/compact` then status "ci_failed" (PR stays open)
         STEP
       end
     end
