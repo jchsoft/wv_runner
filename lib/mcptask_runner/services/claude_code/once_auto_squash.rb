@@ -7,8 +7,8 @@ module McptaskRunner
     # Processes a single task with automatic PR squash-merge after CI passes
     # Unlike queue_auto_squash, this runs exactly once and exits
     class OnceAutoSquash < AutoSquashBase
-      def initialize(verbose: false, model_override: nil, task_id: nil, resuming: false)
-        super(verbose: verbose, model_override: model_override, resuming: resuming)
+      def initialize(verbose: false, model_override: nil, task_id: nil, resuming: false, snapshot_builder: nil)
+        super(verbose: verbose, model_override: model_override, resuming: resuming, snapshot_builder: snapshot_builder)
         @task_id = task_id
       end
 

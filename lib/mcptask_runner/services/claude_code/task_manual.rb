@@ -9,8 +9,8 @@ module McptaskRunner
     class TaskManual < ClaudeCodeBase
       include WorkflowSteps
 
-      def initialize(task_id:, verbose: false, model_override: nil, resuming: false)
-        super(verbose: verbose, model_override: model_override, resuming: resuming)
+      def initialize(task_id:, verbose: false, model_override: nil, resuming: false, snapshot_builder: nil)
+        super(verbose: verbose, model_override: model_override, resuming: resuming, snapshot_builder: snapshot_builder)
         @task_id = task_id
       end
 

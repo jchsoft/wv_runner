@@ -6,8 +6,8 @@ module McptaskRunner
   module ClaudeCode
     # Processes a specific task by ID with automatic PR squash-merge after CI passes
     class TaskAutoSquash < AutoSquashBase
-      def initialize(task_id:, verbose: false, model_override: nil, resuming: false)
-        super(verbose: verbose, model_override: model_override, resuming: resuming)
+      def initialize(task_id:, verbose: false, model_override: nil, resuming: false, snapshot_builder: nil)
+        super(verbose: verbose, model_override: model_override, resuming: resuming, snapshot_builder: snapshot_builder)
         @task_id = task_id
       end
 

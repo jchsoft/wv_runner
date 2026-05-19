@@ -7,8 +7,8 @@ module McptaskRunner
     # Processes tasks from @next queue with automatic PR squash-merge after CI passes
     # Runs continuously 24/7 without quota checks or time limits
     class QueueAutoSquash < AutoSquashBase
-      def initialize(verbose: false, model_override: nil, task_id: nil, resuming: false)
-        super(verbose: verbose, model_override: model_override, resuming: resuming)
+      def initialize(verbose: false, model_override: nil, task_id: nil, resuming: false, snapshot_builder: nil)
+        super(verbose: verbose, model_override: model_override, resuming: resuming, snapshot_builder: snapshot_builder)
         @task_id = task_id
       end
 

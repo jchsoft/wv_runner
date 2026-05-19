@@ -12,8 +12,8 @@ module McptaskRunner
     # Prompt building delegated to Triage::Prompt::* — one class per input shape, no
     # `if @story_id` / `if @task_id` branches inside any single prompt.
     class Triage < ClaudeCodeBase
-      def initialize(verbose: false, task_id: nil, story_id: nil, ignore_quota: false)
-        super(verbose: verbose)
+      def initialize(verbose: false, task_id: nil, story_id: nil, ignore_quota: false, snapshot_builder: nil)
+        super(verbose: verbose, snapshot_builder: snapshot_builder)
         @task_id = task_id
         @story_id = story_id
         @ignore_quota = ignore_quota
