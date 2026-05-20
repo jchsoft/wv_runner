@@ -104,13 +104,12 @@ module McptaskRunner
       private
 
       def log_startup_diagnostics(mode:)
-        token_env = mcp_token_env_name || "MCPTASK_TOKEN"
-        token_value = ENV.fetch(token_env, "")
+        token = resolved_token.to_s
         Logger.info_stdout "[EventStream] === startup diagnostics (mode=#{mode.inspect}) ==="
         Logger.info_stdout "[EventStream]   pid=#{Process.pid} pwd=#{Dir.pwd}"
         Logger.info_stdout "[EventStream]   .mcp.json present? #{File.exist?(File.join(Dir.pwd, '.mcp.json'))}"
         Logger.info_stdout "[EventStream]   mcp_server_config present? #{!mcp_server_config.nil?}"
-        Logger.info_stdout "[EventStream]   token_env_name=#{token_env.inspect} token_present? #{!token_value.empty?} (len=#{token_value.length})"
+        Logger.info_stdout "[EventStream]   token_source=#{resolved_token_source} token_present? #{!token.empty?} (len=#{token.length})"
         Logger.info_stdout "[EventStream]   resolved_cable_url=#{resolved_cable_url.inspect}"
         Logger.info_stdout "[EventStream]   MCPT_RUNNER_CABLE_URL env=#{ENV['MCPT_RUNNER_CABLE_URL'].inspect}"
         Logger.info_stdout "[EventStream]   HOSTNAME env=#{ENV['HOSTNAME'].inspect} hostname()=#{`hostname`.strip.inspect}"
@@ -120,7 +119,7 @@ module McptaskRunner
 
       def disabled_reason
         reasons = []
-        reasons << "token #{(mcp_token_env_name || 'MCPTASK_TOKEN').inspect} env empty" if resolved_token.to_s.empty?
+        reasons << "token unresolved (#{resolved_token_source} empty)" if resolved_token.to_s.empty?
         reasons << "cable URL unresolved (.mcp.json missing mcptask-online server entry?)" if resolved_cable_url.to_s.empty?
         reasons.join(", ")
       end
@@ -242,8 +241,25 @@ module McptaskRunner
       end
 
       def resolved_token
-        env_token_name = mcp_token_env_name || "MCPTASK_TOKEN"
-        ENV.fetch(env_token_name, "")
+        auth = mcp_server_config&.dig("headers", "Authorization").to_s
+        if (match = auth.match(/\$\{(\w+)\}/))
+          ENV.fetch(match[1], "")
+        elsif (match = auth.match(/\ABearer\s+(\S+)\z/))
+          match[1]
+        else
+          ENV.fetch("MCPTASK_TOKEN", "")
+        end
+      end
+
+      def resolved_token_source
+        auth = mcp_server_config&.dig("headers", "Authorization").to_s
+        if (match = auth.match(/\$\{(\w+)\}/))
+          "ENV[#{match[1].inspect}]"
+        elsif auth.match(/\ABearer\s+\S+\z/)
+          ".mcp.json Authorization (literal)"
+        else
+          "ENV[\"MCPTASK_TOKEN\"] (fallback)"
+        end
       end
 
       def cable_url_from_mcp_json
@@ -252,14 +268,6 @@ module McptaskRunner
 
       def mcp_server_url
         mcp_server_config&.dig("url")
-      end
-
-      def mcp_token_env_name
-        return nil unless mcp_server_config
-
-        auth = mcp_server_config.dig("headers", "Authorization").to_s
-        match = auth.match(/\$\{(\w+)\}/)
-        match && match[1]
       end
 
       def mcp_server_config
